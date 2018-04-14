@@ -1,0 +1,9 @@
+[INFO] 20:42:24:591 ReDistinto-ESI/(7135:7135):  .:: Cargando settings ::.
+[INFO] 20:42:24:591 ReDistinto-ESI/(7135:7135): Se cargó el setup del PLANIFICADOR
+[INFO] 20:42:24:591 ReDistinto-ESI/(7135:7135): 
+[INFO] 20:42:24:591 ReDistinto-ESI/(7135:7135): COORDINADOR: IP: 127.0.0.1, PUERTO: 8000
+[INFO] 20:42:24:591 ReDistinto-ESI/(7135:7135): Se cargó el setup con: 
+[INFO] 20:42:24:591 ReDistinto-ESI/(7135:7135): 	Algoritmo de planificacion: SJF_SD
+[INFO] 20:42:24:591 ReDistinto-ESI/(7135:7135): 	Estimacion inicial: 5
+[INFO] 20:42:24:591 ReDistinto-ESI/(7135:7135): 	Puerto conecciones: 8000
+[INFO] 20:42:24:591 ReDistinto-ESI/(7135:7135): Se cerro la conexion con el planificador

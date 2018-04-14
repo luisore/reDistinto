@@ -1,6 +1,15 @@
 #ifndef ESI_H_
 #define ESI_H_
 
+#include <stdio.h> //printf
+#include <string.h>    //strlen
+#include <sys/socket.h>    //socket
+#include <signal.h>
+#include <commons/config.h>
+#include <commons/log.h>
+#include "libs/socketCommons.h"
+#include "libs/serialize.h"
+
 /*MACROS*/
 #define PATH_FILE_NAME "esi.config"
 
