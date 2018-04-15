@@ -17,10 +17,8 @@
 t_log *console_log;
 
 enum AlgortimoPlanificacion {
-	SJF_CD = 1,
-	SJF_SD = 2,
-	HRRN = 3
-} ;
+	SJF_CD = 1, SJF_SD = 2, HRRN = 3
+};
 
 struct {
 	char* IP_COORDINADOR;
@@ -31,10 +29,7 @@ struct {
 	char** CLAVES_INICIALMENTE_BLOQUEADAS;
 } planificador_setup;
 
-//CLAVES_INICIALMENTE_BLOQUEADAS=materias:K3002,materias:K3001
-
 /*FUNCIONES*/
 int readConfig(char* configFile);
-
 
 #endif /* PLANIFICADOR_SRC_PLANIFICADOR_H_ */
