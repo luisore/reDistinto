@@ -7,3 +7,39 @@
 [INFO] 20:42:24:591 ReDistinto-ESI/(7135:7135): 	Estimacion inicial: 5
 [INFO] 20:42:24:591 ReDistinto-ESI/(7135:7135): 	Puerto conecciones: 8000
 [INFO] 20:42:24:591 ReDistinto-ESI/(7135:7135): Se cerro la conexion con el planificador
+[INFO] 10:17:58:460 ReDistinto-ESI/(5840:5840):  .:: Cargando settings ::.
+[INFO] 10:17:58:460 ReDistinto-ESI/(5840:5840): Se cargó el setup del PLANIFICADOR
+[INFO] 10:17:58:460 ReDistinto-ESI/(5840:5840): 
+[INFO] 10:17:58:460 ReDistinto-ESI/(5840:5840): COORDINADOR: IP: 127.0.0.1, PUERTO: 8000
+[INFO] 10:17:58:460 ReDistinto-ESI/(5840:5840): Se cargó el setup con: 
+[INFO] 10:17:58:461 ReDistinto-ESI/(5840:5840): 	Algoritmo de planificacion: SJF_SD
+[INFO] 10:17:58:461 ReDistinto-ESI/(5840:5840): 	Estimacion inicial: 5
+[INFO] 10:17:58:461 ReDistinto-ESI/(5840:5840): 	Puerto conecciones: 8000
+[INFO] 10:17:58:461 ReDistinto-ESI/(5840:5840): Se cerro la conexion con el planificador
+[INFO] 10:36:15:481 ReDistinto-ESI/(6619:6619):  .:: Cargando settings ::.
+[INFO] 10:36:15:482 ReDistinto-ESI/(6619:6619): Se cargó el setup del PLANIFICADOR
+[INFO] 10:36:15:483 ReDistinto-ESI/(6619:6619): 
+[INFO] 10:36:15:484 ReDistinto-ESI/(6619:6619): COORDINADOR: IP: 127.0.0.1, PUERTO: 8000
+[INFO] 10:36:15:484 ReDistinto-ESI/(6619:6619): Se cargó el setup con: 
+[INFO] 10:36:15:485 ReDistinto-ESI/(6619:6619): 	Algoritmo de planificacion: SJF_SD
+[INFO] 10:36:15:485 ReDistinto-ESI/(6619:6619): 	Estimacion inicial: 5
+[INFO] 10:36:15:486 ReDistinto-ESI/(6619:6619): 	Puerto conecciones: 8000
+[INFO] 10:36:15:493 ReDistinto-ESI/(6619:6619): Se cerro la conexion con el planificador
+[INFO] 10:40:35:830 ReDistinto-ESI/(6760:6760):  .:: Cargando settings ::.
+[INFO] 10:40:35:843 ReDistinto-ESI/(6760:6760): Se cargó el setup del PLANIFICADOR
+[INFO] 10:40:35:843 ReDistinto-ESI/(6760:6760): 
+[INFO] 10:40:35:843 ReDistinto-ESI/(6760:6760): COORDINADOR: IP: 127.0.0.1, PUERTO: 8000
+[INFO] 10:40:35:843 ReDistinto-ESI/(6760:6760): Se cargó el setup con: 
+[INFO] 10:40:35:843 ReDistinto-ESI/(6760:6760): 	Algoritmo de planificacion: SJF_SD
+[INFO] 10:40:35:843 ReDistinto-ESI/(6760:6760): 	Estimacion inicial: 5
+[INFO] 10:40:35:844 ReDistinto-ESI/(6760:6760): 	Puerto conecciones: 8000
+[INFO] 10:40:35:844 ReDistinto-ESI/(6760:6760): Se cerro la conexion con el planificador
+[INFO] 10:41:53:68 ReDistinto-ESI/(6805:6805):  .:: Cargando settings ::.
+[INFO] 10:41:53:87 ReDistinto-ESI/(6805:6805): Se cargó el setup del PLANIFICADOR
+[INFO] 10:41:53:87 ReDistinto-ESI/(6805:6805): 
+[INFO] 10:41:53:88 ReDistinto-ESI/(6805:6805): COORDINADOR: IP: 127.0.0.1, PUERTO: 8000
+[INFO] 10:41:53:88 ReDistinto-ESI/(6805:6805): Se cargó el setup con: 
+[INFO] 10:41:53:88 ReDistinto-ESI/(6805:6805): 	Algoritmo de planificacion: SJF_SD
+[INFO] 10:41:53:88 ReDistinto-ESI/(6805:6805): 	Estimacion inicial: 5
+[INFO] 10:41:53:88 ReDistinto-ESI/(6805:6805): 	Puerto conecciones: 8000
+[INFO] 10:41:53:88 ReDistinto-ESI/(6805:6805): Se cerro la conexion con el planificador
