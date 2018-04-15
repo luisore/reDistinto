@@ -4,6 +4,7 @@
 #include <signal.h>
 #include <commons/config.h>
 #include <commons/log.h>
+#include <commons/collections/list.h>
 #include "libs/socketCommons.h"
 #include "libs/serialize.h"
 
@@ -27,8 +28,8 @@ struct {
 	enum AlgortimoPlanificacion ALGORITMO_PLANIFICACION;
 	int ESTIMACION_INICIAL;
 	int PUERTO_ESCUCHA_CONEXIONES;
-
-} esi_setup;
+	char** CLAVES_INICIALMENTE_BLOQUEADAS;
+} planificador_setup;
 
 //CLAVES_INICIALMENTE_BLOQUEADAS=materias:K3002,materias:K3001
 

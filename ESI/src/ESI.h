@@ -22,7 +22,7 @@ struct {
 	int PUERTO_COORDINADOR;
 	char* IP_PLANIFICADOR;
 	int PUERTO_PLANIFICADOR;
-} esi_setup;
+} planificador_setup;
 
 /*FUNCIONES*/
 int readConfig(char* configFile);
