@@ -23,7 +23,7 @@ int readConfig(char* configFile) {
 }
 
 int main(void) {
-	console_log = log_create("esi.log", "ReDistinto-ESI", true,LOG_LEVEL_TRACE);
+	console_log = log_create("planificador.log", "ReDistinto-Planificador", true,LOG_LEVEL_TRACE);
 	printf("\n\t\e[31;1m=========================================\e[0m\n");
 	printf("\t.:: Bievenido a ReDistinto ::.");
 	printf("\n\t\e[31;1m=========================================\e[0m\n\n");
