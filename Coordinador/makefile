@@ -37,7 +37,9 @@ endif
 -include ../makefile.defs
 
 # Add inputs and outputs from these tool invocations to the build variables 
+
 LIBS = -lcommons -lreadline -lcrypto
+
 # All Target
 all: Coordinador
 
