@@ -14,7 +14,8 @@
 #define PATH_FILE_NAME "coordinador.config"
 
 /*VARIABLES GLOBALES*/
-t_log *console_log;
+t_log * coordinador_log;
+t_config *config;
 
 /*ESTRUCTURAS*/
 
@@ -31,6 +32,21 @@ struct {
 } coordinador_setup;
 
 /*FUNCIONES*/
-int readConfig(char* configFile);
+
+/*FUNCIONES GENERALES*/
+
+void print_header();
+void create_log();
+void loadConfig();
+void log_inicial_consola();
+
+void print_goodbye();
+void exit_program(int);
+
+void liberar_memoria();
+
+
+
+
 
 #endif /* SRC_COORDINADOR_H_ */
