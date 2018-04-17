@@ -4,7 +4,7 @@
 #include <signal.h>
 #include <commons/config.h>
 #include <commons/log.h>
-#include "libs/socketCommons.h"
+#include "libs/protocols.h"
 #include "libs/serialize.h"
 
 #ifndef SRC_INSTANCIA_H_
@@ -40,7 +40,7 @@ void create_log();
 void loadConfig();
 void log_inicial_consola();
 void connect_with_coordinator();
-void do_handshake();
+
 void print_goodbye();
 void exit_program(int);
 

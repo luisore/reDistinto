@@ -50,18 +50,12 @@ void loadConfig() {
 	}
 
 	if (config != NULL) {
-		instancia_setup.IP_COORDINADOR = config_get_string_value(config,
-				"IP_COORDINADOR");
-		instancia_setup.PUERTO_COORDINADOR = config_get_int_value(config,
-				"PUERTO_COORDINADOR");
-		instancia_setup.ALGORITMO_REEMPLAZO = config_get_int_value(config,
-				"ALGORITMO_REEMPLAZO");
-		instancia_setup.PUNTO_MONTAJE = config_get_string_value(config,
-				"PUNTO_MONTAJE");
-		instancia_setup.NOMBRE_INSTANCIA = config_get_string_value(config,
-				"NOMBRE_INSTANCIA");
-		instancia_setup.INTERVALO_DUMP_SEGs = config_get_int_value(config,
-				"INTERVALO_DUMP_SEGs");
+		instancia_setup.IP_COORDINADOR = string_duplicate(config_get_string_value(config,"IP_COORDINADOR"));
+		instancia_setup.PUERTO_COORDINADOR = config_get_int_value(config,"PUERTO_COORDINADOR");
+		instancia_setup.ALGORITMO_REEMPLAZO = config_get_int_value(config,"ALGORITMO_REEMPLAZO");
+		instancia_setup.PUNTO_MONTAJE = config_get_string_value(config,"PUNTO_MONTAJE");
+		instancia_setup.NOMBRE_INSTANCIA = string_duplicate(config_get_string_value(config,"NOMBRE_INSTANCIA"));
+		instancia_setup.INTERVALO_DUMP_SEGs = config_get_int_value(config, "INTERVALO_DUMP_SEGs");
 
 		log_info(console_log, " Carga exitosa de archivo de configuracion");
 	}
@@ -101,40 +95,17 @@ void log_inicial_consola() {
 
 void connect_with_coordinator() {
 
-	if (getClientSocket(&coordinator_socket, instancia_setup.IP_COORDINADOR,
-			instancia_setup.PUERTO_COORDINADOR)) {
+
+	log_info(console_log, "Connecting to Coordinador.");
+	coordinator_socket = connect_to_server(instancia_setup.IP_COORDINADOR, instancia_setup.PUERTO_COORDINADOR, console_log);
+	if(coordinator_socket <= 0){
 		exit_program(EXIT_FAILURE);
 	}
 
-	log_info(console_log, "Conexion exitosa con Coordinador.");
-	do_handshake(coordinator_socket);
-
-}
-
-void do_handshake() {
-
-	char *clientMessage = "INSTANCIA";
-
-	log_trace(console_log, "Handshake con Coordinador");
-
-	if (send(coordinator_socket, clientMessage, strlen(clientMessage), 0) < 0) {
-		log_error(console_log, "Error en la comunicacion");
+	if(!perform_connection_handshake(coordinator_socket, instancia_setup.NOMBRE_INSTANCIA, ESI, console_log)){
 		exit_program(EXIT_FAILURE);
 	}
-
-	char * mensaje_ok = malloc(50);
-
-	if (recv(socket, mensaje_ok, sizeof(mensaje_ok), 0) <= 0) {
-		log_error(console_log, "FALLO - No se pudo hacer el hanshake");
-		exit_program(EXIT_FAILURE);
-	}
-
-	log_info(console_log, "Hanshake OK: %s.", (*mensaje_ok));
-
-	free(mensaje_ok);
-	free(clientMessage);
-
-	close(socket);
+	log_info(console_log, "Successfully connected to Coordinador.");
 
 }
 
@@ -145,9 +116,11 @@ int main(void) {
 	create_log();
 	loadConfig();
 	log_inicial_consola();
+
+
 	connect_with_coordinator();
 
-	// TODO
+	// TODO - CICLO INSTANCIA
 
 	print_goodbye();
 	exit_program(EXIT_SUCCESS);

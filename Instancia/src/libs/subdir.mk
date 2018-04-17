@@ -4,16 +4,20 @@
 
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
+../src/libs/protocols.c \
 ../src/libs/serialize.c \
-../src/libs/socketCommons.c 
+
+O_SRCS += \
+../src/libs/protocols.o \
+../src/libs/serialize.o 
 
 OBJS += \
+./src/libs/protocols.o \
 ./src/libs/serialize.o \
-./src/libs/socketCommons.o 
 
 C_DEPS += \
+./src/libs/protocols.d \
 ./src/libs/serialize.d \
-./src/libs/socketCommons.d 
 
 
 # Each subdirectory must supply rules for building sources it contributes
