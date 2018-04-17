@@ -4,9 +4,10 @@ int getClientSocket(int* clientSocket, const char* address, const int port) {
 	struct sockaddr_in server;
 	*clientSocket = socket(AF_INET , SOCK_STREAM , 0);
 	if (*clientSocket == -1) {
-		printf("Could not create socket");
+		puts("FALLO - No pudo crearse el socket");
 	}
-	puts("Socket created");
+
+	puts("CONEXION EXITOSA");
 
 	server.sin_addr.s_addr = inet_addr(address);
 	server.sin_family = AF_INET;
@@ -14,10 +15,10 @@ int getClientSocket(int* clientSocket, const char* address, const int port) {
 
 	//Connect to remote server
 	if (connect(*clientSocket , (struct sockaddr *)&server , sizeof(server)) < 0) {
-		perror("connect failed. Error");
+		puts("FALLO - Conexion fallida");
 		return (-1);
 	}
-	puts("Connected to Server\n");
+	puts("Actualmente conectado");
 	return 0;
 }
 

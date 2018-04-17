@@ -11,6 +11,9 @@
 #define SRC_INSTANCIA_H_
 
 t_log *console_log;
+t_config *config;
+
+int coordinator_socket;
 
 /*MACROS*/
 #define PATH_FILE_NAME "instancia.config"
@@ -29,23 +32,21 @@ struct {
 	int INTERVALO_DUMP_SEGs;
 } instancia_setup;
 
+
+/*FUNCIONES GENERALES*/
+
+void print_header();
+void create_log();
+void loadConfig();
+void log_inicial_consola();
+void connect_with_coordinator();
+void do_handshake();
+void print_goodbye();
 void exit_program(int);
 
-/*FUNCIONES*/
-int readConfig(char* configFile);
-void inicializacion();
+/*FUNCIONES MEMORIA*/
 void lectura_archivo();
 void liberar_memoria();
-
-
-/*UTILS*/
-void loguearConsolaInicial();
-
-
-/* CONEXION  */
-void conexion_coordinador();
-
-
 
 
 #endif /* SRC_INSTANCIA_H_ */
