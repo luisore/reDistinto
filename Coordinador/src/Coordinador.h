@@ -45,7 +45,6 @@ struct {
 } coordinador_setup;
 
 
-
 /*FUNCIONES GENERALES*/
 
 void print_header();

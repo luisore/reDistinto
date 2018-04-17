@@ -49,7 +49,7 @@ void loadConfig() {
 	}
 
 	if (config != NULL) {
-		coordinador_setup.NOMBRE_INSTANCIA = config_get_int_value(config,"NOMBRE_INSTANCIA");
+		coordinador_setup.NOMBRE_INSTANCIA = string_duplicate(config_get_string_value(config,"NOMBRE_INSTANCIA"));
 		coordinador_setup.PUERTO_ESCUCHA_CONEXIONES = config_get_int_value(	config, "PUERTO_ESCUCHA_CONEXIONES");
 		coordinador_setup.CANTIDAD_MAXIMA_CLIENTES = config_get_int_value(config,"CANTIDAD_MAXIMA_CLIENTES");
 		coordinador_setup.TAMANIO_COLA_CONEXIONES = config_get_int_value(config,"TAMANIO_COLA_CONEXIONES");
@@ -62,8 +62,9 @@ void loadConfig() {
 }
 
 void liberar_memoria() {
-	// ADD
 
+	if(server != NULL) tcpserver_destroy(server);
+	if(coordinador_setup.NOMBRE_INSTANCIA != NULL) free(coordinador_setup.NOMBRE_INSTANCIA);
 }
 
 void log_inicial_consola() {
@@ -83,6 +84,10 @@ void log_inicial_consola() {
 		break;
 	}
 
+	log_info(coordinador_log, "\tNombre de instancia: %s",	coordinador_setup.NOMBRE_INSTANCIA);
+	log_info(coordinador_log, "\tPuerto de escucha conexiones: %d",	coordinador_setup.PUERTO_ESCUCHA_CONEXIONES);
+	log_info(coordinador_log, "\tCantidad maxima de clientes: %d",	coordinador_setup.CANTIDAD_MAXIMA_CLIENTES);
+	log_info(coordinador_log, "\tTamanio cola conexiones: %d",	coordinador_setup.TAMANIO_COLA_CONEXIONES);
 	log_info(coordinador_log, "\tCantidad de entradas: %d",	coordinador_setup.CANTIDAD_ENTRADAS);
 	log_info(coordinador_log, "\tTamanio de entrada en bytes: %d", coordinador_setup.TAMANIO_ENTRADA_BYTES);
 	log_info(coordinador_log, "\tRetardo en milis: %d", coordinador_setup.RETARDO_MS);
