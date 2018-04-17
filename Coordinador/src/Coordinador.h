@@ -1,12 +1,16 @@
 #include <stdio.h> //printf
 #include <string.h>    //strlen
-#include <sys/socket.h>    //socket
+#include <stdbool.h>
 #include <signal.h>
 #include <commons/config.h>
 #include <commons/log.h>
-#include "libs/socketCommons.h"
+#include <commons/string.h>
 #include "libs/serialize.h"
 #include "libs/tcpserver.h"
+#include <sys/socket.h> // Para crear sockets, enviar, recibir, etc
+#include <netdb.h> // Para getaddrinfo
+#include <unistd.h> // Para close
+#include "libs/protocols.h"
 
 #ifndef SRC_COORDINADOR_H_
 #define SRC_COORDINADOR_H_
