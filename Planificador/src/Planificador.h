@@ -5,7 +5,6 @@
 #include <commons/config.h>
 #include <commons/log.h>
 #include <commons/collections/list.h>
-#include "libs/socketCommons.h"
 #include "libs/serialize.h"
 #include "libs/tcpserver.h"
 

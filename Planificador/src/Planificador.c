@@ -130,7 +130,6 @@ void on_server_accept(tcp_server_t* server, int client_socket, int socket_id){
 	t_connection_header *connection_header = deserialize_connection_header(header_buffer);
 	log_info(console_log, "Received handshake from TCP Client: %s", connection_header->instance_name);
 	free(header_buffer);
-	free(connection_header);
 
 	t_ack_message ack_message;
 	strcpy(ack_message.instance_name, instance_name);
@@ -144,6 +143,7 @@ void on_server_accept(tcp_server_t* server, int client_socket, int socket_id){
 		log_info(console_log, "Successfully connected to TCP Client: %s", connection_header->instance_name);
 	}
 
+	free(connection_header);
 	free(ack_buffer);
 }
 
@@ -158,20 +158,20 @@ void on_server_read(tcp_server_t* server, int client_socket, int socket_id){
 	}
 
 	t_esi_status_response *esi_status_response = deserialize_esi_status_response(res_buffer);
-	log_info(console_log, "Received Status from ESI: %d", esi_status_response->status);
+	log_info(console_log, "Received Status from ESI: %s. Status: %d", esi_status_response->instance_name, esi_status_response->status);
 
 	switch(esi_status_response->status){
 		case ESI_IDLE:
 			// Por ahora, mando la siguiente operacion
-			log_info(console_log, "ESI is IDLE. Signal next operation");
+			log_info(console_log, "ESI: %s is IDLE. Signal next operation", esi_status_response->instance_name);
 			send_execute_next_to_esi(client_socket, socket_id);
 			break;
 		case ESI_BLOCKED:
 			// Por ahora, no hago nada...
-			log_info(console_log, "ESI is BLOCKED.");
+			log_info(console_log, "ESI: %s is BLOCKED.", esi_status_response->instance_name);
 			break;
 		case ESI_FINISHED:
-			log_info(console_log, "ESI Finished execution");
+			log_info(console_log, "ESI: %s Finished execution", esi_status_response->instance_name);
 			tcpserver_remove_client(server, socket_id);
 			break;
 	}
@@ -310,11 +310,21 @@ void sendUnlockResourceOperationResult(bool p_result){
 void exit_gracefully(int retVal){
 	if(instance_name != NULL) free(instance_name);
 	if(coordinator_ip != NULL) free(coordinator_ip);
-	if(initial_blocked_keys != NULL) free(initial_blocked_keys);
+
+	if(initial_blocked_keys != NULL){
+		for(int i = 0; initial_blocked_keys[i] != NULL; i++){
+			free(initial_blocked_keys[i]);
+		}
+		free(initial_blocked_keys);
+	}
 
 	if(coordinator_socket != 0) close(coordinator_socket);
 
 	if(server != NULL) tcpserver_destroy(server);
+
+	if(console_log != NULL){
+		log_destroy(console_log);
+	}
 
 	exit(retVal);
 }

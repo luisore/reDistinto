@@ -97,10 +97,7 @@ bool perform_connection_handshake(int server_socket, char* instance_name,
 }
 
 void* serialize_connection_header(t_connection_header *header){
-	char* buffer = malloc(CONNECTION_HEADER_SIZE);
-	for(int i = 0; i< CONNECTION_HEADER_SIZE; i++){
-		buffer[i] = 0;
-	}
+	void* buffer = malloc(CONNECTION_HEADER_SIZE);
 	int lastIndex = 0;
 	int instance_type = header->instance_type;
 
