@@ -7,8 +7,6 @@ int getClientSocket(int* clientSocket, const char* address, const int port) {
 		puts("FALLO - No pudo crearse el socket");
 	}
 
-	puts("CONEXION EXITOSA");
-
 	server.sin_addr.s_addr = inet_addr(address);
 	server.sin_family = AF_INET;
 	server.sin_port = htons(port);

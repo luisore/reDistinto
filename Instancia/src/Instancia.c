@@ -27,7 +27,7 @@ void exit_program(int entero){
 
 void create_log(){
 
-	console_log = log_create("instancia.log", "ReDistinto-Instancia",false, LOG_LEVEL_TRACE);
+	console_log = log_create("instancia.log", "ReDistinto-Instancia",true, LOG_LEVEL_TRACE);
 
 	if(console_log == NULL){
 		printf(" FALLO - Creacion de Log");
