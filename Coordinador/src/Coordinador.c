@@ -49,16 +49,14 @@ void loadConfig() {
 	}
 
 	if (config != NULL) {
-		coordinador_setup.PUERTO_ESCUCHA_CONEXIONES = config_get_int_value(
-				config, "PUERTO_ESCUCHA_CONEXIONES");
-		coordinador_setup.ALGORITMO_DISTRIBUCION = config_get_int_value(config,
-				"ALGORITMO_DISTRIBUCION");
-		coordinador_setup.CANTIDAD_ENTRADAS = config_get_int_value(config,
-				"CANTIDAD_ENTRADAS");
-		coordinador_setup.TAMANIO_ENTRADA_BYTES = config_get_int_value(config,
-				"TAMANIO_ENTRADA_BYTES");
-		coordinador_setup.RETARDO_MS = config_get_int_value(config,
-				"RETARDO_MS");
+		coordinador_setup.NOMBRE_INSTANCIA = config_get_int_value(config,"NOMBRE_INSTANCIA");
+		coordinador_setup.PUERTO_ESCUCHA_CONEXIONES = config_get_int_value(	config, "PUERTO_ESCUCHA_CONEXIONES");
+		coordinador_setup.CANTIDAD_MAXIMA_CLIENTES = config_get_int_value(config,"CANTIDAD_MAXIMA_CLIENTES");
+		coordinador_setup.TAMANIO_COLA_CONEXIONES = config_get_int_value(config,"TAMANIO_COLA_CONEXIONES");
+		coordinador_setup.ALGORITMO_DISTRIBUCION = config_get_int_value(config,	"ALGORITMO_DISTRIBUCION");
+		coordinador_setup.CANTIDAD_ENTRADAS = config_get_int_value(config,"CANTIDAD_ENTRADAS");
+		coordinador_setup.TAMANIO_ENTRADA_BYTES = config_get_int_value(config,"TAMANIO_ENTRADA_BYTES");
+		coordinador_setup.RETARDO_MS = config_get_int_value(config,	"RETARDO_MS");
 	}
 	config_destroy(config);
 }
@@ -85,18 +83,25 @@ void log_inicial_consola() {
 		break;
 	}
 
-	log_info(coordinador_log, "\tCantidad de entradas: %d",
-				coordinador_setup.CANTIDAD_ENTRADAS);
-
-	log_info(coordinador_log, "\tTamanio de entrada en bytes: %d",
-			coordinador_setup.TAMANIO_ENTRADA_BYTES);
-
-	log_info(coordinador_log, "\tRetardo en milis: %d",
-			coordinador_setup.RETARDO_MS);
+	log_info(coordinador_log, "\tCantidad de entradas: %d",	coordinador_setup.CANTIDAD_ENTRADAS);
+	log_info(coordinador_log, "\tTamanio de entrada en bytes: %d", coordinador_setup.TAMANIO_ENTRADA_BYTES);
+	log_info(coordinador_log, "\tRetardo en milis: %d", coordinador_setup.RETARDO_MS);
 
 }
 
 
+void create_tcp_server(){
+
+	server = tcpserver_create(coordinador_setup.NOMBRE_INSTANCIA, coordinador_log,
+			coordinador_setup.CANTIDAD_MAXIMA_CLIENTES,
+			coordinador_setup.TAMANIO_COLA_CONEXIONES,
+			coordinador_setup.PUERTO_ESCUCHA_CONEXIONES, true);
+
+	if(server == NULL){
+		log_error(coordinador_log, "Could not create TCP server. Aborting execution.");
+		exit_program(EXIT_FAILURE);
+	}
+}
 
 
 
@@ -107,6 +112,10 @@ int main(void) {
 	create_log();
 	loadConfig();
 	log_inicial_consola();
+
+
+	create_tcp_server();
+	//tcpserver_run(server, before_tpc_server_cycle, on_server_accept, on_server_read, on_server_command);
 
 
 

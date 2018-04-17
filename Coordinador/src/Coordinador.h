@@ -6,6 +6,7 @@
 #include <commons/log.h>
 #include "libs/socketCommons.h"
 #include "libs/serialize.h"
+#include "libs/tcpserver.h"
 
 #ifndef SRC_COORDINADOR_H_
 #define SRC_COORDINADOR_H_
@@ -17,21 +18,29 @@
 t_log * coordinador_log;
 t_config *config;
 
+tcp_server_t* server;
+
+
 /*ESTRUCTURAS*/
+
+
 
 enum AlgortimoDistribucion {
 	LSU = 1, EL = 2, KE = 3
 };
 
 struct {
+	char * NOMBRE_INSTANCIA;
 	int PUERTO_ESCUCHA_CONEXIONES;
+	int CANTIDAD_MAXIMA_CLIENTES;
+	int TAMANIO_COLA_CONEXIONES;
 	enum AlgortimoDistribucion ALGORITMO_DISTRIBUCION;
 	int CANTIDAD_ENTRADAS;
 	int TAMANIO_ENTRADA_BYTES;
 	int RETARDO_MS;
 } coordinador_setup;
 
-/*FUNCIONES*/
+
 
 /*FUNCIONES GENERALES*/
 
