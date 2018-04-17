@@ -29,7 +29,23 @@ struct {
 	int INTERVALO_DUMP_SEGs;
 } instancia_setup;
 
+void exit_program(int);
+
 /*FUNCIONES*/
 int readConfig(char* configFile);
+void inicializacion();
+void lectura_archivo();
+void liberar_memoria();
+
+
+/*UTILS*/
+void loguearConsolaInicial();
+
+
+/* CONEXION  */
+void conexion_coordinador();
+
+
+
 
 #endif /* SRC_INSTANCIA_H_ */
