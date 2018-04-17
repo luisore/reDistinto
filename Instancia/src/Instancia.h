@@ -4,6 +4,7 @@
 #include <signal.h>
 #include <commons/config.h>
 #include <commons/log.h>
+#include <commons/dictionary.h>
 #include "libs/protocols.h"
 #include "libs/serialize.h"
 
@@ -31,6 +32,11 @@ struct {
 	char* NOMBRE_INSTANCIA;
 	int INTERVALO_DUMP_SEGs;
 } instancia_setup;
+
+int storage;
+int tamanio_entradas;
+
+
 
 
 /*FUNCIONES GENERALES*/

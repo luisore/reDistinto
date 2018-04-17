@@ -117,10 +117,17 @@ int main(void) {
 	loadConfig();
 	log_inicial_consola();
 
+	//loadDumpFiles
 
 	connect_with_coordinator();
 
-	// TODO - CICLO INSTANCIA
+	// 1. AL conectarse definir tamanio de entradas
+
+	//Recibe sentencia
+	//Extrae la clave
+	//Identifica donde guardarlo. Si no hay espacio, le avisa al coordinador que tiene que compactar. Compacta
+	//Guardar la clave
+	//Envía el resultado al Coordinador
 
 	print_goodbye();
 	exit_program(EXIT_SUCCESS);
