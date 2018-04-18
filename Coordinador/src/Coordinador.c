@@ -8,16 +8,16 @@ int readConfig(char* configFile) {
 	log_info(console_log, " .:: Cargando settings ::.");
 
 	if (config != NULL) {
-		coordinador_setup.PUERTO_ESCUCHA_CONEXIONES = config_get_int_value(config,
-				"PUERTO_ESCUCHA_CONEXIONES");
+		coordinador_setup.PUERTO_ESCUCHA_CONEXIONES = config_get_int_value(
+				config, "PUERTO_ESCUCHA_CONEXIONES");
 		coordinador_setup.ALGORITMO_DISTRIBUCION = config_get_int_value(config,
 				"ALGORITMO_DISTRIBUCION");
 		coordinador_setup.CANTIDAD_ENTRADAS = config_get_int_value(config,
 				"CANTIDAD_ENTRADAS");
-		coordinador_setup.TAMANIO_ENTRADA_BYTES = config_get_int_value(
-				config, "TAMANIO_ENTRADA_BYTES");
-		coordinador_setup.RETARDO_MS = config_get_int_value(
-				config, "RETARDO_MS");
+		coordinador_setup.TAMANIO_ENTRADA_BYTES = config_get_int_value(config,
+				"TAMANIO_ENTRADA_BYTES");
+		coordinador_setup.RETARDO_MS = config_get_int_value(config,
+				"RETARDO_MS");
 	}
 	return 0;
 }
@@ -55,10 +55,10 @@ int main(void) {
 			coordinador_setup.CANTIDAD_ENTRADAS);
 
 	log_info(console_log, "\tTamanio de entrada en bytes: %d",
-				coordinador_setup.TAMANIO_ENTRADA_BYTES);
+			coordinador_setup.TAMANIO_ENTRADA_BYTES);
 
 	log_info(console_log, "\tRetardo en milis: %d",
-					coordinador_setup.RETARDO_MS);
+			coordinador_setup.RETARDO_MS);
 
 	log_info(console_log, "Se cerro la conexion con el planificador");
 	printf("\n\t\e[31;1m Consola terminada. \e[0m\n");
