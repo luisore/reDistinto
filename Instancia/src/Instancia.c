@@ -24,15 +24,31 @@ int readConfig(char* configFile) {
 	return 0;
 }
 
-int main(void) {
-	console_log = log_create("instancia.log", "ReDistinto-Instancia",
-	true, LOG_LEVEL_TRACE);
+
+void liberar_memoria(){
+	// TODO
+}
+
+void exit_program(int entero){
+
+	printf("\n\t\e[31;1m Consola terminada. \e[0m\n");
+	log_destroy(console_log);
+	liberar_memoria();
+	exit(entero);
+}
+
+
+void loguearConsolaInicial(){
+
+	console_log = log_create("instancia.log", "ReDistinto-Instancia",true, LOG_LEVEL_TRACE);
+
 	printf("\n\t\e[31;1m=========================================\e[0m\n");
 	printf("\t.:: Bievenido a ReDistinto ::.");
 	printf("\n\t\e[31;1m=========================================\e[0m\n\n");
+
 	if (readConfig(PATH_FILE_NAME) < 0) {
 		log_error(console_log, "No se encontró el archivo de configuración");
-		return -1;
+		exit_program(-1);
 	}
 	log_info(console_log, "Se cargó el setup del INSTANCIA");
 
@@ -60,9 +76,51 @@ int main(void) {
 	log_info(console_log, "\tIntervalo de dump en segundos: %d",
 				instancia_setup.INTERVALO_DUMP_SEGs);
 
-	log_info(console_log, "Se cerro la conexion con el Coordinador");
-	printf("\n\t\e[31;1m Consola terminada. \e[0m\n");
 
-	log_destroy(console_log);
+}
+
+
+
+void conexion_coordinador(){
+
+	int socket ;
+	char *clientMessage = NULL;
+
+	if(getClientSocket( &socket , instancia_setup.IP_COORDINADOR , instancia_setup.PUERTO_COORDINADOR)){
+		exit_program(-1);
+	}else{
+		log_info(console_log , "COMUNICACION OK DE SERVER");
+	}
+
+	while(1) {
+		printf("Ingrese mensaje : ");
+	    fgets(clientMessage , 255 , stdin);
+	    clientMessage[strlen(clientMessage) - 1] = '\0';
+
+	    //Send some data
+		if( send(socket , clientMessage , strlen(clientMessage) , 0) < 0) {
+			log_error(console_log ,"ERROR EN LA COMUNICACION");
+			exit_program(-1);
+		}
+	}
+
+	exit_program(-1);
+	free(clientMessage);
+	close(socket);
+
+}
+
+
+// INICIO DE PROCESO
+int main(void) {
+
+	loguearConsolaInicial();
+
+	conexion_coordinador();
+
+	exit_program(1);
+
 	return 0;
 }
+
+

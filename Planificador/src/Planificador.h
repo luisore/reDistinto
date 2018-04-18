@@ -29,7 +29,28 @@ struct {
 	char** CLAVES_INICIALMENTE_BLOQUEADAS;
 } planificador_setup;
 
+
 /*FUNCIONES*/
 int readConfig(char* configFile);
+
+// Funciones de la aplicacion del algoritmo
+void applyPlaningAlgorithm();
+void getNextESI();
+void moveOutCurrentESI();
+void continueExecutingESI();
+
+//Funciones para los recursos
+bool isResourceAvailable();
+void lockResource();
+void unlockResource();
+
+//Funciones para la administracion de los ESI
+void lockESI();
+void unlockESI();
+void finishESI();
+
+//Comunicacion con el coordinador
+void sendLockResourceOperationResult(bool p_result);
+void sendUnlockResourceOperationResult(bool p_result);
 
 #endif /* PLANIFICADOR_SRC_PLANIFICADOR_H_ */
