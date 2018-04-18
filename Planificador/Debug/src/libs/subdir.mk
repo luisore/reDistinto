@@ -7,6 +7,10 @@ C_SRCS += \
 ../src/libs/serialize.c \
 ../src/libs/socketCommons.c 
 
+O_SRCS += \
+../src/libs/serialize.o \
+../src/libs/socketCommons.o 
+
 OBJS += \
 ./src/libs/serialize.o \
 ./src/libs/socketCommons.o 

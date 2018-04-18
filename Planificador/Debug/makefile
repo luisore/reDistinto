@@ -45,7 +45,7 @@ all: Planificador
 Planificador: $(OBJS) $(USER_OBJS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: GCC C++ Linker'
-	g++ -L"/home/utnso/git/tp-2018-1c-DefaultName/Planificador/src/libs" -o "Planificador" $(OBJS) $(USER_OBJS) $(LIBS)
+	g++  -o "Planificador" $(OBJS) $(USER_OBJS) $(LIBS)
 	@echo 'Finished building target: $@'
 	@echo ' '
 
