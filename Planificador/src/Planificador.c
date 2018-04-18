@@ -73,3 +73,98 @@ int main(void) {
 	log_destroy(console_log);
 	return 0;
 }
+
+
+
+
+/**
+ * Aplica el algoritmo de planificacion
+ */
+void applyPlaningAlgorithm(){
+	//TODO: implementacion pendiente
+}
+
+/**
+ * Retorna el siguiente ESI a ejecutar segun el algoritmo
+ */
+void getNextESI(){
+	//TODO: implementacion pendiente
+}
+
+/**
+ * Desaloja el ESI actual
+ */
+void moveOutCurrentESI(){
+	//TODO: implementacion pendiente
+}
+
+/**
+ * Le dice al ESI que puede seguir ejecutandose
+ */
+void continueExecutingESI() {
+	//TODO: implementacion pendiente
+}
+
+/**
+ * Verifica la disponibilidad de un recurso
+ */
+// TODO: falta pasar el recurso como parametro
+bool isResourceAvailable(){
+	//TODO: implementacion pendiente
+	return true;
+}
+
+/**
+ * Bloquea un recurso
+ */
+// TODO: falta pasar el recurso por parametro
+void lockResource(){
+
+}
+
+/**
+ * Desbloquea un recurso
+ */
+// TODO: falta pasar el recurso por parametro
+void unlockResource(){
+
+}
+
+
+/**
+ * Encola un ESI en la lista de bloqueados
+ */
+// TODO: falta pasar el ESI por parametro
+void lockESI(){
+	//TODO: implementacion pendiente
+}
+
+/**
+ * Desencola un ESI de la lista de bloqueados
+ */
+// TODO: falta pasar el ESI por parametro
+void unlockESI(){
+	//TODO: implementacion pendiente
+}
+
+/**
+ * Finaliza un ESI
+ */
+// TODO: falta pasar el ESI por parametro
+void finishESI(){
+	//TODO: implementacion pendiente
+}
+
+/**
+ * Notifica al Coordinador del resultado de bloquear un recurso
+ */
+void sendLockResourceOperationResult(bool p_result){
+	//TODO: implementacion pendiente
+}
+
+/**
+ * Notifica al Coordinador del resultado de liberar un recurso
+ */
+void sendUnlockResourceOperationResult(bool p_result){
+	//TODO: implementacion pendiente
+}
