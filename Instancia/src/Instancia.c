@@ -1,58 +1,72 @@
 #include "Instancia.h"
 
-int readConfig(char* configFile) {
-	if (configFile == NULL) {
-		return -1;
-	}
-	t_config *config = config_create(configFile);
-	log_info(console_log, " .:: Cargando settings ::.");
 
-	if (config != NULL) {
-		instancia_setup.IP_COORDINADOR = config_get_string_value(config,
-				"IP_COORDINADOR");
-		instancia_setup.PUERTO_COORDINADOR = config_get_int_value(config,
-				"PUERTO_COORDINADOR");
-		instancia_setup.ALGORITMO_REEMPLAZO = config_get_int_value(config,
-				"ALGORITMO_REEMPLAZO");
-		instancia_setup.PUNTO_MONTAJE = config_get_string_value(config,
-				"PUNTO_MONTAJE");
-		instancia_setup.NOMBRE_INSTANCIA = config_get_string_value(config,
-				"NOMBRE_INSTANCIA");
-		instancia_setup.INTERVALO_DUMP_SEGs = config_get_int_value(config,
-				"INTERVALO_DUMP_SEGs");
-	}
-	return 0;
+void print_header(){
+	printf("\n\t\e[31;1m=========================================\e[0m\n");
+	printf("\t.:: Bienvenido a ReDistinto ::.");
+	printf("\t.:: Instancia -  ::.");
+	printf("\n\t\e[31;1m=========================================\e[0m\n\n");
 }
 
-
-void liberar_memoria(){
-	// TODO
+void print_goodbye(){
+	printf("\n\t\e[31;1m=========================================\e[0m\n");
+	printf("\t.:: Gracias por utilizar ReDistinto ::.");
+	printf("\n\t\e[31;1m=========================================\e[0m\n\n");
 }
 
 void exit_program(int entero){
 
-	printf("\n\t\e[31;1m Consola terminada. \e[0m\n");
-	log_destroy(console_log);
+	if(console_log != NULL) log_destroy(console_log);
+	if(coordinator_socket != 0) close(coordinator_socket);
+
 	liberar_memoria();
+
+	printf("\n\t\e[31;1m FINALIZA INSTANCIA \e[0m\n");
 	exit(entero);
 }
 
-
-void loguearConsolaInicial(){
+void create_log(){
 
 	console_log = log_create("instancia.log", "ReDistinto-Instancia",true, LOG_LEVEL_TRACE);
 
-	printf("\n\t\e[31;1m=========================================\e[0m\n");
-	printf("\t.:: Bievenido a ReDistinto ::.");
-	printf("\n\t\e[31;1m=========================================\e[0m\n\n");
-
-	if (readConfig(PATH_FILE_NAME) < 0) {
-		log_error(console_log, "No se encontró el archivo de configuración");
-		exit_program(-1);
+	if(console_log == NULL){
+		printf(" FALLO - Creacion de Log");
+		exit_program(EXIT_FAILURE);
 	}
-	log_info(console_log, "Se cargó el setup del INSTANCIA");
+}
 
-	log_info(console_log, "");
+void loadConfig() {
+
+	log_info(console_log , " Cargan datos del archivo de configuracion");
+
+	t_config *config = config_create(PATH_FILE_NAME);
+
+	if(config == NULL){
+		log_error(console_log, "FALLO - No se encontro la configuracion del log");
+		exit_program(EXIT_FAILURE);
+	}
+
+	if (config != NULL) {
+		instancia_setup.IP_COORDINADOR = config_get_string_value(config,"IP_COORDINADOR");
+		instancia_setup.PUERTO_COORDINADOR = config_get_int_value(config,"PUERTO_COORDINADOR");
+		instancia_setup.ALGORITMO_REEMPLAZO = config_get_int_value(config,"ALGORITMO_REEMPLAZO");
+		instancia_setup.PUNTO_MONTAJE = config_get_string_value(config,"PUNTO_MONTAJE");
+		instancia_setup.NOMBRE_INSTANCIA = config_get_string_value(config,"NOMBRE_INSTANCIA");
+		instancia_setup.INTERVALO_DUMP_SEGs = config_get_int_value(config,"INTERVALO_DUMP_SEGs");
+
+		log_info(console_log," Carga exitosa de archivo de configuracion");
+	}
+}
+
+
+void liberar_memoria(){
+	free(config);
+	// ADD
+
+}
+
+
+void log_inicial_consola(){
 
 	log_info(console_log, "\tCOORDINADOR: IP: %s, PUERTO: %d",
 			instancia_setup.IP_COORDINADOR, instancia_setup.PUERTO_COORDINADOR);
@@ -69,43 +83,47 @@ void loguearConsolaInicial(){
 		break;
 	}
 
-	log_info(console_log, "\tPunto de montaje: %s",
-			instancia_setup.PUNTO_MONTAJE);
-	log_info(console_log, "\tNombre de la instancia: %s",
-			instancia_setup.NOMBRE_INSTANCIA);
-	log_info(console_log, "\tIntervalo de dump en segundos: %d",
-				instancia_setup.INTERVALO_DUMP_SEGs);
-
+	log_info(console_log, "\tPunto de montaje: %s",	instancia_setup.PUNTO_MONTAJE);
+	log_info(console_log, "\tNombre de la instancia: %s", instancia_setup.NOMBRE_INSTANCIA);
+	log_info(console_log, "\tIntervalo de dump en segundos: %d", instancia_setup.INTERVALO_DUMP_SEGs);
 
 }
 
 
+void connect_with_coordinator(){
 
-void conexion_coordinador(){
-
-	int socket ;
-	char *clientMessage = NULL;
-
-	if(getClientSocket( &socket , instancia_setup.IP_COORDINADOR , instancia_setup.PUERTO_COORDINADOR)){
-		exit_program(-1);
-	}else{
-		log_info(console_log , "COMUNICACION OK DE SERVER");
+	if(getClientSocket( &coordinator_socket , instancia_setup.IP_COORDINADOR , instancia_setup.PUERTO_COORDINADOR)){
+		exit_program(EXIT_FAILURE);
 	}
 
-	while(1) {
-		printf("Ingrese mensaje : ");
-	    fgets(clientMessage , 255 , stdin);
-	    clientMessage[strlen(clientMessage) - 1] = '\0';
+	log_info(console_log, "Conexion exitosa con Coordinador.");
+	do_handshake(coordinator_socket);
 
-	    //Send some data
-		if( send(socket , clientMessage , strlen(clientMessage) , 0) < 0) {
-			log_error(console_log ,"ERROR EN LA COMUNICACION");
-			exit_program(-1);
-		}
+}
+
+void do_handshake(){
+
+	char *clientMessage = "INSTANCIA";
+
+	log_trace(console_log, "Handshake con Coordinador");
+
+	if( send(coordinator_socket , clientMessage , strlen(clientMessage) , 0) < 0) {
+		log_error(console_log ,"Error en la comunicacion");
+		exit_program(EXIT_FAILURE);
 	}
 
-	exit_program(-1);
+	char * mensaje_ok = malloc(50);
+
+	if (recv(socket, mensaje_ok, sizeof(mensaje_ok), 0) <= 0) {
+		log_error(console_log, "FALLO - No se pudo hacer el hanshake");
+		exit_program(EXIT_FAILURE);
+	}
+
+	log_info(console_log, "Hanshake OK: %s.", (* mensaje_ok));
+
+	free(mensaje_ok);
 	free(clientMessage);
+
 	close(socket);
 
 }
@@ -114,11 +132,16 @@ void conexion_coordinador(){
 // INICIO DE PROCESO
 int main(void) {
 
-	loguearConsolaInicial();
+	print_header();
+	create_log();
+	loadConfig();
+	log_inicial_consola();
+	connect_with_coordinator();
 
-	conexion_coordinador();
+	// TODO
 
-	exit_program(1);
+	print_goodbye();
+	exit_program(EXIT_SUCCESS);
 
 	return 0;
 }
