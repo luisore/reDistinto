@@ -7,22 +7,22 @@
 #include <commons/collections/queue.h>
 #include "libs/protocols.h"
 
-void exitGacefully(int retVal);
+void exit_gracefully(int retVal);
 
-void loadConfig() {
+void load_config() {
 	log_trace(esi_log, "Loading configuration from file: %s", ESI_CFG_FILE);
 
 	t_config *config = config_create(ESI_CFG_FILE);
 	if(config == NULL){
 		log_error(esi_log, "Could not load configuration file.");
-		exitGacefully(EXIT_FAILURE);
+		exit_gracefully(EXIT_FAILURE);
 	}
 
-	instance_name = config_get_string_value(config, "instanceName");
-	coordinator_ip = config_get_string_value(config, "coordinatorIP");
-	coordinator_port = config_get_string_value(config, "coordinatorPort");
-	planner_ip = config_get_string_value(config, "plannerIP");
-	planner_port = config_get_string_value(config, "plannerPort");
+	instance_name = string_duplicate(config_get_string_value(config, "instanceName"));
+	coordinator_ip = string_duplicate(config_get_string_value(config, "coordinatorIP"));
+	coordinator_port = string_duplicate(config_get_string_value(config, "coordinatorPort"));
+	planner_ip = string_duplicate(config_get_string_value(config, "plannerIP"));
+	planner_port = string_duplicate(config_get_string_value(config, "plannerPort"));
 
 	log_debug(esi_log, "Loaded configuration. Coordinator IP: %s PORT: %d Planner IP: %s PORT: %d",
 			coordinator_ip, coordinator_port, planner_ip, planner_port);
@@ -49,14 +49,14 @@ void create_log(){
 
 	if(esi_log == NULL){
 		printf("Could not create log. Execution aborted.");
-		exitGacefully(EXIT_FAILURE);
+		exit_gracefully(EXIT_FAILURE);
 	}
 }
 
 int connect_to_server(char *ip, char *port) {
 
 	struct addrinfo hints;
-	struct addrinfo *server_info;
+	struct addrinfo server_info;
 
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family = AF_UNSPEC;    // Permite que la maquina se encargue de verificar si usamos IPv4 o IPv6
@@ -64,19 +64,18 @@ int connect_to_server(char *ip, char *port) {
 
 	getaddrinfo(ip, port, &hints, &server_info);  // Carga en server_info los datos de la conexion
 
-	int server_socket = socket(server_info->ai_family, server_info->ai_socktype, server_info->ai_protocol);
+	int server_socket = socket(server_info.ai_family, server_info.ai_socktype, server_info.ai_protocol);
 
-	int res = connect(server_socket, server_info->ai_addr, server_info->ai_addrlen);
-
-	freeaddrinfo(server_info);  // No lo necesitamos mas
+	int res = connect(server_socket, server_info.ai_addr, server_info.ai_addrlen);
 
 	if (res < 0) {
 		if(server_socket != 0) close(server_socket);
-		exitGacefully(EXIT_FAILURE);
+		log_error(esi_log, "Could not connect to server on IP: %s, PORT: %s. Aborting execution!", ip, port);
+		exit_gracefully(EXIT_FAILURE);
 	}
 
 
-	log_info(esi_log, "Connected to server IP: %s PORT: %s");
+	log_info(esi_log, "Connected to server IP: %s PORT: %s", ip, port);
 	return server_socket;
 }
 
@@ -90,7 +89,7 @@ void perform_connection_handshake(int server_socket){
 
 	if (result <= 0) {
 		log_error(esi_log, "Could not perform handshake with server. Send message failed");
-		exitGacefully(EXIT_FAILURE);
+		exit_gracefully(EXIT_FAILURE);
 	}
 	log_trace(esi_log, "Handshake message sent. Waiting for response...");
 
@@ -98,7 +97,7 @@ void perform_connection_handshake(int server_socket){
 
 	if (recv(socket, ack_message, sizeof(t_ack_message), 0) <= 0) {
 		log_error(esi_log, "Error receiving handshake response. Aborting execution.");
-		exitGacefully(EXIT_FAILURE);
+		exit_gracefully(EXIT_FAILURE);
 	}
 
 	log_info(esi_log, "Handshake successful with server: %s.", ack_message->instance_name);
@@ -240,30 +239,30 @@ void execute_program(){
 	while(queue_size(instructions) > 0){
 		if(!wait_for_planner_signal()){
 			queue_destroy_and_destroy_elements(instructions, destroy_program_instruction);
-			exitGacefully(EXIT_FAILURE);
+			exit_gracefully(EXIT_FAILURE);
 		}
 
 		next_instruction = (t_program_instruction* ) queue_peek(instructions);
 
-		operation_result = coordinate_operation(next_instruction);
+		operation_result = OP_SUCCESS; //coordinate_operation(next_instruction);
 
 		if(operation_result == OP_ERROR){
 			log_error(esi_log, "There was an error performing the current operation. Type:%d. Key: %s.",
 					next_instruction->operation_type, next_instruction->key);
 			queue_destroy_and_destroy_elements(instructions, destroy_program_instruction);
-			exitGacefully(EXIT_FAILURE);
+			exit_gracefully(EXIT_FAILURE);
 		} else if (operation_result == OP_SUCCESS){
 			queue_pop(instructions);
 			free(next_instruction);
 
 			if(!send_response_to_planner(queue_size(instructions) > 0 ? ESI_IDLE : ESI_FINISHED)){
 				queue_destroy_and_destroy_elements(instructions, destroy_program_instruction);
-				exitGacefully(EXIT_FAILURE);
+				exit_gracefully(EXIT_FAILURE);
 			}
 		} else { // operation_result == OP_BLOCKED
 			if(!send_response_to_planner(ESI_BLOCKED)){
 				queue_destroy_and_destroy_elements(instructions, destroy_program_instruction);
-				exitGacefully(EXIT_FAILURE);
+				exit_gracefully(EXIT_FAILURE);
 			}
 		}
 	}
@@ -274,9 +273,9 @@ int main(void) {
 
 	create_log();
 
-	loadConfig();
+	load_config();
 
-	connect_with_coordinator();
+	//connect_with_coordinator();
 
 	connect_with_planner();
 
@@ -286,13 +285,13 @@ int main(void) {
 
 	print_goodbye();
 
-	exitGacefully(EXIT_SUCCESS);
+	exit_gracefully(EXIT_SUCCESS);
 
 	return 0;
 }
 
 
-void exitGacefully(int retVal){
+void exit_gracefully(int retVal){
 	if(instance_name != NULL) free(instance_name);
 	if(coordinator_ip != NULL) free(coordinator_ip);
 	if(coordinator_port != NULL) free(coordinator_port);
