@@ -1,8 +1,8 @@
 #include "Planificador.h"
 
-int inicializar(){
+int inicializar() {
 	console_log = log_create("planificador.log", "ReDistinto-Planificador",
-		true, LOG_LEVEL_TRACE);
+	true, LOG_LEVEL_TRACE);
 	printf("\n\t\e[31;1m=========================================\e[0m\n");
 	printf("\t.:: Bievenido a ReDistinto ::.");
 	printf("\n\t\e[31;1m=========================================\e[0m\n\n");
@@ -68,7 +68,7 @@ int leerConfiguracion(char* archivoConfiguracion) {
 						"CLAVES_INICIALMENTE_BLOQUEADAS");
 	}
 
-	free(config);
+	config_destroy(config);
 	return 0;
 }
 
@@ -77,44 +77,46 @@ int main(void) {
 
 	error = inicializar();
 
-	if(error < 0)
+	if (error < 0)
 		return error;
 
 	log_info(console_log, "Se cerro la conexion con el planificador");
 	printf("\n\t\e[31;1m Consola terminada. \e[0m\n");
-
-	log_destroy(console_log);
 
 	liberarRecursos();
 
 	return 0;
 }
 
-void liberarRecursos()
-{
-	/*free*/
+void liberarRecursos() {
+	log_destroy(console_log);
+
+	int i = 0;
+	while (planificador_setup.CLAVES_INICIALMENTE_BLOQUEADAS[i] != NULL) {
+		free(planificador_setup.CLAVES_INICIALMENTE_BLOQUEADAS[i]);
+		i++;
+	}
+	free(planificador_setup.CLAVES_INICIALMENTE_BLOQUEADAS);
 }
-
-
 
 /**
  * Aplica el algoritmo de planificacion
  */
-void applyPlaningAlgorithm(){
+void applyPlaningAlgorithm() {
 	//TODO: implementacion pendiente
 }
 
 /**
  * Retorna el siguiente ESI a ejecutar segun el algoritmo
  */
-void getNextESI(){
+void getNextESI() {
 	//TODO: implementacion pendiente
 }
 
 /**
  * Desaloja el ESI actual
  */
-void moveOutCurrentESI(){
+void moveOutCurrentESI() {
 	//TODO: implementacion pendiente
 }
 
@@ -129,7 +131,7 @@ void continueExecutingESI() {
  * Verifica la disponibilidad de un recurso
  */
 // TODO: falta pasar el recurso como parametro
-bool isResourceAvailable(){
+bool isResourceAvailable() {
 	//TODO: implementacion pendiente
 	return true;
 }
@@ -138,7 +140,7 @@ bool isResourceAvailable(){
  * Bloquea un recurso
  */
 // TODO: falta pasar el recurso por parametro
-void lockResource(){
+void lockResource() {
 
 }
 
@@ -146,16 +148,15 @@ void lockResource(){
  * Desbloquea un recurso
  */
 // TODO: falta pasar el recurso por parametro
-void unlockResource(){
+void unlockResource() {
 
 }
-
 
 /**
  * Encola un ESI en la lista de bloqueados
  */
 // TODO: falta pasar el ESI por parametro
-void lockESI(){
+void lockESI() {
 	//TODO: implementacion pendiente
 }
 
@@ -163,7 +164,7 @@ void lockESI(){
  * Desencola un ESI de la lista de bloqueados
  */
 // TODO: falta pasar el ESI por parametro
-void unlockESI(){
+void unlockESI() {
 	//TODO: implementacion pendiente
 }
 
@@ -171,20 +172,20 @@ void unlockESI(){
  * Finaliza un ESI
  */
 // TODO: falta pasar el ESI por parametro
-void finishESI(){
+void finishESI() {
 	//TODO: implementacion pendiente
 }
 
 /**
  * Notifica al Coordinador del resultado de bloquear un recurso
  */
-void sendLockResourceOperationResult(bool p_result){
+void sendLockResourceOperationResult(bool p_result) {
 	//TODO: implementacion pendiente
 }
 
 /**
  * Notifica al Coordinador del resultado de liberar un recurso
  */
-void sendUnlockResourceOperationResult(bool p_result){
+void sendUnlockResourceOperationResult(bool p_result) {
 	//TODO: implementacion pendiente
 }
