@@ -19,6 +19,7 @@ int readConfig(char* configFile) {
 		coordinador_setup.RETARDO_MS = config_get_int_value(config,
 				"RETARDO_MS");
 	}
+	config_destroy(config);
 	return 0;
 }
 
