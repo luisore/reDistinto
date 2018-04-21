@@ -54,6 +54,7 @@ struct ESI_STRUCT* esiEjecutando;
 void exit_gracefully(int retVal);
 int load_configuration(char* archivoConfiguracion);
 int inicializar();
+void liberarRecursos(int error);
 
 // Funciones de la aplicacion del algoritmo
 void applyPlaningAlgorithm();

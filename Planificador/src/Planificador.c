@@ -8,16 +8,18 @@
 #include "libs/protocols.h"
 
 int inicializar() {
-	console_log = log_create("planificador.log", "ReDistinto-Planificador",
-	true, LOG_LEVEL_TRACE);
+
+	create_log();
+
 	if (load_configuration(PLANNER_CFG_FILE) < 0) {
 		log_error(console_log, "No se encontró el archivo de configuración");
 		return -1;
 	}
+
 	log_info(console_log, "Se cargó el setup del PLANIFICADOR");
 
 	log_info(console_log, "\tNombre de instancia: %s",
-				planificador_setup.NOMBRE_INSTANCIA);
+			planificador_setup.NOMBRE_INSTANCIA);
 
 	log_info(console_log, "\tCOORDINADOR: IP: %s, PUERTO: %d",
 			planificador_setup.IP_COORDINADOR,
@@ -48,10 +50,10 @@ int inicializar() {
 	}
 
 	log_info(console_log, "\tCantidad maxima de clientes: %d",
-				planificador_setup.CANTIDAD_MAXIMA_CLIENTES);
+			planificador_setup.CANTIDAD_MAXIMA_CLIENTES);
 
 	log_info(console_log, "\tTamanio de la cola de conexiones: %d",
-				planificador_setup.TAMANIO_COLA_CONEXIONES);
+			planificador_setup.TAMANIO_COLA_CONEXIONES);
 
 	return 0;
 }
@@ -61,7 +63,9 @@ int load_configuration(char* archivoConfiguracion) {
 	if (archivoConfiguracion == NULL) {
 		return -1;
 	}
+
 	t_config *config = config_create(archivoConfiguracion);
+
 	log_info(console_log, " .:: Cargando settings ::.");
 
 	if (config != NULL) {
@@ -98,7 +102,7 @@ void print_header() {
 
 void create_log() {
 	console_log = log_create("planificador.log", "ReDistinto-Planificador",
-	false, LOG_LEVEL_TRACE);
+	false, LOG_LEVEL_ERROR);
 
 	if (console_log == NULL) {
 		printf("Could not create log. Execution aborted.");
@@ -251,23 +255,22 @@ int main(void) {
 
 	error = inicializar();
 
-	if (error < 0)
-		return error;
-
-	create_log();
+	if (error < 0){
+		liberarRecursos(EXIT_FAILURE);
+	}
 
 	//connect_with_coordinator();
 
-	create_tcp_server();
+	//create_tcp_server();
 
 //	tcpserver_run(server, before_tpc_server_cycle, on_server_accept,
 //			on_server_read, on_server_command);
 
-	liberarRecursos();
+	liberarRecursos(EXIT_SUCCESS);
 	return 0;
 }
 
-void liberarRecursos() {
+void liberarRecursos(int error) {
 	log_destroy(console_log);
 
 	int i = 0;
@@ -276,7 +279,8 @@ void liberarRecursos() {
 		i++;
 	}
 	free(planificador_setup.CLAVES_INICIALMENTE_BLOQUEADAS);
-	free(server);
+
+	exit_gracefully(error);
 }
 
 /**
