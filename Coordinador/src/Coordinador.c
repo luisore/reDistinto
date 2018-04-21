@@ -32,15 +32,10 @@ int main(void) {
 	servidorConfig.sin_family = AF_INET;
 	servidorConfig.sin_addr.s_addr = INADDR_ANY;
 	servidorConfig.sin_port = htons(8080);
-//	struct sockaddr_in direcciónServidor;
-//		direcciónServidor.sin_family = AF_INET;
-//		direcciónServidor.sin_addr.s_addr = INADDR_ANY;
-//		direcciónServidor.sin_port = htons(8080);
 
 		int servidor = socket(AF_INET, SOCK_STREAM, 0);
 
-		int activado = 1;
-		setsockopt(servidor, SOL_SOCKET, SO_REUSEADDR, &activado, sizeof(activado));
+		int activado = 1;//Se usaba para una funcion que supuestamente liberaba el puerto para que sea reutilizado. Pero no funcionaba.
 
 		if (bind(servidor, (void*) &servidorConfig, sizeof(servidorConfig)) != 0) {
 			perror("Falló el bind");
@@ -52,31 +47,33 @@ int main(void) {
 
 		//------------------------------
 		struct sockaddr_in clienteConfig;
-//		struct sockaddr_in direcciónCliente;
 		unsigned int direccion;
-//		unsigned int tamañoDirección;
 		int cliente = accept(servidor, (void*) &clienteConfig, &direccion);
-
+		if(cliente < 0){
+			perror("Error al aceptar el cliente");
+			printf("El acept retorno %d\n", cliente);
+			return 1;
+		}
 		printf("Recibí una conexión en %d!!\n", cliente);
 		send(cliente, "Hola NetCat!", 13, 0);
 		send(cliente, ":)\n", 4, 0);
 
 		//------------------------------
 
-		char* buffer = malloc(50);
+		char* bufferServidor = malloc(50);
 //
-//		while (1) {
-//			int bytesRecibidos = recv(cliente, buffer, 1000, 0);
-//			if (bytesRecibidos <= 0) {
-//				perror("El chabón se desconectó o bla.");
-//				return 1;
-//			}
+		while (1) {
+			int bytesRecibidos = recv(cliente, bufferServidor, 1000, 0);
+			if (bytesRecibidos <= 0) {
+				perror("El chabón se desconectó o bla.");
+				return 1;
+			}
+
+			bufferServidor[bytesRecibidos] = '\0';
+			printf("Me llegaron %d bytes con %s\n", bytesRecibidos, bufferServidor);
+		}
 //
-//			buffer[bytesRecibidos] = '\0';
-//			printf("Me llegaron %d bytes con %s\n", bytesRecibidos, buffer);
-//		}
-//
-		free(buffer);
+		free(bufferServidor);
 
 		return 0;
 	}
