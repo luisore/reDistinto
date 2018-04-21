@@ -276,6 +276,7 @@ void liberarRecursos() {
 		i++;
 	}
 	free(planificador_setup.CLAVES_INICIALMENTE_BLOQUEADAS);
+	free(server);
 }
 
 /**
