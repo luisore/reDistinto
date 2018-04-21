@@ -163,9 +163,9 @@ bool wait_for_planner_signal(){
 }
 
 
-void destroy_program_instruction(t_program_instruction* instruction){
-	if(instruction->value != NULL){
-		free(instruction->value);
+void destroy_program_instruction(void* instruction){
+	if(((t_program_instruction*)instruction)->value != NULL){
+		free(((t_program_instruction*)instruction)->value);
 	}
 	free(instruction);
 }
