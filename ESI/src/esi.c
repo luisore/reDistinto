@@ -240,7 +240,7 @@ void execute_program(){
 			exit_gracefully(EXIT_FAILURE);
 		} else if (operation_result == OP_SUCCESS){
 			queue_pop(instructions);
-			free(next_instruction);
+			destroy_program_instruction(next_instruction);
 
 			if(!send_status_to_planner(queue_size(instructions) > 0 ? ESI_IDLE : ESI_FINISHED)){
 				queue_destroy_and_destroy_elements(instructions, destroy_program_instruction);
@@ -253,6 +253,8 @@ void execute_program(){
 			}
 		}
 	}
+
+	queue_destroy(instructions);
 
 	//TODO: Cuando termina la ejecución del programa, cierra el socket y termina dando un error del lado del Planificador
 	//      Habría que encontrar una mejor manera para que le planificador se entere de que terminó, y no sea por error.
