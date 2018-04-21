@@ -310,11 +310,21 @@ void sendUnlockResourceOperationResult(bool p_result){
 void exit_gracefully(int retVal){
 	if(instance_name != NULL) free(instance_name);
 	if(coordinator_ip != NULL) free(coordinator_ip);
-	if(initial_blocked_keys != NULL) free(initial_blocked_keys);
+
+	if(initial_blocked_keys != NULL){
+		for(int i = 0; initial_blocked_keys[i] != NULL; i++){
+			free(initial_blocked_keys[i]);
+		}
+		free(initial_blocked_keys);
+	}
 
 	if(coordinator_socket != 0) close(coordinator_socket);
 
 	if(server != NULL) tcpserver_destroy(server);
+
+	if(console_log != NULL){
+		log_destroy(console_log);
+	}
 
 	exit(retVal);
 }
