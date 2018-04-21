@@ -16,7 +16,8 @@ int inicializar() {
 	}
 	log_info(console_log, "Se cargó el setup del PLANIFICADOR");
 
-	log_info(console_log, "");
+	log_info(console_log, "\tNombre de instancia: %s",
+				planificador_setup.NOMBRE_INSTANCIA);
 
 	log_info(console_log, "\tCOORDINADOR: IP: %s, PUERTO: %d",
 			planificador_setup.IP_COORDINADOR,
@@ -45,6 +46,12 @@ int inicializar() {
 				planificador_setup.CLAVES_INICIALMENTE_BLOQUEADAS[i]);
 		i++;
 	}
+
+	log_info(console_log, "\tCantidad maxima de clientes: %d",
+				planificador_setup.CANTIDAD_MAXIMA_CLIENTES);
+
+	log_info(console_log, "\tTamanio de la cola de conexiones: %d",
+				planificador_setup.TAMANIO_COLA_CONEXIONES);
 
 	return 0;
 }
