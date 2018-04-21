@@ -20,14 +20,14 @@ int connect_to_server(char *ip, int port, t_log *logger) {
 
 	int server_socket = socket(AF_INET , SOCK_STREAM , 0);
 	if (server_socket == -1) {
-		log_error(logger, "Could not create socket to connect to server on IP: %s, PORT: %s. Aborting execution!", ip, port);
+		log_error(logger, "Could not create socket to connect to server on IP: %s, PORT: %d. Aborting execution!", ip, port);
 		return -1;
 	}
 
 	//Connect to remote server
 	if (connect(server_socket , (struct sockaddr *)&server , sizeof(struct sockaddr_in)) < 0) {
 		if(server_socket != 0) close(server_socket);
-		log_error(logger, "Could not connect to server on IP: %s, PORT: %s. Aborting execution!", ip, port);
+		log_error(logger, "Could not connect to server on IP: %s, PORT: %d. Aborting execution!", ip, port);
 		return -1;
 	}
 

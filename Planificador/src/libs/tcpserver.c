@@ -134,15 +134,16 @@ void tcpserver_handle_reads(tcp_server_t* server, fd_set* readfds,
 		void (*on_command)(tcp_server_t*)){
 	int i;
 	int client_sd;
+
+	if(server->listen_console && FD_ISSET(STDIN_FILENO, readfds)){
+		on_command(server);
+	}
+
 	for (i = 0; i < server->max_clients; i++){
 		client_sd = server->client_sockets[i];
 
-		if (FD_ISSET( client_sd , readfds)){
-			if(client_sd == STDIN_FILENO){
-				on_command(server);
-			} else {
-				on_read(server, client_sd, i);
-			}
+		if (client_sd > 0 && FD_ISSET(client_sd , readfds)){
+			on_read(server, client_sd, i);
 		}
 	}
 }

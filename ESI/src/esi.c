@@ -31,16 +31,16 @@ void load_config() {
 }
 
 void print_header(){
-	printf("\n\t\e[31;1m=========================================\e[0m\n");
-	printf("\t.:: Bienvenido a ReDistinto ::.");
-	printf("\t.:: Ejecutor de Sentencias Interactivas (ESI) ::.");
-	printf("\n\t\e[31;1m=========================================\e[0m\n\n");
+	printf("\n\t\e[31;1m=================================================\e[0m");
+	printf("\n\t.::           Bienvenido a ReDistinto         ::.");
+	printf("\n\t.:: Ejecutor de Sentencias Interactivas (ESI) ::.");
+	printf("\n\t\e[31;1m=================================================\e[0m\n\n");
 }
 
 void print_goodbye(){
-	printf("\n\t\e[31;1m=========================================\e[0m\n");
-	printf("\t.:: Gracias por utilizar ReDistinto ::.");
-	printf("\n\t\e[31;1m=========================================\e[0m\n\n");
+	printf("\n\t\e[31;1m=================================================\e[0m\n");
+	printf("\t.::      Gracias por utilizar ReDistinto      ::.");
+	printf("\n\t\e[31;1m=================================================\e[0m\n\n");
 }
 
 
