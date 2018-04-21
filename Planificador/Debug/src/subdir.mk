@@ -6,9 +6,6 @@
 C_SRCS += \
 ../src/Planificador.c 
 
-O_SRCS += \
-../src/Planificador.o 
-
 OBJS += \
 ./src/Planificador.o 
 

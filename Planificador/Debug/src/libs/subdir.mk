@@ -9,10 +9,6 @@ C_SRCS += \
 ../src/libs/socketCommons.c \
 ../src/libs/tcpserver.c 
 
-O_SRCS += \
-../src/libs/serialize.o \
-../src/libs/socketCommons.o 
-
 OBJS += \
 ./src/libs/protocols.o \
 ./src/libs/serialize.o \
