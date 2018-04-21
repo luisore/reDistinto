@@ -20,9 +20,9 @@ t_log *esi_log = NULL;
 // Configuration of the instance
 char *instance_name = NULL;
 char *coordinator_ip = NULL;
-char *coordinator_port = NULL;
+int coordinator_port = 0;
 char *planner_ip = NULL;
-char *planner_port = NULL;
+int planner_port = 0;
 
 // Sockets to communicate with the Coordinator and Planner
 int coordinator_socket;
@@ -30,7 +30,7 @@ int planner_socket;
 
 
 typedef struct {
-	enum operation_type_e operation_type;
+	operation_type_e operation_type;
 	char key[40];
 	unsigned int value_size;
 	char *value;

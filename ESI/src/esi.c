@@ -20,9 +20,9 @@ void load_config() {
 
 	instance_name = string_duplicate(config_get_string_value(config, "instanceName"));
 	coordinator_ip = string_duplicate(config_get_string_value(config, "coordinatorIP"));
-	coordinator_port = string_duplicate(config_get_string_value(config, "coordinatorPort"));
+	coordinator_port = config_get_int_value(config, "coordinatorPort");
 	planner_ip = string_duplicate(config_get_string_value(config, "plannerIP"));
-	planner_port = string_duplicate(config_get_string_value(config, "plannerPort"));
+	planner_port = config_get_int_value(config, "plannerPort");
 
 	log_debug(esi_log, "Loaded configuration. Coordinator IP: %s PORT: %d Planner IP: %s PORT: %d",
 			coordinator_ip, coordinator_port, planner_ip, planner_port);
@@ -53,71 +53,51 @@ void create_log(){
 	}
 }
 
-int connect_to_server(char *ip, char *port) {
+bool send_status_to_planner(esi_status_e esi_status){
+	log_info(esi_log, "Sending status response to Planner...");
 
-	struct addrinfo hints;
-	struct addrinfo server_info;
+	t_esi_status_response esi_status_reponse;
+	esi_status_reponse.status = esi_status;
+	strcpy(esi_status_reponse.instance_name, instance_name);
 
-	memset(&hints, 0, sizeof(hints));
-	hints.ai_family = AF_UNSPEC;    // Permite que la maquina se encargue de verificar si usamos IPv4 o IPv6
-	hints.ai_socktype = SOCK_STREAM;  // Indica que usaremos el protocolo TCP
+	void *buffer = serialize_esi_status_response(&esi_status_reponse);
 
-	getaddrinfo(ip, port, &hints, &server_info);  // Carga en server_info los datos de la conexion
+	int result = send(planner_socket, buffer, ESI_STATUS_RESPONSE_SIZE, 0);
+	free(buffer);
 
-	int server_socket = socket(server_info.ai_family, server_info.ai_socktype, server_info.ai_protocol);
-
-	int res = connect(server_socket, server_info.ai_addr, server_info.ai_addrlen);
-
-	if (res < 0) {
-		if(server_socket != 0) close(server_socket);
-		log_error(esi_log, "Could not connect to server on IP: %s, PORT: %s. Aborting execution!", ip, port);
-		exit_gracefully(EXIT_FAILURE);
+	if (result < ESI_STATUS_RESPONSE_SIZE) {
+		log_error(esi_log, "Could not send status response to Planner.");
+		return false;
 	}
 
-
-	log_info(esi_log, "Connected to server IP: %s PORT: %s", ip, port);
-	return server_socket;
+	log_info(esi_log, "Status response sent to planner");
+	return true;
 }
 
-void perform_connection_handshake(int server_socket){
-	t_connection_header connection_header;
-	strcpy(connection_header.instance_name, instance_name);
-	connection_header.instance_type = ESI;
-
-	log_trace(esi_log, "Sending handshake message...");
-	int result = send(server_socket, &connection_header, sizeof(t_connection_header), 0);
-
-	if (result <= 0) {
-		log_error(esi_log, "Could not perform handshake with server. Send message failed");
-		exit_gracefully(EXIT_FAILURE);
-	}
-	log_trace(esi_log, "Handshake message sent. Waiting for response...");
-
-	t_ack_message * ack_message = malloc(sizeof(t_ack_message));
-
-	if (recv(socket, ack_message, sizeof(t_ack_message), 0) <= 0) {
-		log_error(esi_log, "Error receiving handshake response. Aborting execution.");
-		exit_gracefully(EXIT_FAILURE);
-	}
-
-	log_info(esi_log, "Handshake successful with server: %s.", ack_message->instance_name);
-
-	free(ack_message);
-}
 
 void connect_with_coordinator() {
 	log_info(esi_log, "Connecting to Coordinator.");
-	coordinator_socket = connect_to_server(coordinator_ip, coordinator_port);
+	coordinator_socket = connect_to_server(coordinator_ip, coordinator_port, esi_log);
+	if(coordinator_socket <= 0){
+		exit_gracefully(EXIT_FAILURE);
+	}
 
-	perform_connection_handshake(coordinator_socket);
+	if(!perform_connection_handshake(coordinator_socket, instance_name, ESI, esi_log)){
+		exit_gracefully(EXIT_FAILURE);
+	}
 	log_info(esi_log, "Successfully connected to Coordinator.");
 }
 
 void connect_with_planner() {
 	log_info(esi_log, "Connecting to Planner.");
-	planner_socket = connect_to_server(planner_ip, planner_port);
+	planner_socket = connect_to_server(planner_ip, planner_port, esi_log);
+	if(planner_socket <= 0){
+		exit_gracefully(EXIT_FAILURE);
+	}
 
-	perform_connection_handshake(planner_socket);
+	if(!perform_connection_handshake(planner_socket, instance_name, ESI, esi_log)){
+		exit_gracefully(EXIT_FAILURE);
+	}
 	log_info(esi_log, "Successfully connected to Planner.");
 }
 
@@ -127,6 +107,7 @@ t_queue* parse_program_instructions(){
 	t_program_instruction *i1 = malloc(sizeof(t_program_instruction));
 	strcpy(i1->key, "deportista:futbol");
 	i1->operation_type = SET;
+	i1->value = malloc(strlen("Lionel Messi")+1);
 	strcpy(i1->value, "Lionel Messi");
 	i1->value_size = strlen(i1->value) + 1;
 	queue_push(instructions, i1);
@@ -134,6 +115,7 @@ t_queue* parse_program_instructions(){
 	t_program_instruction *i2 = malloc(sizeof(t_program_instruction));
 	strcpy(i2->key, "deportista:basket");
 	i2->operation_type = SET;
+	i2->value = malloc(strlen("Manu Ginobili")+1);
 	strcpy(i2->value, "Manu Ginoboli");
 	i2->value_size = strlen(i2->value) + 1;
 	queue_push(instructions, i2);
@@ -156,38 +138,56 @@ t_queue* parse_program_instructions(){
 }
 
 bool wait_for_planner_signal(){
+	if (!send_status_to_planner(ESI_IDLE)){
+		log_error(esi_log, "Could not signal Planner to send the next instruction!");
+		exit_gracefully(EXIT_FAILURE);
+	}
+
 	log_info(esi_log, "Waiting for Planner to signal next execution...");
 
-	t_planner_request * planner_request = malloc(sizeof(t_planner_request));
+	void *buffer = malloc(PLANNER_REQUEST_SIZE);
 
-	if (recv(socket, planner_request, sizeof(t_planner_request), 0) <= 0) {
+	if (recv(planner_socket, buffer, PLANNER_REQUEST_SIZE, MSG_WAITALL) < PLANNER_REQUEST_SIZE) {
 		log_error(esi_log, "Error receiving planner request. Aborting execution.");
+		free(buffer);
 		return false;
 	}
 
+	t_planner_request *planner_request = deserialize_planner_request(buffer);
+
 	log_info(esi_log, "Received signal from planner: %s.", planner_request->planner_name);
+
+	free(buffer);
+	free(planner_request);
 	return true;
 }
 
 
 void destroy_program_instruction(t_program_instruction* instruction){
-	free(instruction->value);
+	if(instruction->value != NULL){
+		free(instruction->value);
+	}
 	free(instruction);
 }
 
-enum operation_result_e coordinate_operation(t_program_instruction *instruction){
+operation_result_e coordinate_operation(t_program_instruction *instruction){
 	t_esi_operation_request esi_operation_request;
 	strcpy(esi_operation_request.key, instruction->key);
-
 	esi_operation_request.operation_type = instruction->operation_type;
 	esi_operation_request.payload_size = instruction->value_size;
 
 	log_trace(esi_log, "Sending operation request to Coordinator ...");
-	int result = send(coordinator_socket, &esi_operation_request, sizeof(t_esi_operation_request), 0);
-	if (result <= 0) {
+
+	void *req_buffer = malloc(ESI_OPERATION_REQUEST_SIZE);
+	req_buffer = serialize_esi_operation_request(&esi_operation_request);
+
+	int result = send(coordinator_socket, req_buffer, ESI_OPERATION_REQUEST_SIZE, 0);
+	if (result < ESI_OPERATION_REQUEST_SIZE) {
+		free(req_buffer);
 		log_error(esi_log, "Could not send operation request to Coordinator.");
 		return OP_ERROR;
 	}
+	free(req_buffer);
 
 	if(instruction->value_size > 0){
 		log_trace(esi_log, "Sending payload to Coordinator ...");
@@ -198,43 +198,30 @@ enum operation_result_e coordinate_operation(t_program_instruction *instruction)
 		}
 	}
 
-	t_coordinator_operation_response *coordinator_response = malloc(sizeof(t_coordinator_operation_response));
-	enum operation_result_e operation_result;
+	void *res_buffer = malloc(COORD_OPERATION_RESPONSE_SIZE);
 
-	if (recv(socket, coordinator_response, sizeof(t_coordinator_operation_response), 0) <= 0) {
-		free(coordinator_response);
+	operation_result_e operation_result;
+
+	if (recv(coordinator_socket, res_buffer, COORD_OPERATION_RESPONSE_SIZE, MSG_WAITALL) < COORD_OPERATION_RESPONSE_SIZE) {
 		log_error(esi_log, "Error receiving Coordinator response.");
 		operation_result = OP_ERROR;
+
 	} else {
+		t_coordinator_operation_response *coordinator_response = deserialize_coordinator_operation_response(res_buffer);
 		operation_result = coordinator_response->operation_result;
 		log_info(esi_log, "Received Coordinator response: %s.", coordinator_response->operation_result);
+		free(coordinator_response);
 	}
 
-	free(coordinator_response);
+	free(res_buffer);
 	return operation_result;
-}
-
-bool send_response_to_planner(enum esi_status_e esi_status){
-	t_esi_status_response esi_status_reponse;
-	esi_status_reponse.status = esi_status;
-
-	log_info(esi_log, "Sending status response to Planner...");
-
-	int result = send(coordinator_socket, &esi_status_reponse, sizeof(t_esi_status_response), 0);
-	if (result <= 0) {
-		log_error(esi_log, "Could not send status response to Planner.");
-		return false;
-	}
-
-	log_info(esi_log, "Status response sent to planner");
-	return true;
 }
 
 void execute_program(){
 	t_queue* instructions = parse_program_instructions();
 
 	t_program_instruction* next_instruction;
-	enum operation_result_e operation_result;
+	operation_result_e operation_result;
 
 	while(queue_size(instructions) > 0){
 		if(!wait_for_planner_signal()){
@@ -255,12 +242,12 @@ void execute_program(){
 			queue_pop(instructions);
 			free(next_instruction);
 
-			if(!send_response_to_planner(queue_size(instructions) > 0 ? ESI_IDLE : ESI_FINISHED)){
+			if(!send_status_to_planner(queue_size(instructions) > 0 ? ESI_IDLE : ESI_FINISHED)){
 				queue_destroy_and_destroy_elements(instructions, destroy_program_instruction);
 				exit_gracefully(EXIT_FAILURE);
 			}
 		} else { // operation_result == OP_BLOCKED
-			if(!send_response_to_planner(ESI_BLOCKED)){
+			if(!send_status_to_planner(ESI_BLOCKED)){
 				queue_destroy_and_destroy_elements(instructions, destroy_program_instruction);
 				exit_gracefully(EXIT_FAILURE);
 			}
@@ -294,9 +281,7 @@ int main(void) {
 void exit_gracefully(int retVal){
 	if(instance_name != NULL) free(instance_name);
 	if(coordinator_ip != NULL) free(coordinator_ip);
-	if(coordinator_port != NULL) free(coordinator_port);
 	if(planner_ip != NULL) free(planner_ip);
-	if(planner_port != NULL) free(planner_port);
 	if(esi_log != NULL) log_destroy(esi_log);
 
 	if(coordinator_socket != 0) close(coordinator_socket);

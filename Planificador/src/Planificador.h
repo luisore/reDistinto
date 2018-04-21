@@ -23,7 +23,7 @@ enum AlgortimoPlanificacion {
 
 char* instance_name = NULL;
 char *coordinator_ip = NULL;
-char *coordinator_port = NULL;
+int coordinator_port = 0;
 int coordinator_socket = 0;
 int initial_estimation = 0;
 int planification_algorithm = 0;
@@ -59,7 +59,7 @@ void sendLockResourceOperationResult(bool p_result);
 void sendUnlockResourceOperationResult(bool p_result);
 
 // TCP Server handlers
-void on_server_accept(tcp_server_t* server, int client_socket);
+void on_server_accept(tcp_server_t* server, int client_socket, int socket_id);
 void on_server_read(tcp_server_t* server, int client_socket, int socket_id);
 void on_server_command(tcp_server_t* server);
 void before_tpc_server_cycle(tcp_server_t* server);

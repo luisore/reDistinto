@@ -7,12 +7,15 @@
 
 #ifndef _PROTOCOLS_H_
 #define _PROTOCOLS_H_
+#include "serialize.h"
+#include <stdbool.h>
+#include <commons/log.h>
 
-enum instance_type_e { ESI = 0, COORDINATOR = 1, PLANNER = 2, REDIS_INSTANCE = 3 };
+typedef enum { ESI = 0, COORDINATOR = 1, PLANNER = 2, REDIS_INSTANCE = 3 } instance_type_e;
 
-enum operation_type_e { GET = 0, SET = 1, STORE = 2 };
+typedef enum  { GET = 0, SET = 1, STORE = 2 } operation_type_e;
 
-enum esi_status_e { ESI_IDLE = 0, ESI_BLOCKED = 1, ESI_FINISHED = 2 };
+typedef enum { ESI_IDLE = 0, ESI_BLOCKED = 1, ESI_FINISHED = 2 } esi_status_e;
 
 /*
  * Result of the operation performed by the Coordinator. It can be:
@@ -20,7 +23,7 @@ enum esi_status_e { ESI_IDLE = 0, ESI_BLOCKED = 1, ESI_FINISHED = 2 };
  * OP_ERROR   = There was an error with the requested key.
  * OP_BLOCKED = The requested key is blocked by another ESI.
  */
-enum operation_result_e { OP_SUCCESS = 0, OP_ERROR = 1, OP_BLOCKED = 2 };
+typedef enum { OP_SUCCESS = 0, OP_ERROR = 1, OP_BLOCKED = 2 } operation_result_e;
 
 /*
  * Header used in every connection between processes.
@@ -28,28 +31,38 @@ enum operation_result_e { OP_SUCCESS = 0, OP_ERROR = 1, OP_BLOCKED = 2 };
  */
 typedef struct {
 	char instance_name[30];
-	enum instance_type_e instance_type;
+	instance_type_e instance_type;
 } t_connection_header;
+
+static const int CONNECTION_HEADER_SIZE = 31 + 4;
 
 typedef struct {
 	char instance_name[30];
 } t_ack_message;
 
+static const int ACK_MESSAGE_SIZE = 31;
+
+static const int ESI_INSTRUCTION_REQUEST_SIZE = 31 + 4;
+
 /*
  * ESI Operation to send to the Coordinator
  */
 typedef struct {
-	enum operation_type_e operation_type;
+	operation_type_e operation_type;
 	char key[40];
 	unsigned int payload_size;
 } t_esi_operation_request;
+
+static const int ESI_OPERATION_REQUEST_SIZE = 4 + 41 + 4;
 
 /*
  * Coordinator response with the operation result
  */
 typedef struct {
-	enum operation_result_e operation_result;
+	operation_result_e operation_result;
 } t_coordinator_operation_response;
+
+static const int COORD_OPERATION_RESPONSE_SIZE = 4;
 
 
 /*
@@ -59,12 +72,45 @@ typedef struct {
 	char planner_name[30];
 } t_planner_request;
 
+static const int PLANNER_REQUEST_SIZE = 31;
+
 /*
  * ESI response with the current status
  */
 typedef struct {
-	enum esi_status_e status;
+	char instance_name[30];
+	esi_status_e status;
 } t_esi_status_response;
+
+static const int ESI_STATUS_RESPONSE_SIZE = 31 + 4;
+
+// Connection Messages
+int connect_to_server(char *ip, int port, t_log *logger);
+bool perform_connection_handshake(int server_socket, char* instance_name,
+	instance_type_e instance_type, t_log *logger);
+bool send_connection_header(int server_socket, char* instance_name,
+	instance_type_e instance_type, t_log *logger);
+bool wait_for_acknowledge(int server_socket, t_log *logger);
+
+
+// Serialization
+void* serialize_connection_header(t_connection_header *header);
+t_connection_header* deserialize_connection_header(void* buffer);
+
+void* serialize_ack_message(t_ack_message *ack_message);
+t_ack_message* deserialize_ack_message(void* buffer);
+
+void* serialize_esi_operation_request(t_esi_operation_request *request);
+t_esi_operation_request* deserialize_esi_operation_request(void* buffer);
+
+void* serialize_coordinator_operation_response(t_coordinator_operation_response *response);
+t_coordinator_operation_response* deserialize_coordinator_operation_response(void* buffer);
+
+void* serialize_planner_request(t_planner_request *request);
+t_planner_request* deserialize_planner_request(void *buffer);
+
+void* serialize_esi_status_response(t_esi_status_response *response);
+t_esi_status_response* deserialize_esi_status_response(void *buffer);
 
 
 #endif /* _PROTOCOLS_H_ */
