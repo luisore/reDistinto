@@ -5,6 +5,7 @@
 #include <commons/config.h>
 #include <commons/log.h>
 #include <commons/collections/list.h>
+#include <commons/collections/queue.h>
 #include "libs/socketCommons.h"
 #include "libs/serialize.h"
 #include "libs/tcpserver.h"
@@ -16,6 +17,12 @@
 #define PLANIFICADOR_SRC_PLANIFICADOR_H_
 
 t_log *console_log;
+
+struct ESI_STRUCT{
+	int id; // Por si necesitamos llevar un identificacion interna
+	int client_socket;
+	int socket_id;
+};
 
 enum AlgortimoPlanificacion {
 	SJF_CD = 1, SJF_SD = 2, HRRN = 3
@@ -36,6 +43,12 @@ struct {
 } planificador_setup;
 
 tcp_server_t* server;
+
+t_queue* listaEsiListos;
+t_queue* listaEsiBloqueados;
+t_queue* listaEsiTerminados;
+
+struct ESI_STRUCT* esiEjecutando;
 
 /*FUNCIONES*/
 void exit_gracefully(int retVal);
