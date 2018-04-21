@@ -253,8 +253,14 @@ void execute_program(){
 			}
 		}
 	}
+
+	//TODO: Cuando termina la ejecución del programa, cierra el socket y termina dando un error del lado del Planificador
+	//      Habría que encontrar una mejor manera para que le planificador se entere de que terminó, y no sea por error.
+	//      Puede ser con un mensaje nuevo (que el ESI espere a que el planificador reciba el FINISHED y le mande un ACK)
+	//      O con un nuevo estado del ESI.
 }
 
+// TODO: Recibir path del archivo con el programa.
 int main(void) {
 	print_header();
 
