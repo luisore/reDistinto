@@ -21,22 +21,26 @@ enum AlgortimoPlanificacion {
 	SJF_CD = 1, SJF_SD = 2, HRRN = 3
 };
 
-char* instance_name = NULL;
-char *coordinator_ip = NULL;
-int coordinator_port = 0;
 int coordinator_socket = 0;
-int initial_estimation = 0;
-int planification_algorithm = 0;
-int port_to_listen = 0;
-int max_clients = 30;
-int connection_queue_size = 10;
-char** initial_blocked_keys = NULL;
+
+struct {
+	char* NOMBRE_INSTANCIA;
+	char* IP_COORDINADOR;
+	int PUERTO_COORDINADOR;
+	enum AlgortimoPlanificacion ALGORITMO_PLANIFICACION;
+	int ESTIMACION_INICIAL;
+	int PUERTO_ESCUCHA_CONEXIONES;
+	char** CLAVES_INICIALMENTE_BLOQUEADAS;
+	int CANTIDAD_MAXIMA_CLIENTES;
+	char** TAMANIO_COLA_CONEXIONES;
+} planificador_setup;
 
 tcp_server_t* server;
 
 /*FUNCIONES*/
 void exit_gracefully(int retVal);
-void load_configuration();
+int load_configuration(char* archivoConfiguracion);
+int inicializar();
 
 // Funciones de la aplicacion del algoritmo
 void applyPlaningAlgorithm();
