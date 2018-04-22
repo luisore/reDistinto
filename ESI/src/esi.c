@@ -4,10 +4,8 @@
 #include <sys/socket.h> // Para crear sockets, enviar, recibir, etc
 #include <netdb.h> // Para getaddrinfo
 #include <unistd.h> // Para close
-#include <commons/collections/queue.h>
 #include "libs/protocols.h"
-
-void exit_gracefully(int retVal);
+#include "libs/textfile.h"
 
 void load_config() {
 	log_trace(esi_log, "Loading configuration from file: %s", ESI_CFG_FILE);
@@ -101,38 +99,95 @@ void connect_with_planner() {
 	log_info(esi_log, "Successfully connected to Planner.");
 }
 
-t_queue* parse_program_instructions(){
+void free_instruction_split(char **parts){
+	for(int i = 0; parts[i] != NULL; i++){
+		free(parts[i]);
+	}
+	free(parts);
+}
+
+t_program_instruction* parse_instruction(char *line){
+	line[strlen(line)-1] = '\0';
+
+	char** parts = string_n_split(line, 3, " ");
+	operation_type_e operation_type;
+
+	// parse operation type
+	if(strcmp("GET", parts[0]) == 0){
+		operation_type = GET;
+	} else if (strcmp("SET", parts[0]) == 0){
+		operation_type = SET;
+	} else if (strcmp("STORE", parts[0]) == 0){
+		operation_type = STORE;
+	} else {
+		log_error(esi_log, "Invalid operation type: %s found. Program cannot be executed. Culprit line: %s", parts[0], line);
+		printf("\t\e[31;1m ERROR:\e[0m Operación inválida: %s en línea: %s.", parts[0], line);
+		free_instruction_split(parts);
+		return NULL;
+	}
+
+	// validate key
+	if(parts[1] == NULL || strlen(parts[1]) == 0 || strlen(parts[1]) > MAX_KEY_LENGTH){
+		log_error(esi_log, "Invalid key: %s found. Program cannot be executed. Culprit line: %s", parts[1], line);
+		printf("\t\e[31;1m ERROR:\e[0m Clave inválida: %s en línea: %s.", parts[1], line);
+		free_instruction_split(parts);
+		return NULL;
+	}
+
+	// validate value
+	if(operation_type == SET){
+		if(parts[2] == NULL || strlen(parts[2]) == 0){
+			log_error(esi_log, "Instruction SET without value found. Program cannot be executed. Culprit line: %s", line);
+			printf("\t\e[31;1m ERROR:\e[0m Operación SET sin valor en línea: %s.", line);
+			free_instruction_split(parts);
+			return NULL;
+		}
+	}
+
+	t_program_instruction *instruction = malloc(sizeof(t_program_instruction));
+	instruction->operation_type = operation_type;
+	strcpy(instruction->key, parts[1]);
+	if(operation_type == SET){
+		instruction->value = string_duplicate(parts[2]);
+		instruction->value_size = strlen(instruction->value)+1;
+	} else {
+		instruction->value = NULL;
+		instruction->value_size = 0;
+	}
+
+	free_instruction_split(parts);
+	return instruction;
+
+}
+
+t_queue* parse_program_instructions(char *program_filename){
+	t_textfile* program_file = textfile_open(program_filename, "r");
+	if(!program_file->open){
+		printf("\t\e[31;1m ERROR:\e[0m No se pudo leer el archivo: %s.", program_filename);
+		log_error(esi_log, "Could not read program file: %s.", program_filename);
+		textfile_destroy(program_file);
+		exit_gracefully(EXIT_FAILURE);
+	}
+
 	t_queue* instructions = queue_create();
+	bool parse_errors = false;
 
-	t_program_instruction *i1 = malloc(sizeof(t_program_instruction));
-	strcpy(i1->key, "deportista:futbol");
-	i1->operation_type = SET;
-	i1->value = malloc(strlen("Lionel Messi")+1);
-	strcpy(i1->value, "Lionel Messi");
-	i1->value_size = strlen(i1->value) + 1;
-	queue_push(instructions, i1);
+	void execute_by_line(char* line){
+		t_program_instruction *inst = parse_instruction(line);
+		if(inst != NULL){
+			queue_push(instructions, inst);
+		} else {
+			parse_errors = true;
+		}
+	}
 
-	t_program_instruction *i2 = malloc(sizeof(t_program_instruction));
-	strcpy(i2->key, "deportista:basket");
-	i2->operation_type = SET;
-	i2->value = malloc(strlen("Manu Ginobili")+1);
-	strcpy(i2->value, "Manu Ginoboli");
-	i2->value_size = strlen(i2->value) + 1;
-	queue_push(instructions, i2);
+	textfile_execute_by_line(program_file, PROGRAM_LINE_MAX_LENGTH, execute_by_line);
 
-	t_program_instruction *i3 = malloc(sizeof(t_program_instruction));
-	strcpy(i3->key, "deportista:futbol");
-	i3->operation_type = STORE;
-	i3->value = NULL;
-	i3->value_size = 0;
-	queue_push(instructions, i3);
-
-	t_program_instruction *i4 = malloc(sizeof(t_program_instruction));
-	strcpy(i4->key, "deportista:basket");
-	i4->operation_type = STORE;
-	i4->value = NULL;
-	i4->value_size = 0;
-	queue_push(instructions, i4);
+	if(parse_errors){
+		printf("\t\e[31;1m ERROR:\e[0m El archivo %s tiene errores y no puede ser ejecutado.", program_filename);
+		log_error(esi_log, "Program file has errors. Aborting execution");
+		exit_gracefully(EXIT_FAILURE);
+	}
 
 	return instructions;
 }
@@ -217,8 +272,27 @@ operation_result_e coordinate_operation(t_program_instruction *instruction){
 	return operation_result;
 }
 
-void execute_program(){
-	t_queue* instructions = parse_program_instructions();
+void log_instruction(t_program_instruction *instr){
+	char* operationType;
+	switch(instr->operation_type){
+		case GET:
+			operationType = "GET";
+			break;
+		case SET:
+			operationType = "SET";
+			break;
+		case STORE:
+			operationType = "STORE";
+			break;
+	}
+
+	char *value = instr->value != NULL ? instr->value : "";
+
+	log_info(esi_log, "Executing instruction: %s %s %s", operationType, instr->key, value);
+}
+
+void execute_program(char *program_filename){
+	t_queue* instructions = parse_program_instructions(program_filename);
 
 	t_program_instruction* next_instruction;
 	operation_result_e operation_result;
@@ -230,6 +304,7 @@ void execute_program(){
 		}
 
 		next_instruction = (t_program_instruction* ) queue_peek(instructions);
+		log_instruction(next_instruction);
 
 		operation_result = OP_SUCCESS; //coordinate_operation(next_instruction);
 
@@ -263,8 +338,17 @@ void execute_program(){
 }
 
 // TODO: Recibir path del archivo con el programa.
-int main(void) {
+int main(int argc, char **argv) {
+	char* program_filename;
+
 	print_header();
+
+	if(argc != 2){
+		printf("\t\e[31;1m ERROR:\e[0m Debe proveer como único parámetro el path del archivo con el programa a correr.");
+		exit_gracefully(EXIT_SUCCESS);
+	}
+
+	program_filename = argv[1];
 
 	create_log();
 
@@ -274,11 +358,9 @@ int main(void) {
 
 	connect_with_planner();
 
-	execute_program();
+	execute_program(program_filename);
 
 	log_info(esi_log, "Finished execution successfully.");
-
-	print_goodbye();
 
 	exit_gracefully(EXIT_SUCCESS);
 
@@ -294,6 +376,8 @@ void exit_gracefully(int retVal){
 
 	if(coordinator_socket != 0) close(coordinator_socket);
 	if(planner_socket != 0) close(planner_socket);
+
+	print_goodbye();
 
 	exit(retVal);
 }
