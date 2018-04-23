@@ -1,3 +1,6 @@
+#ifndef PLANIFICADOR_SRC_PLANIFICADOR_H_
+#define PLANIFICADOR_SRC_PLANIFICADOR_H_
+
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
@@ -13,14 +16,10 @@
 #include <netdb.h> // Para getaddrinfo
 #include <unistd.h> // Para close
 #include "libs/protocols.h"
+#include "configuracion/configuracion.h"
 
 /*MACROS*/
 #define PLANNER_CFG_FILE "planificador.config"
-
-#ifndef PLANIFICADOR_SRC_PLANIFICADOR_H_
-#define PLANIFICADOR_SRC_PLANIFICADOR_H_
-
-t_log *console_log;
 
 struct ESI_STRUCT{
 	int id; // Por si necesitamos llevar un identificacion interna
@@ -28,23 +27,9 @@ struct ESI_STRUCT{
 	int socket_id;
 };
 
-enum AlgortimoPlanificacion {
-	SJF_CD = 1, SJF_SD = 2, HRRN = 3
-};
+t_log *console_log;
 
 int coordinator_socket = 0;
-
-struct {
-	char* NOMBRE_INSTANCIA;
-	char* IP_COORDINADOR;
-	int PUERTO_COORDINADOR;
-	enum AlgortimoPlanificacion ALGORITMO_PLANIFICACION;
-	int ESTIMACION_INICIAL;
-	int PUERTO_ESCUCHA_CONEXIONES;
-	char** CLAVES_INICIALMENTE_BLOQUEADAS;
-	int CANTIDAD_MAXIMA_CLIENTES;
-	char** TAMANIO_COLA_CONEXIONES;
-} planificador_setup;
 
 tcp_server_t* server;
 
@@ -56,9 +41,8 @@ struct ESI_STRUCT* esiEjecutando;
 
 /*FUNCIONES*/
 void exit_gracefully(int retVal);
-int load_configuration(char* archivoConfiguracion);
-int inicializar();
-void liberarRecursos(int error);
+void liberarRecursos(int tipoSalida);
+void create_log();
 
 // Funciones de la aplicacion del algoritmo
 void applyPlaningAlgorithm();

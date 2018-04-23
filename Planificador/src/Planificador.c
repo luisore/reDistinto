@@ -4,86 +4,11 @@ int inicializar() {
 
 	create_log();
 
-	if (load_configuration(PLANNER_CFG_FILE) < 0) {
+	if (cargarConfiguracion(console_log, PLANNER_CFG_FILE) < 0) {
 		log_error(console_log, "No se encontró el archivo de configuración");
 		return -1;
 	}
 
-	log_info(console_log, "Se cargó el setup del PLANIFICADOR");
-
-	log_info(console_log, "\tNombre de instancia: %s",
-			planificador_setup.NOMBRE_INSTANCIA);
-
-	log_info(console_log, "\tCOORDINADOR: IP: %s, PUERTO: %d",
-			planificador_setup.IP_COORDINADOR,
-			planificador_setup.PUERTO_COORDINADOR);
-
-	switch (planificador_setup.ALGORITMO_PLANIFICACION) {
-	case SJF_CD:
-		log_info(console_log, "\tAlgoritmo de planificacion: SJF_CD");
-		break;
-	case SJF_SD:
-		log_info(console_log, "\tAlgoritmo de planificacion: SJF_SD");
-		break;
-	case HRRN:
-		log_info(console_log, "\tAlgoritmo de planificacion: HRRN");
-		break;
-	}
-
-	log_info(console_log, "\tEstimacion inicial: %d",
-			planificador_setup.ESTIMACION_INICIAL);
-	log_info(console_log, "\tPuerto conecciones: %d",
-			planificador_setup.PUERTO_ESCUCHA_CONEXIONES);
-
-	int i = 0;
-	while (planificador_setup.CLAVES_INICIALMENTE_BLOQUEADAS[i] != NULL) {
-		log_info(console_log, "\tClave inicial bloqueada nro %d: %s", i + 1,
-				planificador_setup.CLAVES_INICIALMENTE_BLOQUEADAS[i]);
-		i++;
-	}
-
-	log_info(console_log, "\tCantidad maxima de clientes: %d",
-			planificador_setup.CANTIDAD_MAXIMA_CLIENTES);
-
-	log_info(console_log, "\tTamanio de la cola de conexiones: %d",
-			planificador_setup.TAMANIO_COLA_CONEXIONES);
-
-	return 0;
-}
-
-int load_configuration(char* archivoConfiguracion) {
-
-	if (archivoConfiguracion == NULL) {
-		return -1;
-	}
-
-	t_config *config = config_create(archivoConfiguracion);
-
-	log_info(console_log, " .:: Cargando settings ::.");
-
-	if (config != NULL) {
-		planificador_setup.NOMBRE_INSTANCIA = config_get_string_value(config,
-				"NOMBRE_INSTANCIA");
-		planificador_setup.IP_COORDINADOR = config_get_string_value(config,
-				"IP_COORDINADOR");
-		planificador_setup.PUERTO_COORDINADOR = config_get_int_value(config,
-				"PUERTO_COORDINADOR");
-		planificador_setup.ESTIMACION_INICIAL = config_get_int_value(config,
-				"ESTIMACION_INICIAL");
-		planificador_setup.ALGORITMO_PLANIFICACION = config_get_int_value(
-				config, "ALGORITMO_PLANIFICACION");
-		planificador_setup.PUERTO_ESCUCHA_CONEXIONES = config_get_int_value(
-				config, "PUERTO_ESCUCHA_CONEXIONES");
-		planificador_setup.CLAVES_INICIALMENTE_BLOQUEADAS =
-				config_get_array_value(config,
-						"CLAVES_INICIALMENTE_BLOQUEADAS");
-		planificador_setup.CANTIDAD_MAXIMA_CLIENTES = config_get_int_value(
-				config, "CANTIDAD_MAXIMA_CLIENTES");
-		planificador_setup.TAMANIO_COLA_CONEXIONES = config_get_int_value(
-				config, "TAMANIO_COLA_CONEXIONES");
-	}
-
-	config_destroy(config);
 	return 0;
 }
 
@@ -243,13 +168,12 @@ void on_server_command(tcp_server_t* server) {
 }
 
 int main(void) {
+
 	print_header();
-	int error = 0;
 
-	error = inicializar();
-
-	if (error < 0){
+	if (inicializar() < 0){
 		liberarRecursos(EXIT_FAILURE);
+		return -1;
 	}
 
 	//connect_with_coordinator();
@@ -263,7 +187,7 @@ int main(void) {
 	return 0;
 }
 
-void liberarRecursos(int error) {
+void liberarRecursos(int tipoSalida) {
 	log_destroy(console_log);
 
 	int i = 0;
@@ -273,7 +197,7 @@ void liberarRecursos(int error) {
 	}
 	free(planificador_setup.CLAVES_INICIALMENTE_BLOQUEADAS);
 
-	exit_gracefully(error);
+	exit_gracefully(tipoSalida);
 }
 
 /**
