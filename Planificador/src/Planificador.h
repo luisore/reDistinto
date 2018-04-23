@@ -1,14 +1,18 @@
 #include <stdio.h>
 #include <string.h>
-#include <sys/socket.h>
+#include <stdbool.h>
 #include <signal.h>
 #include <commons/config.h>
 #include <commons/log.h>
 #include <commons/collections/list.h>
 #include <commons/collections/queue.h>
-#include "libs/socketCommons.h"
+#include <commons/string.h>
 #include "libs/serialize.h"
 #include "libs/tcpserver.h"
+#include <sys/socket.h> // Para crear sockets, enviar, recibir, etc
+#include <netdb.h> // Para getaddrinfo
+#include <unistd.h> // Para close
+#include "libs/protocols.h"
 
 /*MACROS*/
 #define PLANNER_CFG_FILE "planificador.config"

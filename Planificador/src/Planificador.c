@@ -1,12 +1,5 @@
 #include "Planificador.h"
 
-#include <stdbool.h>
-#include <commons/string.h>
-#include <sys/socket.h> // Para crear sockets, enviar, recibir, etc
-#include <netdb.h> // Para getaddrinfo
-#include <unistd.h> // Para close
-#include "libs/protocols.h"
-
 int inicializar() {
 
 	create_log();

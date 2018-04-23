@@ -5,19 +5,16 @@
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
 ../src/libs/serialize.c \
-../src/libs/socketCommons.c  \
 ../src/libs/tcpserver.c \
 ./src/libs/protocols.c  
 
 OBJS += \
 ./src/libs/serialize.o \
-./src/libs/socketCommons.o \
 ./src/libs/tcpserver.o \
 ./src/libs/protocols.o 
 
 C_DEPS += \
 ./src/libs/serialize.d \
-./src/libs/socketCommons.d \
 ./src/libs/tcpserver.d  \
 ./src/libs/protocols.d
 

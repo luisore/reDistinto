@@ -6,8 +6,19 @@
  */
 
 #include <stdbool.h>
-#include<arpa/inet.h>
-#include<commons/log.h>
+#include <stdio.h>
+#include <string.h>
+#include <arpa/inet.h>
+#include <commons/log.h>
+#include <commons/string.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <unistd.h> //close
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/time.h> //FD_SET, FD_ISSET, FD_ZERO macros
+#include <netinet/in.h>
+#include <signal.h>
 
 #ifndef TCPSERVER_H_
 #define TCPSERVER_H_
