@@ -24,11 +24,12 @@ struct CONFIGURACION {
 	int PUERTO_ESCUCHA_CONEXIONES;
 	char** CLAVES_INICIALMENTE_BLOQUEADAS;
 	int CANTIDAD_MAXIMA_CLIENTES;
-	char** TAMANIO_COLA_CONEXIONES;
+	int TAMANIO_COLA_CONEXIONES;
 };
 
 struct CONFIGURACION planificador_setup;
 
 int cargarConfiguracion(t_log *console_log, char* archivoConfiguracion);
+void mostrarConfiguracionPorConsola(t_log * console_log);
 
 #endif /* CONFIGURACION_CONFIGURACION_H_ */
