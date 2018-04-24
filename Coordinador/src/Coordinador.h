@@ -23,8 +23,11 @@ t_log * coordinador_log;
 t_config *config;
 
 tcp_server_t* server;
-
-
+char* instance_name = NULL;
+char *planificador_ip = NULL;
+int planificador_port = 0;
+int planificador_socket = 0;
+char** initial_blocked_keys = NULL;
 /*ESTRUCTURAS*/
 
 
@@ -51,7 +54,7 @@ void print_header();
 void create_log();
 void loadConfig();
 void log_inicial_consola();
-
+void exit_gracefully(int retVal);
 void print_goodbye();
 void exit_program(int);
 

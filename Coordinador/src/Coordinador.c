@@ -25,6 +25,28 @@ void exit_program(int entero) {
 	exit(entero);
 }
 
+void exit_gracefully(int retVal){
+	if(instance_name != NULL) free(instance_name);
+	if(planificador_ip != NULL) free(planificador_ip);
+
+	if(initial_blocked_keys != NULL){
+		for(int i = 0; initial_blocked_keys[i] != NULL; i++){
+			free(initial_blocked_keys[i]);
+		}
+		free(initial_blocked_keys);
+	}
+
+	if(planificador_socket != 0) close(planificador_socket);
+
+	if(server != NULL) tcpserver_destroy(server);
+
+	if(coordinador_log != NULL){
+		log_destroy(coordinador_log);
+	}
+
+	exit(retVal);
+}
+
 void create_log() {
 
 	coordinador_log = log_create("coodrinador.log", "ReDistinto-Coordinador", true,
@@ -108,8 +130,91 @@ void create_tcp_server(){
 	}
 }
 
+void before_tpc_server_cycle(tcp_server_t* server){
+	// ACÁ DEBERÍA IR LA LÓGICA DE DISTRIBUCION
+}
 
+void on_server_accept(tcp_server_t* server, int client_socket, int socket_id){
+	void *header_buffer = malloc(CONNECTION_HEADER_SIZE);
 
+	int res = recv(client_socket, header_buffer, CONNECTION_HEADER_SIZE, MSG_WAITALL);
+	if (res <= 0) {
+		log_error(coordinador_log, "Error receiving handshake request from TCP Client!");
+		tcpserver_remove_client(server, socket_id);
+		free(header_buffer);
+		return;
+	}
+
+	t_connection_header *connection_header = deserialize_connection_header(header_buffer);
+	log_info(coordinador_log, "Received handshake from TCP Client: %s", connection_header->instance_name);
+	free(header_buffer);
+
+	t_ack_message ack_message;
+	strcpy(ack_message.instance_name, instance_name);
+	void *ack_buffer = serialize_ack_message(&ack_message);
+
+	if( send(client_socket, ack_buffer, ACK_MESSAGE_SIZE, 0) != ACK_MESSAGE_SIZE)
+	{
+		log_error(coordinador_log, "Could not send handshake acknowledge to TCP client.");
+		tcpserver_remove_client(server, socket_id);
+	} else {
+		log_info(coordinador_log, "Successfully connected to TCP Client: %s", connection_header->instance_name);
+	}
+
+	free(connection_header);
+	free(ack_buffer);
+}
+
+void on_server_read(tcp_server_t* server, int client_socket, int socket_id){
+	void *res_buffer = malloc(ESI_STATUS_RESPONSE_SIZE);//LA MISMA ESTRUCTURA PERO CORRESPONDIENTE A LA INSTANCIA
+
+	if (recv(client_socket, res_buffer, ESI_STATUS_RESPONSE_SIZE, MSG_WAITALL) < ESI_STATUS_RESPONSE_SIZE) {//LA MISMA ESTRUCTURA PERO CORRESPONDIENTE A LA INSTANCIA
+		log_error(coordinador_log, "Error receiving status from ESI!");
+		free(res_buffer);
+		tcpserver_remove_client(server, socket_id);
+		return;
+	}
+
+	t_esi_status_response *esi_status_response = deserialize_esi_status_response(res_buffer);//LA MISMA ESTRUCTURA PERO CORRESPONDIENTE A LA INSTANCIA
+	log_info(coordinador_log, "Received Status from ESI: %s. Status: %d", esi_status_response->instance_name, esi_status_response->status);
+//Aca iria la logica que tiene el coordinador con las instancias
+//	switch(esi_status_response->status){
+//		case ESI_IDLE:
+//			// Por ahora, mando la siguiente operacion
+//			log_info(coordinador_log, "ESI: %s is IDLE. Signal next operation", esi_status_response->instance_name);
+//			send_execute_next_to_esi(client_socket, socket_id);
+//			break;
+//		case ESI_BLOCKED:
+//			// Por ahora, no hago nada...
+//			log_info(coordinador_log, "ESI: %s is BLOCKED.", esi_status_response->instance_name);
+//			break;
+//		case ESI_FINISHED:
+//			log_info(coordinador_log, "ESI: %s Finished execution", esi_status_response->instance_name);
+//			tcpserver_remove_client(server, socket_id);
+//			break;
+//	}
+
+	free(res_buffer);
+	free(esi_status_response);
+}
+
+void on_server_command(tcp_server_t* server){
+	// TODO: FALTA HACER!
+
+}
+
+void connect_with_planificador() {
+	log_info(coordinador_log, "Connecting to Coordinator.");
+	planificador_socket = connect_to_server(planificador_ip, planificador_port, coordinador_log);
+	if(planificador_socket <= 0){
+		exit_gracefully(EXIT_FAILURE);
+	}
+
+	if(!perform_connection_handshake(planificador_socket, instance_name, PLANNER, coordinador_log)){
+		exit_gracefully(EXIT_FAILURE);
+	}
+	log_info(coordinador_log, "Successfully connected to Coordinator.");
+}
 
 int main(void) {
 
@@ -120,7 +225,7 @@ int main(void) {
 
 
 	create_tcp_server();
-	//tcpserver_run(server, before_tpc_server_cycle, on_server_accept, on_server_read, on_server_command);
+	tcpserver_run(server, before_tpc_server_cycle, on_server_accept, on_server_read, on_server_command);
 
 
 
