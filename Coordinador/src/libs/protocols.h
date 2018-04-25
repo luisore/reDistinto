@@ -85,32 +85,14 @@ typedef struct {
 static const int ESI_STATUS_RESPONSE_SIZE = 31 + 4;
 
 // Connection Messages
-int connect_to_server(char *ip, int port, t_log *logger);
-bool perform_connection_handshake(int server_socket, char* instance_name,
-	instance_type_e instance_type, t_log *logger);
-bool send_connection_header(int server_socket, char* instance_name,
-	instance_type_e instance_type, t_log *logger);
-bool wait_for_acknowledge(int server_socket, t_log *logger);
-
 
 // Serialization
-void* serialize_connection_header(t_connection_header *header);
 t_connection_header* deserialize_connection_header(void* buffer);
 
 void* serialize_ack_message(t_ack_message *ack_message);
 t_ack_message* deserialize_ack_message(void* buffer);
 
-void* serialize_esi_operation_request(t_esi_operation_request *request);
-t_esi_operation_request* deserialize_esi_operation_request(void* buffer);
-
-void* serialize_coordinator_operation_response(t_coordinator_operation_response *response);
-t_coordinator_operation_response* deserialize_coordinator_operation_response(void* buffer);
-
-void* serialize_planner_request(t_planner_request *request);
-t_planner_request* deserialize_planner_request(void *buffer);
-
 void* serialize_esi_status_response(t_esi_status_response *response);
 t_esi_status_response* deserialize_esi_status_response(void *buffer);
-
 
 #endif /* _PROTOCOLS_H_ */

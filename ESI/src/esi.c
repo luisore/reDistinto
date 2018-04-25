@@ -342,25 +342,27 @@ int main(int argc, char **argv) {
 	char* program_filename;
 
 	print_header();
-
-	if(argc != 2){
-		printf("\t\e[31;1m ERROR:\e[0m Debe proveer como único parámetro el path del archivo con el programa a correr.");
-		exit_gracefully(EXIT_SUCCESS);
-	}
-
-	program_filename = argv[1];
+//
+//	if(argc != 2){
+//		printf("\t\e[31;1m ERROR:\e[0m Debe proveer como único parámetro el path del archivo con el programa a correr.");
+//		exit_gracefully(EXIT_SUCCESS);
+//	}
+//
+//	program_filename = argv[1];
 
 	create_log();
 
 	load_config();
 
-	//connect_with_coordinator();
+	connect_with_coordinator();
 
-	connect_with_planner();
+//	connect_with_planner();
+//
+//	execute_program(program_filename);
+//
+//	log_info(esi_log, "Finished execution successfully.");
 
-	execute_program(program_filename);
-
-	log_info(esi_log, "Finished execution successfully.");
+	for(;;);
 
 	exit_gracefully(EXIT_SUCCESS);
 

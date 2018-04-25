@@ -54,7 +54,6 @@ void print_header();
 void create_log();
 void loadConfig();
 void log_inicial_consola();
-void exit_gracefully(int retVal);
 void print_goodbye();
 void exit_program(int);
 

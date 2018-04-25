@@ -25,28 +25,6 @@ void exit_program(int entero) {
 	exit(entero);
 }
 
-void exit_gracefully(int retVal){
-	if(instance_name != NULL) free(instance_name);
-	if(planificador_ip != NULL) free(planificador_ip);
-
-	if(initial_blocked_keys != NULL){
-		for(int i = 0; initial_blocked_keys[i] != NULL; i++){
-			free(initial_blocked_keys[i]);
-		}
-		free(initial_blocked_keys);
-	}
-
-	if(planificador_socket != 0) close(planificador_socket);
-
-	if(server != NULL) tcpserver_destroy(server);
-
-	if(coordinador_log != NULL){
-		log_destroy(coordinador_log);
-	}
-
-	exit(retVal);
-}
-
 void create_log() {
 
 	coordinador_log = log_create("coodrinador.log", "ReDistinto-Coordinador", true,
@@ -150,7 +128,7 @@ void on_server_accept(tcp_server_t* server, int client_socket, int socket_id){
 	free(header_buffer);
 
 	t_ack_message ack_message;
-	strcpy(ack_message.instance_name, instance_name);
+	strcpy(ack_message.instance_name, coordinador_setup.NOMBRE_INSTANCIA);
 	void *ack_buffer = serialize_ack_message(&ack_message);
 
 	if( send(client_socket, ack_buffer, ACK_MESSAGE_SIZE, 0) != ACK_MESSAGE_SIZE)
@@ -166,36 +144,9 @@ void on_server_accept(tcp_server_t* server, int client_socket, int socket_id){
 }
 
 void on_server_read(tcp_server_t* server, int client_socket, int socket_id){
-	void *res_buffer = malloc(ESI_STATUS_RESPONSE_SIZE);//LA MISMA ESTRUCTURA PERO CORRESPONDIENTE A LA INSTANCIA
 
-	if (recv(client_socket, res_buffer, ESI_STATUS_RESPONSE_SIZE, MSG_WAITALL) < ESI_STATUS_RESPONSE_SIZE) {//LA MISMA ESTRUCTURA PERO CORRESPONDIENTE A LA INSTANCIA
-		log_error(coordinador_log, "Error receiving status from ESI!");
-		free(res_buffer);
-		tcpserver_remove_client(server, socket_id);
-		return;
-	}
-
-	t_esi_status_response *esi_status_response = deserialize_esi_status_response(res_buffer);//LA MISMA ESTRUCTURA PERO CORRESPONDIENTE A LA INSTANCIA
-	log_info(coordinador_log, "Received Status from ESI: %s. Status: %d", esi_status_response->instance_name, esi_status_response->status);
-//Aca iria la logica que tiene el coordinador con las instancias
-//	switch(esi_status_response->status){
-//		case ESI_IDLE:
-//			// Por ahora, mando la siguiente operacion
-//			log_info(coordinador_log, "ESI: %s is IDLE. Signal next operation", esi_status_response->instance_name);
-//			send_execute_next_to_esi(client_socket, socket_id);
-//			break;
-//		case ESI_BLOCKED:
-//			// Por ahora, no hago nada...
-//			log_info(coordinador_log, "ESI: %s is BLOCKED.", esi_status_response->instance_name);
-//			break;
-//		case ESI_FINISHED:
-//			log_info(coordinador_log, "ESI: %s Finished execution", esi_status_response->instance_name);
-//			tcpserver_remove_client(server, socket_id);
-//			break;
-//	}
-
-	free(res_buffer);
-	free(esi_status_response);
+//	Aca el coordinador tiene que switchear entre los diferentes posibles clientes (planificador, esi, instancia) utilizando la info del header para identificarlos
+//	una vez que identifica tiene que haber un deseralize por cada uno respetando el protocolo (header | response) para procesar cada response.
 }
 
 void on_server_command(tcp_server_t* server){
@@ -203,18 +154,6 @@ void on_server_command(tcp_server_t* server){
 
 }
 
-void connect_with_planificador() {
-	log_info(coordinador_log, "Connecting to Coordinator.");
-	planificador_socket = connect_to_server(planificador_ip, planificador_port, coordinador_log);
-	if(planificador_socket <= 0){
-		exit_gracefully(EXIT_FAILURE);
-	}
-
-	if(!perform_connection_handshake(planificador_socket, instance_name, PLANNER, coordinador_log)){
-		exit_gracefully(EXIT_FAILURE);
-	}
-	log_info(coordinador_log, "Successfully connected to Coordinator.");
-}
 
 int main(void) {
 
