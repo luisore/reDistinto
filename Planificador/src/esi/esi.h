@@ -11,7 +11,8 @@
 enum ESI_STATUS {
 	LISTO,
 	EJECUTANDO,
-	BLOQUEADO
+	BLOQUEADO,
+	TERMINADO
 };
 
 typedef struct {
@@ -22,24 +23,28 @@ typedef struct {
 } ESI_STRUCT;
 
 
-t_queue* listaEsiListos;
-t_queue* listaEsiBloqueados;
-t_queue* listaEsiTerminados;
+t_list* listaEsiListos;
+t_list* listaEsiBloqueados;
+t_list* listaEsiTerminados;
 
 ESI_STRUCT* esiEjecutando;
 
 void inicializarListasEsi();
 ESI_STRUCT * nuevoESI(int p_id, int p_client_socket, int p_socket_id);
-void liberarEsi(ESI_STRUCT * esi);
+ESI_STRUCT * clonarEsi(ESI_STRUCT *esi);
 
 //Funciones para la consola
 void listarEsi(t_log * console_log);
 
+void agregarNuevoEsi(ESI_STRUCT * esi);
+void terminarEsiActual();
+
 //Funciones para la administracion de los ESI
-void lockESI();
-void unlockESI();
-void finishESI();
+void bloquearEsi();
+void desbloquearEsi();
+bool sonIguales(ESI_STRUCT * esi1, ESI_STRUCT * esi2);
 
 void liberarRecursosEsi();
+void liberarEsi(ESI_STRUCT * esi);
 
 #endif /* SRC_ESI_ESI_H_ */

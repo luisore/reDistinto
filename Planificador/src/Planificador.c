@@ -151,6 +151,9 @@ void on_server_accept(tcp_server_t* server, int client_socket, int socket_id) {
 	} else {
 		log_info(console_log, "Successfully connected to TCP Client: %s",
 				connection_header->instance_name);
+
+		ESI_STRUCT * esi = nuevoESI(0,client_socket, socket_id);
+		agregarNuevoEsi(esi);
 	}
 
 	free(ack_buffer);
