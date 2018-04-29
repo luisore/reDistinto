@@ -14,9 +14,7 @@ void listarEsi(t_log * console_log) {
 	printf("*******************************************\n");
 	printf("ESI\t| ESTADO\n");
 	printf("-------------------------------------------\n");
-	printf("1\t| Pendiente\n");
-	printf("2\t| Pendiente\n");
-	printf("3\t| Pendiente\n");
+
 	printf("-------------------------------------------\n");
 	printf("\n");
 }

@@ -240,6 +240,8 @@ void liberarRecursos(int tipoSalida) {
 	pthread_mutex_destroy(&mutexConsola);
 	pthread_mutex_destroy(&mutexPrincipal);
 
+	liberarRecursosEsi();
+
 	exit_gracefully(tipoSalida);
 }
 
