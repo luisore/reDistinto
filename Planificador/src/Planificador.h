@@ -7,38 +7,24 @@
 #include <signal.h>
 #include <commons/config.h>
 #include <commons/log.h>
-#include <commons/collections/list.h>
-#include <commons/collections/queue.h>
-#include <commons/string.h>
 #include "libs/serialize.h"
 #include "libs/tcpserver.h"
-#include <sys/socket.h> // Para crear sockets, enviar, recibir, etc
-#include <netdb.h> // Para getaddrinfo
-#include <unistd.h> // Para close
+#include <pthread.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <unistd.h>
 #include "libs/protocols.h"
 #include "configuracion/configuracion.h"
-#include <pthread.h>
+#include "esi/esi.h"
 
 /*MACROS*/
 #define PLANNER_CFG_FILE "planificador.config"
-
-struct ESI_STRUCT{
-	int id; // Por si necesitamos llevar un identificacion interna
-	int client_socket;
-	int socket_id;
-};
 
 t_log *console_log;
 
 int coordinator_socket = 0;
 
 tcp_server_t* server;
-
-t_queue* listaEsiListos;
-t_queue* listaEsiBloqueados;
-t_queue* listaEsiTerminados;
-
-struct ESI_STRUCT* esiEjecutando;
 
 pthread_t hiloConsola;
 pthread_t hiloPrincipal;
@@ -65,11 +51,6 @@ void continueExecutingESI();
 bool isResourceAvailable();
 void lockResource();
 void unlockResource();
-
-//Funciones para la administracion de los ESI
-void lockESI();
-void unlockESI();
-void finishESI();
 
 //Comunicacion con el coordinador
 void sendLockResourceOperationResult(bool p_result);

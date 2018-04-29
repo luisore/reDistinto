@@ -47,7 +47,13 @@ void escucharConsola() {
 
 	while (true) {
 		getline(&entrada, &size, stdin);
-		printf("%s \n", entrada);
+		// printf("%s \n", entrada);
+
+		/* show no lo pide el enunciado. lo agrego a modo de prueba*/
+		if (string_contains(entrada, "show")) {
+			listarEsi(console_log);
+			continue;
+		}
 
 		if (string_contains(entrada, "exit")) {
 			printf("¡ADIOS!\n");
@@ -288,30 +294,6 @@ void lockResource() {
 // TODO: falta pasar el recurso por parametro
 void unlockResource() {
 
-}
-
-/**
- * Encola un ESI en la lista de bloqueados
- */
-// TODO: falta pasar el ESI por parametro
-void lockESI() {
-	//TODO: implementacion pendiente
-}
-
-/**
- * Desencola un ESI de la lista de bloqueados
- */
-// TODO: falta pasar el ESI por parametro
-void unlockESI() {
-	//TODO: implementacion pendiente
-}
-
-/**
- * Finaliza un ESI
- */
-// TODO: falta pasar el ESI por parametro
-void finishESI() {
-	//TODO: implementacion pendiente
 }
 
 /**
