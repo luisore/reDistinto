@@ -17,6 +17,7 @@
 #include <unistd.h> // Para close
 #include "libs/protocols.h"
 #include "configuracion/configuracion.h"
+#include <pthread.h>
 
 /*MACROS*/
 #define PLANNER_CFG_FILE "planificador.config"
@@ -39,10 +40,20 @@ t_queue* listaEsiTerminados;
 
 struct ESI_STRUCT* esiEjecutando;
 
+pthread_t hiloConsola;
+pthread_t hiloPrincipal;
+pthread_mutex_t mutexConsola;
+pthread_mutex_t mutexPrincipal;
+
 /*FUNCIONES*/
 void exit_gracefully(int retVal);
 void liberarRecursos(int tipoSalida);
 void create_log();
+int inicializar();
+void print_header();
+
+void escucharConsola();
+void iniciarPlanificador();
 
 // Funciones de la aplicacion del algoritmo
 void applyPlaningAlgorithm();

@@ -1,5 +1,32 @@
 #include "Planificador.h"
 
+int main(void) {
+
+	print_header();
+
+	if (inicializar() < 0) {
+		liberarRecursos(EXIT_FAILURE);
+		return -1;
+	}
+
+	pthread_mutex_init(&mutexConsola, NULL);
+	pthread_create(&hiloConsola, NULL, (void*) escucharConsola, NULL);
+	pthread_join(hiloConsola, NULL);
+
+	pthread_mutex_init(&mutexPrincipal, NULL);
+	pthread_create(&hiloPrincipal, NULL, (void*) iniciarPlanificador, NULL);
+	pthread_join(hiloPrincipal, NULL);
+
+	liberarRecursos(EXIT_SUCCESS);
+	return 0;
+}
+
+void print_header() {
+	printf("\n\t\e[31;1m=========================================\e[0m\n");
+	printf("\t.:: Bievenido a ReDistinto ::.");
+	printf("\n\t\e[31;1m=========================================\e[0m\n\n");
+}
+
 int inicializar() {
 
 	create_log();
@@ -12,10 +39,37 @@ int inicializar() {
 	return 0;
 }
 
-void print_header() {
-	printf("\n\t\e[31;1m=========================================\e[0m\n");
-	printf("\t.:: Bievenido a ReDistinto ::.");
-	printf("\n\t\e[31;1m=========================================\e[0m\n\n");
+void escucharConsola() {
+	size_t size = 20;
+	char *entrada = malloc(20);
+
+	log_error(console_log, "Se inicio hilo con la consola");
+
+	while (true) {
+		getline(&entrada, &size, stdin);
+		printf("%s \n", entrada);
+
+		if (string_contains(entrada, "exit")) {
+			printf("¡ADIOS!\n");
+			log_error(console_log, "Fin de consola");
+
+			free(entrada);
+
+			pthread_exit(0);
+			return;
+		}
+	}
+}
+
+void iniciarPlanificador() {
+	//connect_with_coordinator();
+
+	//create_tcp_server();
+
+	//	tcpserver_run(server, before_tpc_server_cycle, on_server_accept,
+	//			on_server_read, on_server_command);
+
+	pthread_exit(0);
 }
 
 void create_log() {
@@ -167,26 +221,6 @@ void on_server_command(tcp_server_t* server) {
 	}
 }
 
-int main(void) {
-
-	print_header();
-
-	if (inicializar() < 0){
-		liberarRecursos(EXIT_FAILURE);
-		return -1;
-	}
-
-	//connect_with_coordinator();
-
-	//create_tcp_server();
-
-//	tcpserver_run(server, before_tpc_server_cycle, on_server_accept,
-//			on_server_read, on_server_command);
-
-	liberarRecursos(EXIT_SUCCESS);
-	return 0;
-}
-
 void liberarRecursos(int tipoSalida) {
 	log_destroy(console_log);
 
@@ -196,6 +230,9 @@ void liberarRecursos(int tipoSalida) {
 		i++;
 	}
 	free(planificador_setup.CLAVES_INICIALMENTE_BLOQUEADAS);
+
+	pthread_mutex_destroy(&mutexConsola);
+	pthread_mutex_destroy(&mutexPrincipal);
 
 	exit_gracefully(tipoSalida);
 }
