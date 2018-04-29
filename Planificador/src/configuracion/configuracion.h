@@ -15,7 +15,7 @@ enum AlgortimoPlanificacion {
 	SJF_CD = 1, SJF_SD = 2, HRRN = 3
 };
 
-struct CONFIGURACION {
+typedef struct {
 	char* NOMBRE_INSTANCIA;
 	char* IP_COORDINADOR;
 	int PUERTO_COORDINADOR;
@@ -25,9 +25,9 @@ struct CONFIGURACION {
 	char** CLAVES_INICIALMENTE_BLOQUEADAS;
 	int CANTIDAD_MAXIMA_CLIENTES;
 	int TAMANIO_COLA_CONEXIONES;
-};
+} CONFIGURACION;
 
-struct CONFIGURACION planificador_setup;
+CONFIGURACION planificador_setup;
 
 int cargarConfiguracion(t_log *console_log, char* archivoConfiguracion);
 void mostrarConfiguracionPorConsola(t_log * console_log);

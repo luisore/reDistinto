@@ -16,6 +16,7 @@
 #include "libs/protocols.h"
 #include "configuracion/configuracion.h"
 #include "esi/esi.h"
+#include "consola/consola.h"
 
 /*MACROS*/
 #define PLANNER_CFG_FILE "planificador.config"

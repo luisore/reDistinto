@@ -14,22 +14,23 @@ enum ESI_STATUS {
 	BLOQUEADO
 };
 
-struct ESI_STRUCT{
+typedef struct {
 	int id; // Por si necesitamos llevar un identificacion interna
 	int client_socket;
 	int socket_id;
 	enum ESI_STATUS estado;
-};
+} ESI_STRUCT;
 
 
 t_queue* listaEsiListos;
 t_queue* listaEsiBloqueados;
 t_queue* listaEsiTerminados;
 
-struct ESI_STRUCT* esiEjecutando;
+ESI_STRUCT* esiEjecutando;
 
-
-struct ESI_STRUCT * nuevoESI(int p_id, int p_client_socket, int p_socket_id);
+void inicializarListasEsi();
+ESI_STRUCT * nuevoESI(int p_id, int p_client_socket, int p_socket_id);
+void liberarEsi(ESI_STRUCT * esi);
 
 //Funciones para la consola
 void listarEsi(t_log * console_log);

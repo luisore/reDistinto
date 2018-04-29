@@ -1,7 +1,13 @@
 #include "esi.h"
 
-struct ESI_STRUCT * nuevoESI(int p_id, int p_client_socket, int p_socket_id) {
-	struct ESI_STRUCT * nuevoEsi = malloc(sizeof(struct ESI_STRUCT));
+void inicializarListasEsi(){
+	listaEsiListos = queue_create();
+	listaEsiBloqueados = queue_create();
+	listaEsiTerminados = queue_create();
+}
+
+ESI_STRUCT * nuevoESI(int p_id, int p_client_socket, int p_socket_id) {
+	ESI_STRUCT * nuevoEsi = malloc(sizeof(ESI_STRUCT));
 	nuevoEsi->id = p_id;
 	nuevoEsi->client_socket = p_client_socket;
 	nuevoEsi->socket_id = p_socket_id;
@@ -43,5 +49,12 @@ void finishESI() {
 	//TODO: implementacion pendiente
 }
 
+void liberarEsi(ESI_STRUCT * esi) {
+	free(esi);
+}
+
 void liberarRecursosEsi() {
+	queue_destroy_and_destroy_elements(listaEsiListos, (void*)liberarEsi);
+	queue_destroy_and_destroy_elements(listaEsiBloqueados, (void*)liberarEsi);
+	queue_destroy_and_destroy_elements(listaEsiTerminados, (void*)liberarEsi);
 }

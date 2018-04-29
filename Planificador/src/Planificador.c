@@ -9,6 +9,8 @@ int main(void) {
 		return -1;
 	}
 
+	inicializarListasEsi();
+
 	pthread_mutex_init(&mutexConsola, NULL);
 	pthread_create(&hiloConsola, NULL, (void*) escucharConsola, NULL);
 	pthread_join(hiloConsola, NULL);
@@ -40,27 +42,10 @@ int inicializar() {
 }
 
 void escucharConsola() {
-	size_t size = 20;
-	char *entrada = malloc(20);
-
 	log_error(console_log, "Se inicio hilo con la consola");
 
 	while (true) {
-		getline(&entrada, &size, stdin);
-		// printf("%s \n", entrada);
-
-		/* show no lo pide el enunciado. lo agrego a modo de prueba*/
-		if (string_contains(entrada, "show")) {
-			listarEsi(console_log);
-			continue;
-		}
-
-		if (string_contains(entrada, "exit")) {
-			printf("¡ADIOS!\n");
-			log_error(console_log, "Fin de consola");
-
-			free(entrada);
-
+		if (consolaLeerComando(console_log) == TERMINAR_CONSOLA) {
 			pthread_exit(0);
 			return;
 		}
