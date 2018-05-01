@@ -6,6 +6,9 @@
 C_SRCS += \
 ../src/Coordinador.c 
 
+O_SRCS += \
+../src/Coordinador.o 
+
 OBJS += \
 ./src/Coordinador.o 
 
