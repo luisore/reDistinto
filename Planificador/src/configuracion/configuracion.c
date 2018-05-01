@@ -1,11 +1,26 @@
-/*
- * configuracion.c
- *
- *  Created on: 23 abr. 2018
- *      Author: leobriozzo
- */
-
 #include "configuracion.h"
+#include "../esi/esi.h"
+
+void bloquearClavesIniciales(){
+	int i = 0;
+
+	while (planificador_setup.CLAVES_INICIALMENTE_BLOQUEADAS[i] != NULL) {
+		bloquearRecurso(planificador_setup.CLAVES_INICIALMENTE_BLOQUEADAS[i]);
+		i++;
+	}
+}
+
+int cargarConfiguracion(t_log *console_log, char* archivoConfiguracion) {
+
+	if (leerArchivoConfiguracion(console_log, archivoConfiguracion) > 0)
+		return -1;
+
+	mostrarConfiguracionPorConsola(console_log);
+
+	bloquearClavesIniciales();
+
+	return 0;
+}
 
 int leerArchivoConfiguracion(t_log *console_log, char* archivoConfiguracion) {
 
@@ -42,16 +57,6 @@ int leerArchivoConfiguracion(t_log *console_log, char* archivoConfiguracion) {
 	}
 
 	config_destroy(config);
-
-	return 0;
-}
-
-int cargarConfiguracion(t_log *console_log, char* archivoConfiguracion) {
-
-	if (leerArchivoConfiguracion(console_log, archivoConfiguracion) > 0)
-		return -1;
-
-	mostrarConfiguracionPorConsola(console_log);
 
 	return 0;
 }

@@ -3,6 +3,16 @@
 
 #define CONSOLA_COMANDO_MOSTRAR "show\n"
 #define CONSOLA_COMANDO_SALIR "exit\n"
+#define CONSOLA_COMANDO_VER_RECURSOS "listar --all\n"
+#define CONSOLA_COMANDO_PAUSAR "pause\n"
+#define CONSOLA_COMANDO_CONTINUAR "continue\n"
+#define CONSOLA_COMANDO_BLOQUEAR "bloquear"
+#define CONSOLA_COMANDO_DESBLOQUEAR "desbloquear"
+#define CONSOLA_COMANDO_LISTAR "listar"
+#define CONSOLA_COMANDO_KILL "kill"
+#define CONSOLA_COMANDO_STATUS "status"
+#define CONSOLA_COMANDO_DEADLOCK "deadlock"
+
 
 #define CONTINUAR_EJECUTANDO_CONSOLA 0
 #define TERMINAR_CONSOLA 1

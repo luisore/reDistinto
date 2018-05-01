@@ -4,6 +4,7 @@ void inicializarListasEsi(){
 	listaEsiListos = list_create();
 	listaEsiBloqueados = list_create();
 	listaEsiTerminados = list_create();
+	listaRecursos = list_create();
 }
 
 ESI_STRUCT * nuevoESI(int p_id, int p_client_socket, int p_socket_id) {
@@ -11,16 +12,12 @@ ESI_STRUCT * nuevoESI(int p_id, int p_client_socket, int p_socket_id) {
 	nuevoEsi->id = p_id;
 	nuevoEsi->client_socket = p_client_socket;
 	nuevoEsi->socket_id = p_socket_id;
-	nuevoEsi->estado = LISTO;
+	nuevoEsi->estado = ESI_LISTO;
 	return nuevoEsi;
 }
 
 ESI_STRUCT * clonarEsi(ESI_STRUCT *esi) {
-	ESI_STRUCT * nuevoEsi = malloc(sizeof(ESI_STRUCT));
-	nuevoEsi->id = esi->id;
-	nuevoEsi->client_socket = esi->socket_id;
-	nuevoEsi->socket_id = esi->socket_id;
-	nuevoEsi->estado = esi->estado;
+	ESI_STRUCT * nuevoEsi = esi;
 	return nuevoEsi;
 }
 
@@ -30,9 +27,9 @@ void agregarNuevoEsi(ESI_STRUCT * esi){
 }
 
 void terminarEsiActual(){
-	esiEjecutando->estado = TERMINADO;
+	esiEjecutando->estado = ESI_TERMINADO;
+	// TODO: no me gusta esto. Cambiar. Investigar punteros
 	list_add(listaEsiTerminados, clonarEsi(esiEjecutando));
-	free(esiEjecutando);
 	esiEjecutando = NULL;
 }
 
@@ -52,9 +49,9 @@ void listarEsi(t_log * console_log) {
  * Encola un ESI en la lista de bloqueados
  */
 void bloquearEsi() {
-	esiEjecutando->estado = BLOQUEADO;
+	esiEjecutando->estado = ESI_BLOQUEADO;
 	list_add(listaEsiBloqueados, clonarEsi(esiEjecutando));
-	free(esiEjecutando);
+
 	esiEjecutando = NULL;
 }
 
@@ -83,12 +80,86 @@ bool sonIguales(ESI_STRUCT * esi1, ESI_STRUCT * esi2){
 			esi1->client_socket == esi2->client_socket;
 }
 
+int bloquearRecurso(char * p_recurso){
+	int i = 0, tamanioLista = 0, encontrado = 0;
+
+	if(listaRecursos == NULL)
+		listaRecursos = list_create();
+
+	tamanioLista = list_size(listaRecursos);
+
+	for(i = 0; i < tamanioLista; i++){
+		RECURSO* r = list_get(listaRecursos, i);
+
+		if(string_equals_ignore_case(r->nombre_recurso, p_recurso))
+		{
+			r->estado = RECURSO_BLOQUEADO;
+			r->esi_bloqueante = esiEjecutando;
+
+			encontrado = 1;
+			break;
+		}
+	}
+
+	if(encontrado == 0)
+	{
+		RECURSO * r = malloc(sizeof(RECURSO));
+		r->esi_bloqueante = esiEjecutando;
+		r->nombre_recurso = p_recurso;
+		r->estado = RECURSO_BLOQUEADO;
+
+		list_add(listaRecursos, r);
+
+		return 0;
+	}
+	return -1;
+}
+
+int liberarRecurso(char * p_recurso){
+	int i = 0, tamanioLista = list_size(listaRecursos);
+
+	for(i = 0; i < tamanioLista; i++){
+		RECURSO* r = list_get(listaRecursos, i);
+
+		if(string_equals_ignore_case(r->nombre_recurso, p_recurso))
+		{
+			r->estado = RECURSO_LIBRE;
+			r->esi_bloqueante = NULL;
+
+			return 0;
+		}
+	}
+
+	return -1;
+}
+
+RECURSO_ESTADO estadoRecurso(char * p_recurso){
+	int i = 0, tamanioLista = list_size(listaRecursos);
+
+	for(i = 0; i < tamanioLista; i++) {
+		RECURSO* r = list_get(listaRecursos, i);
+
+		if(string_equals_ignore_case(r->nombre_recurso, p_recurso))
+		{
+			return r->estado;
+		}
+	}
+
+	return RECURSO_UNK;
+}
+
 void liberarEsi(ESI_STRUCT * esi) {
 	free(esi);
+}
+
+void liberarTablaClaves(RECURSO * p_recurso){
+	free(p_recurso->nombre_recurso);
+	free(p_recurso);
 }
 
 void liberarRecursosEsi() {
 	list_destroy_and_destroy_elements(listaEsiListos, (void*)liberarEsi);
 	list_destroy_and_destroy_elements(listaEsiBloqueados, (void*)liberarEsi);
 	list_destroy_and_destroy_elements(listaEsiTerminados, (void*)liberarEsi);
+	list_destroy_and_destroy_elements(listaRecursos, (void*)liberarTablaClaves);
 }

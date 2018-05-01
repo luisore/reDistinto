@@ -4,19 +4,20 @@ int main(void) {
 
 	print_header();
 
+	inicializarListasEsi();
+
 	if (inicializar() < 0) {
 		liberarRecursos(EXIT_FAILURE);
 		return -1;
 	}
 
-	inicializarListasEsi();
-
 	pthread_mutex_init(&mutexConsola, NULL);
 	pthread_create(&hiloConsola, NULL, (void*) escucharConsola, NULL);
-	pthread_join(hiloConsola, NULL);
 
 	pthread_mutex_init(&mutexPrincipal, NULL);
 	pthread_create(&hiloPrincipal, NULL, (void*) iniciarPlanificador, NULL);
+
+	pthread_join(hiloConsola, NULL);
 	pthread_join(hiloPrincipal, NULL);
 
 	liberarRecursos(EXIT_SUCCESS);
@@ -53,6 +54,7 @@ void escucharConsola() {
 }
 
 void iniciarPlanificador() {
+
 	//connect_with_coordinator();
 
 	//create_tcp_server();

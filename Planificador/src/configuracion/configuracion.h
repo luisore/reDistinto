@@ -1,10 +1,3 @@
-/*
- * configuracion.h
- *
- *  Created on: 23 abr. 2018
- *      Author: leobriozzo
- */
-
 #ifndef CONFIGURACION_CONFIGURACION_H_
 #define CONFIGURACION_CONFIGURACION_H_
 
