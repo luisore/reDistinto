@@ -4,13 +4,13 @@
 
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
-../src/ESI.c 
+../src/esi.c 
 
 OBJS += \
-./src/ESI.o 
+./src/esi.o 
 
 C_DEPS += \
-./src/ESI.d 
+./src/esi.d 
 
 
 # Each subdirectory must supply rules for building sources it contributes
