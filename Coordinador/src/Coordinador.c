@@ -147,6 +147,36 @@ void on_server_read(tcp_server_t* server, int client_socket, int socket_id){
 
 //	Aca el coordinador tiene que switchear entre los diferentes posibles clientes (planificador, esi, instancia) utilizando la info del header para identificarlos
 //	una vez que identifica tiene que haber un deseralize por cada uno respetando el protocolo (header | response) para procesar cada response.
+
+
+	// 1. Verifica que lo que haya llegado este completo y de acuerdo al protocolo.
+	void *package_buffer = malloc(CONNECTION_PACKAGE_SIZE);
+
+	if (recv(client_socket, package_buffer, CONNECTION_PACKAGE_SIZE, MSG_WAITALL) < CONNECTION_PACKAGE_SIZE) {
+		log_error(coordinador_log, "Error receiving status from ESI!");
+		free(package_buffer);
+		tcpserver_remove_client(server, socket_id);
+		return;
+	}
+
+	t_response_process * abstract_response = deserialize_abstract_response(package_buffer);
+
+	switch(abstract_response->instance_type){
+		case ESI:
+			log_info(coordinador_log, "EL proceso que envia informacion fue un ESI");
+			break;
+		case PLANNER:
+			log_info(coordinador_log, "EL proceso que envia informacion fue el PLANIFICADOR");
+			break;
+		case REDIS_INSTANCE:
+			log_info(coordinador_log, "EL proceso que envia informacion fue una INSTANCIA");
+			break;
+	}
+
+	free(package_buffer);
+	free(abstract_response);
+
+
 }
 
 void on_server_command(tcp_server_t* server){

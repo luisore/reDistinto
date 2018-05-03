@@ -36,6 +36,20 @@ typedef struct {
 
 static const int CONNECTION_HEADER_SIZE = 31 + 4;
 
+
+// Cada proceso debe castear el response segun sea necesario  y segun cada situacion.
+
+typedef struct {
+	instance_type_e instance_type;
+	char response[60];
+
+} t_response_process;
+
+static const int CONNECTION_PACKAGE_SIZE = 4 + 61;
+
+
+
+
 typedef struct {
 	char instance_name[30];
 } t_ack_message;
@@ -88,6 +102,9 @@ static const int ESI_STATUS_RESPONSE_SIZE = 31 + 4;
 
 // Serialization
 t_connection_header* deserialize_connection_header(void* buffer);
+
+t_response_process * deserialize_abstract_response (void *buffer);
+
 
 void* serialize_ack_message(t_ack_message *ack_message);
 t_ack_message* deserialize_ack_message(void* buffer);

@@ -36,6 +36,32 @@ t_esi_status_response* deserialize_esi_status_response(void *buffer){
 	return response;
 }
 
+t_response_process * deserialize_abstract_response (void *buffer){
+
+	t_response_process * abstract_response = malloc (sizeof(t_response_process));
+	int lastIndex = 0;
+
+	deserialize_data(&(abstract_response->response), 61, buffer, &lastIndex);
+	deserialize_data(&(abstract_response->instance_type), 4, buffer, &lastIndex);
+
+	return abstract_response;
+}
+
+
+//
+//typedef struct {
+//	instance_type_e instance_type;
+//	char response[60];
+//
+//} t_response_process;
+//
+//static const int CONNECTION_PACKAGE_SIZE = 4 + 60;
+
+
+
+
+
+
 
 void* serialize_ack_message(t_ack_message *ack_message){
 	void* buffer = malloc(ACK_MESSAGE_SIZE);

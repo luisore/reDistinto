@@ -4,7 +4,7 @@
 #include <signal.h>
 #include <commons/config.h>
 #include <commons/log.h>
-#include <commons/dictionary.h>
+#include <commons/collections/dictionary.h>
 #include "libs/protocols.h"
 #include "libs/serialize.h"
 
@@ -33,10 +33,16 @@ struct {
 	int INTERVALO_DUMP_SEGs;
 } instancia_setup;
 
+struct {
+
+
+};
+
+
 int storage;
 int tamanio_entradas;
 
-
+t_dictionary * tabla_entradas;
 
 
 /*FUNCIONES GENERALES*/
@@ -45,6 +51,10 @@ void print_header();
 void create_log();
 void loadConfig();
 void log_inicial_consola();
+
+void init_structs();
+void load_dump_files();
+
 void connect_with_coordinator();
 
 void print_goodbye();

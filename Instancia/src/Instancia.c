@@ -20,6 +20,8 @@ void exit_program(int entero) {
 	if (coordinator_socket != 0)
 		close(coordinator_socket);
 
+	dictionary_destroy(tabla_entradas);
+
 	liberar_memoria();
 
 	printf("\n\t\e[31;1m FINALIZA INSTANCIA \e[0m\n");
@@ -93,6 +95,18 @@ void log_inicial_consola() {
 
 }
 
+void init_structs(){
+
+	tabla_entradas = dictionary_create();
+
+}
+
+void load_dump_files (){
+
+	// TODO - 1. Se debe verificar que exista algun archivo y cargarlo a la tabla de entradas
+
+}
+
 void connect_with_coordinator() {
 
 
@@ -117,7 +131,8 @@ int main(void) {
 	loadConfig();
 	log_inicial_consola();
 
-	//loadDumpFiles
+	init_structs();
+	load_dump_files();
 
 	connect_with_coordinator();
 
