@@ -24,6 +24,7 @@
 t_log *console_log;
 
 int coordinator_socket = 0;
+int esi_id = 0;
 
 tcp_server_t* server;
 
@@ -38,6 +39,7 @@ void liberarRecursos(int tipoSalida);
 void create_log();
 int inicializar();
 void print_header();
+int generarId();
 
 void escucharConsola();
 void iniciarPlanificador();

@@ -10,18 +10,6 @@ void bloquearClavesIniciales(){
 	}
 }
 
-int cargarConfiguracion(t_log *console_log, char* archivoConfiguracion) {
-
-	if (leerArchivoConfiguracion(console_log, archivoConfiguracion) > 0)
-		return -1;
-
-	mostrarConfiguracionPorConsola(console_log);
-
-	bloquearClavesIniciales();
-
-	return 0;
-}
-
 int leerArchivoConfiguracion(t_log *console_log, char* archivoConfiguracion) {
 
 	t_config *config = NULL;
@@ -57,6 +45,18 @@ int leerArchivoConfiguracion(t_log *console_log, char* archivoConfiguracion) {
 	}
 
 	config_destroy(config);
+
+	return 0;
+}
+
+int cargarConfiguracion(t_log *console_log, char* archivoConfiguracion) {
+
+	if (leerArchivoConfiguracion(console_log, archivoConfiguracion) > 0)
+		return -1;
+
+	mostrarConfiguracionPorConsola(console_log);
+
+	bloquearClavesIniciales();
 
 	return 0;
 }

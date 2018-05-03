@@ -144,7 +144,8 @@ void on_server_accept(tcp_server_t* server, int client_socket, int socket_id) {
 			connection_header->instance_name);
 
 	if (connection_header->instance_type == ESI) {
-		ESI_STRUCT * esi = nuevoESI(0, client_socket, socket_id);
+		int id_esi = generarId();
+		ESI_STRUCT * esi = nuevoESI(id_esi, client_socket, socket_id);
 		agregarNuevoEsi(esi);
 	}
 
@@ -242,6 +243,10 @@ void liberarRecursos(int tipoSalida) {
 	liberarRecursosEsi();
 
 	exit_gracefully(tipoSalida);
+}
+
+int generarId() {
+	return esi_id + 1;
 }
 
 /**
