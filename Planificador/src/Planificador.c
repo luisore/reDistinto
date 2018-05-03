@@ -121,6 +121,9 @@ void before_tpc_server_cycle(tcp_server_t* server) {
 	// ACÁ DEBERÍA IR LA LÓGICA DE SCHEDULING
 }
 
+/**
+ * Funcion que se ejecuta cuando un externo se conecta a nuestro servidor
+ */
 void on_server_accept(tcp_server_t* server, int client_socket, int socket_id) {
 	void *header_buffer = malloc(CONNECTION_HEADER_SIZE);
 
@@ -136,13 +139,22 @@ void on_server_accept(tcp_server_t* server, int client_socket, int socket_id) {
 
 	t_connection_header *connection_header = deserialize_connection_header(
 			header_buffer);
+
 	log_info(console_log, "Received handshake from TCP Client: %s",
 			connection_header->instance_name);
+
+	if (connection_header->instance_type == ESI) {
+		ESI_STRUCT * esi = nuevoESI(0, client_socket, socket_id);
+		agregarNuevoEsi(esi);
+	}
+
 	free(header_buffer);
 	free(connection_header);
 
 	t_ack_message ack_message;
+
 	strcpy(ack_message.instance_name, planificador_setup.NOMBRE_INSTANCIA);
+
 	void *ack_buffer = serialize_ack_message(&ack_message);
 
 	if (send(client_socket, ack_buffer, ACK_MESSAGE_SIZE, 0)
@@ -153,9 +165,6 @@ void on_server_accept(tcp_server_t* server, int client_socket, int socket_id) {
 	} else {
 		log_info(console_log, "Successfully connected to TCP Client: %s",
 				connection_header->instance_name);
-
-		ESI_STRUCT * esi = nuevoESI(0,client_socket, socket_id);
-		agregarNuevoEsi(esi);
 	}
 
 	free(ack_buffer);
