@@ -16,45 +16,46 @@ int consolaLeerComando(t_log * console_log) {
 
 	getline(&entrada, &size, stdin);
 
-	/* show no lo pide el enunciado. lo agrego a modo de prueba*/
-	if (string_equals_ignore_case(entrada, CONSOLA_COMANDO_MOSTRAR)) {
+	switch (string_to_lower(entrada)) {
+	case CONSOLA_COMANDO_MOSTRAR:
+		/* show no lo pide el enunciado. lo agrego a modo de prueba*/
 		listarEsi(console_log);
-
-	} else if (string_equals_ignore_case(entrada,
-			CONSOLA_COMANDO_VER_RECURSOS)) {
+		break;
+	case CONSOLA_COMANDO_VER_RECURSOS:
 		comandoVerRecursosBloqueados();
-
-	} else if (string_equals_ignore_case(entrada, CONSOLA_COMANDO_PAUSAR)) {
+		break;
+	case CONSOLA_COMANDO_PAUSAR:
 		// TODO: PAUSAR
-
-	} else if (string_equals_ignore_case(entrada, CONSOLA_COMANDO_CONTINUAR)) {
+		break;
+	case CONSOLA_COMANDO_CONTINUAR:
 		// TODO: CONTINUAR
-
-	} else if (string_contains(entrada, CONSOLA_COMANDO_BLOQUEAR)) {
+		break;
+	case CONSOLA_COMANDO_BLOQUEAR:
 		comandoBloquearEsi(entrada);
-
-	} else if (string_contains(entrada, CONSOLA_COMANDO_DESBLOQUEAR)) {
+		break;
+	case CONSOLA_COMANDO_DESBLOQUEAR:
 		comandoDesbloquearEsi(entrada);
-
-	} else if (string_contains(entrada, CONSOLA_COMANDO_LISTAR)) {
+		break;
+	case CONSOLA_COMANDO_LISTAR:
 		comandoVerProcesosParaRecurso(entrada);
-
-	} else if (string_contains(entrada, CONSOLA_COMANDO_STATUS)) {
+		break;
+	case CONSOLA_COMANDO_STATUS:
 		comandoVerEstadoClave(entrada);
-
-	} else if (string_contains(entrada, CONSOLA_COMANDO_KILL)) {
+		break;
+	case CONSOLA_COMANDO_KILL:
 		comandoMatarEsi(entrada);
-
-	} else if (string_contains(entrada, CONSOLA_COMANDO_DEADLOCK)) {
+		break;
+	case CONSOLA_COMANDO_DEADLOCK:
 		comandoDeadlock();
-
-	} else if (string_equals_ignore_case(entrada, CONSOLA_COMANDO_SALIR)) {
+		break;
+	case CONSOLA_COMANDO_SALIR:
 		printf("¡ADIOS!\n");
 		log_error(console_log, "Fin de consola");
 		retorno = TERMINAR_CONSOLA;
-
-	} else {
+		break;
+	default:
 		printf("Comando no encontrado");
+		break;
 	}
 
 	free(entrada);
