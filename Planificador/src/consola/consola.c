@@ -1,6 +1,8 @@
 #include "consola.h"
 #include "../esi/esi.h"
 
+void comandoPausar();
+void comandoContinuar();
 void comandoVerRecursosBloqueados();
 void comandoBloquearEsi(char * instruccion);
 void comandoDesbloquearEsi(char * instruccion);
@@ -16,7 +18,7 @@ int consolaLeerComando(t_log * console_log) {
 
 	getline(&entrada, &size, stdin);
 
-	switch (string_to_lower(entrada)) {
+	switch (getValorByClave(entrada)) {
 	case CONSOLA_COMANDO_MOSTRAR:
 		/* show no lo pide el enunciado. lo agrego a modo de prueba*/
 		listarEsi(console_log);
@@ -25,10 +27,10 @@ int consolaLeerComando(t_log * console_log) {
 		comandoVerRecursosBloqueados();
 		break;
 	case CONSOLA_COMANDO_PAUSAR:
-		// TODO: PAUSAR
+		comandoPausar();
 		break;
 	case CONSOLA_COMANDO_CONTINUAR:
-		// TODO: CONTINUAR
+		comandoContinuar();
 		break;
 	case CONSOLA_COMANDO_BLOQUEAR:
 		comandoBloquearEsi(entrada);
@@ -72,6 +74,12 @@ void comandoVerRecursosBloqueados() {
 	}
 }
 
+void comandoPausar() {
+}
+
+void comandoContinuar() {
+}
+
 void comandoBloquearEsi(char * instruccion) {
 }
 
@@ -88,4 +96,28 @@ void comandoVerEstadoClave(char * instruccion) {
 }
 
 void comandoDeadlock() {
+}
+
+static t_command_struct tabla_referencia_comandos[] = {
+		{ "show\n", CONSOLA_COMANDO_MOSTRAR },
+		{ "exit\n", CONSOLA_COMANDO_SALIR },
+		{ "listar --all\n", CONSOLA_COMANDO_VER_RECURSOS },
+		{ "pause\n", CONSOLA_COMANDO_PAUSAR },
+		{ "continue\n", CONSOLA_COMANDO_CONTINUAR },
+		{ "bloquear\n", CONSOLA_COMANDO_BLOQUEAR },
+		{ "desbloquear\n", CONSOLA_COMANDO_DESBLOQUEAR },
+		{ "listar\n", CONSOLA_COMANDO_LISTAR },
+		{ "kill\n", CONSOLA_COMANDO_KILL },
+		{ "status\n", CONSOLA_COMANDO_STATUS },
+		{ "deadlock\n", CONSOLA_COMANDO_DEADLOCK } };
+
+int getValorByClave(char *clave) {
+	int i;
+	for (i = 0; i < NCLAVE; i++) {
+		t_command_struct *sym = tabla_referencia_comandos + i * sizeof(t_command_struct);
+		string_to_lower(clave);
+		if (strcmp(sym->clave, clave) == 0)
+			return sym->valor;
+	}
+	return CONSOLA_COMANDO_DESCONOCIDO;
 }
