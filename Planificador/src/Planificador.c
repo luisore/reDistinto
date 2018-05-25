@@ -55,8 +55,9 @@ void escucharConsola() {
 
 void iniciarPlanificador() {
 
-	//connect_with_coordinator();
+	conectarseConCoordinador();
 
+	while(true);
 	//create_tcp_server();
 
 	//	tcpserver_run(server, before_tpc_server_cycle, on_server_accept,
@@ -67,7 +68,7 @@ void iniciarPlanificador() {
 
 void create_log() {
 	console_log = log_create("planificador.log", "ReDistinto-Planificador",
-	false, LOG_LEVEL_ERROR);
+	true, LOG_LEVEL_TRACE);
 
 	if (console_log == NULL) {
 		printf("Could not create log. Execution aborted.");
@@ -87,8 +88,8 @@ void create_tcp_server() {
 	}
 }
 
-void connect_with_coordinator() {
-	log_info(console_log, "Connecting to Coordinator.");
+void conectarseConCoordinador() {
+	log_info(console_log, "Conectando al Coordinador ...");
 	coordinator_socket = connect_to_server(planificador_setup.IP_COORDINADOR,
 			planificador_setup.PUERTO_COORDINADOR, console_log);
 	if (coordinator_socket <= 0) {
@@ -99,7 +100,7 @@ void connect_with_coordinator() {
 			planificador_setup.NOMBRE_INSTANCIA, PLANNER, console_log)) {
 		exit_gracefully(EXIT_FAILURE);
 	}
-	log_info(console_log, "Successfully connected to Coordinator.");
+	log_info(console_log, "Conexion exitosa al Coordinador.");
 }
 
 void send_execute_next_to_esi(int esi_socket, int socket_id) {

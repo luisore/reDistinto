@@ -12,39 +12,41 @@ void bloquearClavesIniciales(){
 
 int leerArchivoConfiguracion(t_log *console_log, char* archivoConfiguracion) {
 
-	t_config *config = NULL;
-
 	if (archivoConfiguracion == NULL) {
 		return -1;
 	}
 
-	config = config_create(archivoConfiguracion);
+	t_config *configFile = config_create(archivoConfiguracion);
 
 	log_info(console_log, " .:: Cargando settings ::.");
 
-	if (config != NULL) {
-		planificador_setup.NOMBRE_INSTANCIA = config_get_string_value(config,
-				"NOMBRE_INSTANCIA");
-		planificador_setup.IP_COORDINADOR = config_get_string_value(config,
-				"IP_COORDINADOR");
-		planificador_setup.PUERTO_COORDINADOR = config_get_int_value(config,
+	planificador_setup.NOMBRE_INSTANCIA = malloc(30);
+	planificador_setup.IP_COORDINADOR = malloc(30);
+
+	if (configFile != NULL) {
+		// SI NO LO COPIO, CUANDO DESTRUYO EL CONFIG SE CORROMPEN
+		strcpy(planificador_setup.NOMBRE_INSTANCIA, config_get_string_value(configFile,
+				"NOMBRE_INSTANCIA"));
+		strcpy(planificador_setup.IP_COORDINADOR, config_get_string_value(configFile,
+						"IP_COORDINADOR"));
+		planificador_setup.PUERTO_COORDINADOR = config_get_int_value(configFile,
 				"PUERTO_COORDINADOR");
-		planificador_setup.ESTIMACION_INICIAL = config_get_int_value(config,
+		planificador_setup.ESTIMACION_INICIAL = config_get_int_value(configFile,
 				"ESTIMACION_INICIAL");
 		planificador_setup.ALGORITMO_PLANIFICACION = config_get_int_value(
-				config, "ALGORITMO_PLANIFICACION");
+				configFile, "ALGORITMO_PLANIFICACION");
 		planificador_setup.PUERTO_ESCUCHA_CONEXIONES = config_get_int_value(
-				config, "PUERTO_ESCUCHA_CONEXIONES");
+				configFile, "PUERTO_ESCUCHA_CONEXIONES");
 		planificador_setup.CLAVES_INICIALMENTE_BLOQUEADAS =
-				config_get_array_value(config,
+				config_get_array_value(configFile,
 						"CLAVES_INICIALMENTE_BLOQUEADAS");
 		planificador_setup.CANTIDAD_MAXIMA_CLIENTES = config_get_int_value(
-				config, "CANTIDAD_MAXIMA_CLIENTES");
+				configFile, "CANTIDAD_MAXIMA_CLIENTES");
 		planificador_setup.TAMANIO_COLA_CONEXIONES = config_get_int_value(
-				config, "TAMANIO_COLA_CONEXIONES");
+				configFile, "TAMANIO_COLA_CONEXIONES");
 	}
 
-	config_destroy(config);
+	config_destroy(configFile);
 
 	return 0;
 }

@@ -56,10 +56,12 @@ void lockResource();
 void unlockResource();
 
 //Comunicacion con el coordinador
+void conectarseConCoordinador();
 void sendLockResourceOperationResult(bool p_result);
 void sendUnlockResourceOperationResult(bool p_result);
 
 // TCP Server handlers
+void create_tcp_server();
 void on_server_accept(tcp_server_t* server, int client_socket, int socket_id);
 void on_server_read(tcp_server_t* server, int client_socket, int socket_id);
 void on_server_command(tcp_server_t* server);

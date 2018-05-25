@@ -3,6 +3,7 @@
 
 #include <commons/log.h>
 #include <commons/config.h>
+#include <string.h>
 
 enum AlgortimoPlanificacion {
 	SJF_CD = 1, SJF_SD = 2, HRRN = 3
