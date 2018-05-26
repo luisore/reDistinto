@@ -32,7 +32,8 @@ void print_header() {
 
 int inicializar() {
 
-	create_log();
+	if(create_log() == EXIT_FAILURE)
+		exit_gracefully(EXIT_FAILURE);
 
 	if (cargarConfiguracion(console_log, PLANNER_CFG_FILE) < 0) {
 		log_error(console_log, "No se encontró el archivo de configuración");
@@ -65,16 +66,6 @@ void iniciarPlanificador() {
 	//			on_server_read, on_server_command);
 
 	pthread_exit(0);
-}
-
-void create_log() {
-	console_log = log_create("planificador.log", "ReDistinto-Planificador",
-	true, LOG_LEVEL_TRACE);
-
-	if (console_log == NULL) {
-		printf("Could not create log. Execution aborted.");
-		exit_gracefully(EXIT_FAILURE);
-	}
 }
 
 void create_tcp_server() {
@@ -262,27 +253,6 @@ void aplicar_algoritmo_planificacion() {
 	}
 }
 
-double media_exponencial() {
-//	t1 = valor predicho para la siguiente rafaga de CPU
-	double t1 = 0;
-//	t0 = estimacion inicial
-	double t0 = planificador_setup.ESTIMACION_INICIAL;
-//	alpha = factor de multiplicación constante ( 0 < a < 1 )
-//	con alpha = 0.5 doy el mismo peso a la ejecucion mas reciente y lejana
-	double alpha = 0.5;
-	t1 = alpha * t0 + (1 - alpha) * t0;
-	return t1;
-}
-
-double primero_el_de_mayor_tasa_de_respuesta() {
-//	R = tasa de respuesta
-	double r = 0;
-//	w = tiempo invertido esperando por el procesador
-//	s =	tiempo de servicio esperado
-	int w, s = 0;
-	r = (w + s) / s;
-	return r;
-}
 /**
  * Retorna el siguiente ESI a ejecutar segun el algoritmo
  */
@@ -302,31 +272,6 @@ void moveOutCurrentESI() {
  */
 void continueExecutingESI() {
 	//TODO: implementacion pendiente
-}
-
-/**
- * Verifica la disponibilidad de un recurso
- */
-// TODO: falta pasar el recurso como parametro
-bool isResourceAvailable() {
-	//TODO: implementacion pendiente
-	return true;
-}
-
-/**
- * Bloquea un recurso
- */
-// TODO: falta pasar el recurso por parametro
-void lockResource() {
-
-}
-
-/**
- * Desbloquea un recurso
- */
-// TODO: falta pasar el recurso por parametro
-void unlockResource() {
-
 }
 
 /**

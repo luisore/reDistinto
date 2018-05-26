@@ -8,10 +8,12 @@ RM := rm -rf
 
 # All of the sources participating in the build are defined here
 -include sources.mk
+-include src/commons/subdir.mk
 -include src/libs/subdir.mk
 -include src/configuracion/subdir.mk
 -include src/esi/subdir.mk
 -include src/consola/subdir.mk
+-include src/planificacion/subdir.mk
 -include src/subdir.mk
 -include subdir.mk
 -include objects.mk

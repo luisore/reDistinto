@@ -35,7 +35,7 @@ void terminarEsiActual(){
 
 
 
-void listarEsi(t_log * console_log) {
+void listarEsi() {
 	log_error(console_log, "Consola: Listar ESIs");
 	printf("*******************************************\n");
 	printf("ESI\t| ESTADO\n");

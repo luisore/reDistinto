@@ -11,7 +11,7 @@ void comandoMatarEsi(char * instruccion);
 void comandoVerEstadoClave(char * instruccion);
 void comandoDeadlock();
 
-int consolaLeerComando(t_log * console_log) {
+int consolaLeerComando() {
 	int retorno = CONTINUAR_EJECUTANDO_CONSOLA;
 	size_t size = 20;
 	char *entrada = malloc(20);
@@ -21,7 +21,7 @@ int consolaLeerComando(t_log * console_log) {
 	switch (getValorByClave(entrada)) {
 	case CONSOLA_COMANDO_MOSTRAR:
 		/* show no lo pide el enunciado. lo agrego a modo de prueba*/
-		listarEsi(console_log);
+		listarEsi();
 		break;
 	case CONSOLA_COMANDO_VER_RECURSOS:
 		comandoVerRecursosBloqueados();

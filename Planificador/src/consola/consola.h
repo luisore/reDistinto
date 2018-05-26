@@ -1,6 +1,8 @@
 #ifndef SRC_CONSOLA_CONSOLA_H_
 #define SRC_CONSOLA_CONSOLA_H_
 
+#include "../commons/commons.h"
+
 #define CONSOLA_COMANDO_DESCONOCIDO -1
 #define CONSOLA_COMANDO_MOSTRAR 1
 #define CONSOLA_COMANDO_SALIR 2
@@ -24,13 +26,7 @@ typedef struct {
 #define CONTINUAR_EJECUTANDO_CONSOLA 0
 #define TERMINAR_CONSOLA 1
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <commons/log.h>
-#include <commons/string.h>
-
-int consolaLeerComando(t_log * console_log);
+int consolaLeerComando();
 int getValorByClave(char *clave);
 
 #endif /* SRC_CONSOLA_CONSOLA_H_ */
