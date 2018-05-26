@@ -14,5 +14,8 @@ int calcularMediaExponencial(int estimacionTn){
  * s = tiempo de servicio esperado
  */
 float calcularTasaDeRespuesta(int w, int s) {
+	if(s == 0)
+		return 0;
+
 	return (w + s) / s;
 }
