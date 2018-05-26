@@ -57,7 +57,8 @@ void iniciarPlanificador() {
 
 	conectarseConCoordinador();
 
-	while(true);
+	while (true)
+		;
 	//create_tcp_server();
 
 	//	tcpserver_run(server, before_tpc_server_cycle, on_server_accept,
@@ -250,13 +251,38 @@ int generarId() {
 	return esi_id + 1;
 }
 
-/**
- * Aplica el algoritmo de planificacion
- */
-void applyPlaningAlgorithm() {
-	//TODO: implementacion pendiente
+void aplicar_algoritmo_planificacion() {
+	switch (planificador_setup.ALGORITMO_PLANIFICACION) {
+	case SJF_CD:
+		break;
+	case SJF_SD:
+		break;
+	case HRRN:
+		break;
+	}
 }
 
+double media_exponencial() {
+//	t1 = valor predicho para la siguiente rafaga de CPU
+	double t1 = 0;
+//	t0 = estimacion inicial
+	double t0 = planificador_setup.ESTIMACION_INICIAL;
+//	alpha = factor de multiplicación constante ( 0 < a < 1 )
+//	con alpha = 0.5 doy el mismo peso a la ejecucion mas reciente y lejana
+	double alpha = 0.5;
+	t1 = alpha * t0 + (1 - alpha) * t0;
+	return t1;
+}
+
+double primero_el_de_mayor_tasa_de_respuesta() {
+//	R = tasa de respuesta
+	double r = 0;
+//	w = tiempo invertido esperando por el procesador
+//	s =	tiempo de servicio esperado
+	int w, s = 0;
+	r = (w + s) / s;
+	return r;
+}
 /**
  * Retorna el siguiente ESI a ejecutar segun el algoritmo
  */
