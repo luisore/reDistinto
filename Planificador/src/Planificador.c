@@ -245,10 +245,13 @@ int generarId() {
 void aplicar_algoritmo_planificacion() {
 	switch (planificador_setup.ALGORITMO_PLANIFICACION) {
 	case SJF_CD:
+		aplicarSJF(esiEjecutando, listaEsiListos, listaEsiBloqueados, true);
 		break;
 	case SJF_SD:
+		aplicarSJF(esiEjecutando, listaEsiListos, listaEsiBloqueados, false);
 		break;
 	case HRRN:
+		aplicarHRRN(esiEjecutando, listaEsiListos, listaEsiBloqueados);
 		break;
 	}
 }

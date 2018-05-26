@@ -11,10 +11,10 @@
 #include "libs/tcpserver.h"
 #include "libs/protocols.h"
 
-#include "commons/commons.h"
 #include "configuracion/configuracion.h"
 #include "esi/esi.h"
 #include "consola/consola.h"
+#include "planificacion/planificacion.h"
 
 #define PLANNER_CFG_FILE "planificador.config"
 
