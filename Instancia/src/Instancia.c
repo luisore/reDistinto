@@ -123,6 +123,27 @@ void connect_with_coordinator() {
 
 }
 
+void send_example(){
+
+	log_info(console_log, "Prepareo envio de prueba");
+
+	t_response_process  abstract_response_intancia;
+	abstract_response_intancia.instance_type = REDIS_INSTANCE;
+	strcpy(abstract_response_intancia.response, "HOLA SOY INSTANCIA");
+
+	void *buffer = serialize_abstract_request(&abstract_response_intancia);
+
+	int result = send(coordinator_socket, buffer, CONNECTION_PACKAGE_SIZE, 0);
+	free(buffer);
+
+	if (result < CONNECTION_PACKAGE_SIZE) {
+		log_error(console_log, "Could not send status response to Planner.");
+	}
+
+	log_info(console_log, "SE LE ENVIO EL MENSAJE OK AL COORDINADOR");
+
+}
+
 // INICIO DE PROCESO
 int main(void) {
 
@@ -136,6 +157,7 @@ int main(void) {
 
 	connect_with_coordinator();
 
+	send_example();
 	// 1. AL conectarse definir tamanio de entradas
 
 	//Recibe sentencia

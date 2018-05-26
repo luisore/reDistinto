@@ -57,6 +57,8 @@ void load_dump_files();
 
 void connect_with_coordinator();
 
+void send_example();
+
 void print_goodbye();
 void exit_program(int);
 

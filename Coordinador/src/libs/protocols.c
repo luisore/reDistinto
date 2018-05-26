@@ -36,6 +36,8 @@ t_esi_status_response* deserialize_esi_status_response(void *buffer){
 	return response;
 }
 
+// ABSTRACT CONTENT
+
 t_response_process * deserialize_abstract_response (void *buffer){
 
 	t_response_process * abstract_response = malloc (sizeof(t_response_process));
@@ -46,20 +48,6 @@ t_response_process * deserialize_abstract_response (void *buffer){
 
 	return abstract_response;
 }
-
-
-//
-//typedef struct {
-//	instance_type_e instance_type;
-//	char response[60];
-//
-//} t_response_process;
-//
-//static const int CONNECTION_PACKAGE_SIZE = 4 + 60;
-
-
-
-
 
 
 
