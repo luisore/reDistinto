@@ -22,7 +22,7 @@ void agregarNuevoEsi(ESI_STRUCT * esi);
 void terminarEsiActual();
 
 //Funciones para la administracion de los ESI
-void bloquearEsi();
+void bloquearEsi(char * recursoEsperado);
 void desbloquearEsi();
 bool sonIguales(ESI_STRUCT * esi1, ESI_STRUCT * esi2);
 

@@ -13,6 +13,7 @@ ESI_STRUCT * nuevoESI(int p_id, int p_client_socket, int p_socket_id) {
 	nuevoEsi->client_socket = p_client_socket;
 	nuevoEsi->socket_id = p_socket_id;
 	nuevoEsi->estado = ESI_LISTO;
+	nuevoEsi->tiempoEspera = 0;
 	return nuevoEsi;
 }
 
@@ -48,10 +49,21 @@ void listarEsi() {
 /**
  * Encola un ESI en la lista de bloqueados
  */
-void bloquearEsi() {
+void bloquearEsi(char * recursoEsperado) {
+
+	// Creo la informacion de bloqueo
+	ESI_BLOCKED_INFO infoBloqueo;
+	infoBloqueo.recursoNecesitado = "";
+	strcpy(infoBloqueo.recursoNecesitado,recursoEsperado);
+	infoBloqueo.unidadesDeTiempoBloqueado = 0;
+
 	esiEjecutando->estado = ESI_BLOQUEADO;
+	esiEjecutando->informacionDeBloqueo = infoBloqueo;
+
+	// Encolo el esi en la lista de bloqueados
 	list_add(listaEsiBloqueados, clonarEsi(esiEjecutando));
 
+	// Libero el esi actual
 	esiEjecutando = NULL;
 }
 
@@ -67,6 +79,7 @@ void desbloquearEsi(ESI_STRUCT * esi) {
 		esiAux = list_get(listaEsiBloqueados, i);
 		if(esiAux != NULL && sonIguales(esi, esiAux))
 		{
+			esiAux->estado = ESI_LISTO;
 			list_remove(listaEsiBloqueados, i);
 			list_add(listaEsiListos, esiAux);
 			return;

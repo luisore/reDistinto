@@ -18,6 +18,11 @@ typedef enum  {
 	ESI_TERMINADO
 } ESI_STATUS;
 
+typedef struct {
+	char * recursoNecesitado;
+	int unidadesDeTiempoBloqueado;
+} ESI_BLOCKED_INFO;
+
 typedef enum {
 	RECURSO_UNK,
 	RECURSO_LIBRE,
@@ -29,6 +34,8 @@ typedef struct {
 	int client_socket;
 	int socket_id;
 	ESI_STATUS estado;
+	ESI_BLOCKED_INFO informacionDeBloqueo;
+	int tiempoEspera;
 } ESI_STRUCT;
 
 typedef struct {

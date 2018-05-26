@@ -1,4 +1,5 @@
 #include "planificacion.h"
+#include "../esi/esi.h"
 
 // VARIABLES PRIVADAS
 bool hayDesalojo = false;
@@ -17,14 +18,22 @@ int calcularMediaExponencial(int estimacionTn) {
 	return (int) roundf(estimacionTnMasUno);
 }
 
-void aplicarSJF(ESI_STRUCT* esiActual, t_list * listaESIListos, t_list * listaESIBloqueados, bool p_hayDesalojo) {
+void aplicarSJF(bool p_hayDesalojo) {
 	hayDesalojo = p_hayDesalojo;
+
+	// 1) Chequear bloqueados: alguno se libero? -> Por c/u incrementar contador de tiempo y de tiempo de bloqueo.
+	// 2) Incrementar contador de tiempo para cada ESI listo
+	// 3) Calcular media exponencial por cada esi listo
+	// 4) Si hay desalojo aplicarlo
 }
 
 
 
-void aplicarHRRN(ESI_STRUCT* esiActual, t_list * listaESIListos, t_list * listaESIBloqueados){
-
+void aplicarHRRN(){
+	// 1) Chequear bloqueados: alguno se libero? -> Por c/u incrementar contador de tiempo y de tiempo de bloqueo.
+	// 2) Incrementar contador de tiempo para cada ESI listo
+	// 3) Calcular tasa de respuesta por cada esi listo
+	// 4) Elegir esi actual
 }
 
 /**
