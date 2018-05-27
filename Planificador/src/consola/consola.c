@@ -74,6 +74,11 @@ void comando_listar_recursos();
 
 int retorno = CONTINUAR_EJECUTANDO_CONSOLA;
 void _obtener_todos_los_esis();
+void _finalizar_cadena(char *entrada);
+char *_obtener_comando(char** split_comandos);
+char *_obtener_primer_parametro(char** split_comandos);
+char *_obtener_segundo_parametro(char** split_comandos);
+void _liberar_comando_y_parametros(char** split_comandos);
 
 
 int consolaLeerComando()
@@ -81,75 +86,113 @@ int consolaLeerComando()
 	size_t size = 20;
 	char *entrada = malloc(20);
 
-	getline(&entrada, &size, stdin);
-	char** split_comandos = string_split(entrada, " ");
-	size_t split_comandos_size = sizeof(split_comandos);
-	switch(split_comandos_size)
+	char *comando = malloc(sizeof(char*));
+	char *parametro1 = malloc(sizeof(char*));
+	char *parametro2 = malloc(sizeof(char*));
+	char** split_comandos = malloc(sizeof(char**));
+
+	fgets(entrada, size, stdin);
+
+	_finalizar_cadena(entrada);
+	split_comandos = string_split(entrada, " ");
+	comando = _obtener_comando(split_comandos);
+
+	switch (getValorByClave(comando))
 	{
-	case 2:
-		switch (getValorByClave(split_comandos[0]))
-		{
-		case CONSOLA_COMANDO_PAUSAR:
-			comando_pausar();
-			break;
-		case CONSOLA_COMANDO_CONTINUAR:
-			comando_continuar();
-			break;
-		case CONSOLA_COMANDO_DEADLOCK:
-			comando_deadlock();
-			break;
-		case CONSOLA_COMANDO_EXIT:
-			comando_exit();
-			break;
-		case CONSOLA_COMANDO_SHOW:
-			comando_show_esis();
-			break;
-		case CONSOLA_COMANDO_VER_RECURSOS:
-			comando_listar_recursos();
-			break;
-		case CONSOLA_COMANDO_DESCONOCIDO:
-			printf("Comando no encontrado");
-			break;
-		}
+	case CONSOLA_COMANDO_PAUSAR:
+		comando_pausar();
 		break;
-	case 3:
-		switch (getValorByClave(split_comandos[0]))
-		{
-		case CONSOLA_COMANDO_DESBLOQUEAR:
-			comando_desbloquear_primer_esi_por_clave(split_comandos[1]);
-			break;
-		case CONSOLA_COMANDO_LISTAR:
-			comando_listar_procesos_por_recurso(split_comandos[1]);
-			break;
-		case CONSOLA_COMANDO_STATUS:
-			comando_status_instancias_por_clave(split_comandos[1]);
-			break;
-		case CONSOLA_COMANDO_KILL:
-			comando_kill_proceso_esi_por_id(split_comandos[1]);
-			break;
-		case CONSOLA_COMANDO_DESCONOCIDO:
-			printf("Comando no encontrado");
-			break;
-		}
+	case CONSOLA_COMANDO_CONTINUAR:
+		comando_continuar();
 		break;
-	case 4:
-		switch (getValorByClave(split_comandos[0]))
-		{
-		case CONSOLA_COMANDO_BLOQUEAR:
-			comando_bloquear_esi_por_id_y_recurso_de_clave(split_comandos[1], split_comandos[2]);
-			break;
-		case CONSOLA_COMANDO_DESCONOCIDO:
-			printf("Comando no encontrado");
-			break;
-		}
+	case CONSOLA_COMANDO_DEADLOCK:
+		comando_deadlock();
 		break;
-	default:
-		printf("Comando no encontrado");
+	case CONSOLA_COMANDO_EXIT:
+		comando_exit();
+		break;
+	case CONSOLA_COMANDO_SHOW:
+		comando_show_esis();
+		break;
+	case CONSOLA_COMANDO_VER_RECURSOS:
+		comando_listar_recursos();
+		break;
+
+	case CONSOLA_COMANDO_DESBLOQUEAR:
+		parametro1 = _obtener_primer_parametro(split_comandos);
+		comando_desbloquear_primer_esi_por_clave(parametro1);
+		break;
+	case CONSOLA_COMANDO_LISTAR:
+		parametro1 = _obtener_primer_parametro(split_comandos);
+		comando_listar_procesos_por_recurso(parametro1);
+		break;
+	case CONSOLA_COMANDO_STATUS:
+
+		parametro1 = _obtener_primer_parametro(split_comandos);
+		comando_status_instancias_por_clave(parametro1);
+		break;
+	case CONSOLA_COMANDO_KILL:
+		parametro1 = _obtener_primer_parametro(split_comandos);
+		comando_kill_proceso_esi_por_id(parametro1);
+		break;
+
+	case CONSOLA_COMANDO_BLOQUEAR:
+		parametro1 = _obtener_primer_parametro(split_comandos);
+		parametro2 = _obtener_segundo_parametro(split_comandos);
+		comando_bloquear_esi_por_id_y_recurso_de_clave(parametro1, parametro2);
+		break;
+	case CONSOLA_COMANDO_DESCONOCIDO:
+		printf("Comando no encontrado\n");
 		break;
 	}
 
+//	free(parametro2);
+//	free(parametro1);
+//	free(comando);
+//	_liberar_comando_y_parametros(split_comandos);
 	free(entrada);
 	return retorno;
+}
+
+void _finalizar_cadena(char *entrada)
+{
+	if ((strlen(entrada) > 0) && (entrada[strlen (entrada) - 1] == '\n'))
+			entrada[strlen (entrada) - 1] = '\0';
+}
+
+char* _obtener_comando(char** split_comandos)
+{
+	return split_comandos[0];
+}
+
+char* _obtener_primer_parametro(char** split_comandos)
+{
+	return split_comandos[1];
+}
+
+char* _obtener_segundo_parametro(char** split_comandos)
+{
+	return split_comandos[2];
+}
+
+void _liberar_comando_y_parametros(char** split_comandos)
+{
+	if(split_comandos[0] != NULL)
+	{
+		free(split_comandos[0]);
+	}
+	if(split_comandos[1] != NULL)
+	{
+		free(split_comandos[1]);
+	}
+	if(split_comandos[2] != NULL)
+	{
+		free(split_comandos[2]);
+	}
+	if(split_comandos != NULL)
+	{
+		free(split_comandos);
+	}
 }
 
 void comando_pausar()
@@ -184,13 +227,31 @@ void comando_show_esis()
 	_obtener_todos_los_esis();
 	list_add_all(listaEsis, listaEsiTerminados);
 	list_iterate(listaEsis, (void*) _list_esis);
+
 	printf("-------------------------------------------\n");
 	printf("\n");
 }
 
 void _list_esis(ESI_STRUCT *e)
 {
-	printf("%d\t| %d\n", e->id, e->estado);
+	char * estado = malloc(sizeof(char*));
+	switch (e->estado)
+	{
+	case ESI_LISTO:
+		estado = "LISTO";
+		break;
+	case ESI_EJECUTANDO:
+		estado = "EJECUTANDO";
+		break;
+	case ESI_BLOQUEADO:
+		estado = "BLOQUEADO";
+		break;
+	case ESI_TERMINADO:
+		estado = "TERMINADO";
+		break;
+	}
+	printf("%d\t| %s\n", e->id, estado);
+	free(estado);
 }
 
 void comando_bloquear_esi_por_id_y_recurso_de_clave(char* id_esi, char* clave)
@@ -207,31 +268,34 @@ void comando_listar_procesos_por_recurso(char* recurso)
 {
 	log_info(console_log, "Consola: Listar %s\n", recurso);
 	_obtener_todos_los_esis();
+
+	bool _espera_por_recurso(ESI_STRUCT* esi)
+	{
+		return string_equals_ignore_case(esi->informacionDeBloqueo.recursoNecesitado, recurso);
+	}
+
 	t_list* esis_filtrados = list_filter(listaEsis, (void*) _espera_por_recurso);
 	list_iterate(esis_filtrados, (void*) _list_esis);
 	list_destroy(esis_filtrados);
 	list_clean(listaEsis);
 }
 
-bool _espera_por_recurso(ESI_STRUCT* esi, char* recurso)
-{
-	return string_equals_ignore_case(esi->informacionDeBloqueo.recursoNecesitado, recurso);
-}
 
 void comando_kill_proceso_esi_por_id(char* id_esi) {
 	log_info(console_log, "Consola: Kill %s\n", id_esi);
 
 	_obtener_todos_los_esis();
-	ESI_STRUCT* esi = list_find(listaEsis, (void*) _es_esi_unico);
 
+	int _es_esi_unico(ESI_STRUCT *e)
+	{
+		return string_equals_ignore_case(string_itoa(e->id), id_esi);
+	}
+
+	ESI_STRUCT* esi = list_find(listaEsis, (void*) _es_esi_unico);
+	/*TODO*/
 	list_clean(listaEsis);
 }
 
-int _es_esi_unico(ESI_STRUCT *e, char* id_esi)
-{
-	char* string_id = string_itoa(e->id);
-	return string_equals_ignore_case(string_id, id_esi);
-}
 
 void comando_status_instancias_por_clave(char* clave)
 {
@@ -257,17 +321,17 @@ void _obtener_todos_los_esis()
 }
 
 static t_command_struct tabla_referencia_comandos[] = {
-		{ "show\n", CONSOLA_COMANDO_SHOW },
-		{ "exit\n", CONSOLA_COMANDO_EXIT },
-		{ "pausar\n", CONSOLA_COMANDO_PAUSAR },
-		{ "continuar\n", CONSOLA_COMANDO_CONTINUAR },
-		{ "bloquear\n", CONSOLA_COMANDO_BLOQUEAR },
-		{ "desbloquear\n", CONSOLA_COMANDO_DESBLOQUEAR },
-		{ "listar\n", CONSOLA_COMANDO_LISTAR },
-		{ "kill\n", CONSOLA_COMANDO_KILL },
-		{ "status\n", CONSOLA_COMANDO_STATUS },
-		{ "deadlock\n", CONSOLA_COMANDO_DEADLOCK },
-		{ "resources\n", CONSOLA_COMANDO_VER_RECURSOS } };
+		{ "show", CONSOLA_COMANDO_SHOW },
+		{ "exit", CONSOLA_COMANDO_EXIT },
+		{ "pausar", CONSOLA_COMANDO_PAUSAR },
+		{ "continuar", CONSOLA_COMANDO_CONTINUAR },
+		{ "bloquear", CONSOLA_COMANDO_BLOQUEAR },
+		{ "desbloquear", CONSOLA_COMANDO_DESBLOQUEAR },
+		{ "listar", CONSOLA_COMANDO_LISTAR },
+		{ "kill", CONSOLA_COMANDO_KILL },
+		{ "status", CONSOLA_COMANDO_STATUS },
+		{ "deadlock", CONSOLA_COMANDO_DEADLOCK },
+		{ "resources", CONSOLA_COMANDO_VER_RECURSOS } };
 
 int getValorByClave(char *clave)
 {
