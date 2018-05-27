@@ -34,18 +34,6 @@ void terminarEsiActual(){
 	esiEjecutando = NULL;
 }
 
-
-
-void listarEsi() {
-	log_error(console_log, "Consola: Listar ESIs");
-	printf("*******************************************\n");
-	printf("ESI\t| ESTADO\n");
-	printf("-------------------------------------------\n");
-
-	printf("-------------------------------------------\n");
-	printf("\n");
-}
-
 /**
  * Encola un ESI en la lista de bloqueados
  */
