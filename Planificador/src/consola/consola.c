@@ -21,6 +21,9 @@ void comando_deadlock();
 /*
  * Se bloqueará el proceso ESI hasta ser desbloqueado,
  * especificado por dicho <ID> en la cola del recurso <clave>.
+ * Cada línea del script a ejecutar es atómica, y no podrá ser interrumpida;
+ * si no que se bloqueará en la próxima oportunidad posible. Solo se podrán bloquear
+ * de esta manera ESIs que estén en el estado de listo o ejecutando.
  * */
 void comando_bloquear_esi_por_id_y_recurso_de_clave(char* id_esi, char* clave);
 /*
@@ -38,8 +41,20 @@ void comando_listar_processo_por_recurso(char* recurso);
  * */
 void comando_kill_proceso_esi_por_id(char* id_esi);
 /*
- * Brinda cierta información sobre las instancias del sistema,
- * el Coordinador permitirá consultar esta información sobre la <clave>
+ * Con el objetivo de conocer el estado de una <clave>
+ * y de probar la correcta distribución de las mismas,
+ * el Coordinador permitirá consultar esta información:
+ *
+ * 1-Valor, en caso de no poseer valor un mensaje que lo indique.
+ *
+ * 2-Instancia actual en la cual se encuentra la clave.
+ * (En caso de que la clave no exista, la Instancia actual debería)
+ *
+ * 3-Instancia en la cual se guardaría actualmente la clave.
+ * (Calcula el valor mediante el algoritmo de distribución,
+ *  sin afectar la distribución actual de las claves).
+ *
+ * 4-ESIs bloqueados a la espera de dicha clave.
  * */
 void comando_status_instancias_por_clave(char* clave);
 
@@ -67,8 +82,8 @@ int consolaLeerComando()
 
 	getline(&entrada, &size, stdin);
 	char** split_comandos = string_split(entrada, " ");
-
-	switch(sizeof(split_comandos))
+	size_t split_comandos_size = sizeof(split_comandos);
+	switch(split_comandos_size)
 	{
 	case 2:
 		switch (getValorByClave(split_comandos[0]))
