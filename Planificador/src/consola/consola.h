@@ -29,4 +29,9 @@ typedef struct {
 int consolaLeerComando();
 int getValorByClave(char *clave);
 
+void _list_recursos(RECURSO *r);
+void _list_esis(ESI_STRUCT *e);
+bool _espera_por_recurso(ESI_STRUCT* esi, char* recurso);
+int _es_esi_unico(ESI_STRUCT *e, char* id_esi);
+
 #endif /* SRC_CONSOLA_CONSOLA_H_ */

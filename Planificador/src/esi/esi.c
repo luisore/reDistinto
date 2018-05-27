@@ -1,6 +1,7 @@
 #include "esi.h"
 
 void inicializarListasEsi(){
+	listaEsis = list_create();
 	listaEsiListos = list_create();
 	listaEsiBloqueados = list_create();
 	listaEsiTerminados = list_create();
@@ -162,5 +163,6 @@ void liberarRecursosEsi() {
 	list_destroy_and_destroy_elements(listaEsiListos, (void*)liberarEsi);
 	list_destroy_and_destroy_elements(listaEsiBloqueados, (void*)liberarEsi);
 	list_destroy_and_destroy_elements(listaEsiTerminados, (void*)liberarEsi);
+	list_destroy_and_destroy_elements(listaEsis, (void*)liberarEsi);
 	list_destroy_and_destroy_elements(listaRecursos, (void*)liberarTablaClaves);
 }

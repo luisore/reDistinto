@@ -34,7 +34,7 @@ void comando_desbloquear_primer_esi_por_clave(char* clave);
 /*
  * Lista los procesos encolados esperando al <recurso>.
  * */
-void comando_listar_processo_por_recurso(char* recurso);
+void comando_listar_procesos_por_recurso(char* recurso);
 /*
  * Finaliza el proceso con <ID> brindado.
  * Al momento de eliminar el ESI, se debloquearan las claves que tenga tomadas.
@@ -73,6 +73,7 @@ void comando_show_esis();
 void comando_listar_recursos();
 
 int retorno = CONTINUAR_EJECUTANDO_CONSOLA;
+void _obtener_todos_los_esis();
 
 
 int consolaLeerComando()
@@ -118,7 +119,7 @@ int consolaLeerComando()
 			comando_desbloquear_primer_esi_por_clave(split_comandos[1]);
 			break;
 		case CONSOLA_COMANDO_LISTAR:
-			comando_listar_processo_por_recurso(split_comandos[1]);
+			comando_listar_procesos_por_recurso(split_comandos[1]);
 			break;
 		case CONSOLA_COMANDO_STATUS:
 			comando_status_instancias_por_clave(split_comandos[1]);
@@ -153,23 +154,23 @@ int consolaLeerComando()
 
 void comando_pausar()
 {
-
+	log_info(console_log, "Consola: Pausar\n");
 }
 
 void comando_continuar()
 {
-
+	log_info(console_log, "Consola: Continuar\n");
 }
 
 void comando_deadlock()
 {
-
+	log_info(console_log, "Consola: Deadlock\n");
 }
 
 void comando_exit()
 {
 	printf("¡ADIOS!\n");
-	log_info(console_log, "Fin de consola");
+	log_info(console_log, "Consola: Exit\n");
 	retorno = TERMINAR_CONSOLA;
 }
 
@@ -180,51 +181,86 @@ void comando_show_esis()
 	printf("ESI\t| ESTADO\n");
 	printf("-------------------------------------------\n");
 
+	_obtener_todos_los_esis();
+	list_add_all(listaEsis, listaEsiTerminados);
+	list_iterate(listaEsis, (void*) _list_esis);
 	printf("-------------------------------------------\n");
 	printf("\n");
 }
 
+void _list_esis(ESI_STRUCT *e)
+{
+	printf("%d\t| %d\n", e->id, e->estado);
+}
+
 void comando_bloquear_esi_por_id_y_recurso_de_clave(char* id_esi, char* clave)
 {
-
+	log_info(console_log, "Consola: Bloquear %s - %s\n", id_esi, clave);
 }
 
 void comando_desbloquear_primer_esi_por_clave(char* clave)
 {
-
+	log_info(console_log, "Consola: Desbloquear %s\n", clave);
 }
 
-void comando_listar_processo_por_recurso(char* recurso)
+void comando_listar_procesos_por_recurso(char* recurso)
 {
-
+	log_info(console_log, "Consola: Listar %s\n", recurso);
+	_obtener_todos_los_esis();
+	t_list* esis_filtrados = list_filter(listaEsis, (void*) _espera_por_recurso);
+	list_iterate(esis_filtrados, (void*) _list_esis);
+	list_destroy(esis_filtrados);
+	list_clean(listaEsis);
 }
 
-void comando_kill_proceso_esi_por_id(char* id_esi)
+bool _espera_por_recurso(ESI_STRUCT* esi, char* recurso)
 {
+	return string_equals_ignore_case(esi->informacionDeBloqueo.recursoNecesitado, recurso);
+}
 
+void comando_kill_proceso_esi_por_id(char* id_esi) {
+	log_info(console_log, "Consola: Kill %s\n", id_esi);
+
+	_obtener_todos_los_esis();
+	ESI_STRUCT* esi = list_find(listaEsis, (void*) _es_esi_unico);
+
+	list_clean(listaEsis);
+}
+
+int _es_esi_unico(ESI_STRUCT *e, char* id_esi)
+{
+	char* string_id = string_itoa(e->id);
+	return string_equals_ignore_case(string_id, id_esi);
 }
 
 void comando_status_instancias_por_clave(char* clave)
 {
+	log_info(console_log, "Consola: Status %s\n", clave);
 
 }
 
-void comando_listar_recursos(char * parametro)
+void comando_listar_recursos()
 {
+	log_info(console_log, "Consola: Listar Recursos\n");
+	list_iterate(listaRecursos, (void*) _list_recursos);
+}
 
-	int i = 0, tamanioLista = list_size(listaRecursos);
-	for (i = 0; i < tamanioLista; i++)
-	{
-		RECURSO* r = list_get(listaRecursos, i);
-		printf("%s\n", r->nombre_recurso);
-	}
+void _list_recursos(RECURSO *r)
+{
+	printf("%s\n", r->nombre_recurso);
+}
+
+void _obtener_todos_los_esis()
+{
+	list_add_all(listaEsis, listaEsiListos);
+	list_add_all(listaEsis, listaEsiBloqueados);
 }
 
 static t_command_struct tabla_referencia_comandos[] = {
 		{ "show\n", CONSOLA_COMANDO_SHOW },
 		{ "exit\n", CONSOLA_COMANDO_EXIT },
-		{ "pause\n", CONSOLA_COMANDO_PAUSAR },
-		{ "continue\n", CONSOLA_COMANDO_CONTINUAR },
+		{ "pausar\n", CONSOLA_COMANDO_PAUSAR },
+		{ "continuar\n", CONSOLA_COMANDO_CONTINUAR },
 		{ "bloquear\n", CONSOLA_COMANDO_BLOQUEAR },
 		{ "desbloquear\n", CONSOLA_COMANDO_DESBLOQUEAR },
 		{ "listar\n", CONSOLA_COMANDO_LISTAR },

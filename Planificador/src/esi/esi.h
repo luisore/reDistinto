@@ -6,6 +6,7 @@
 t_list* listaEsiListos;
 t_list* listaEsiBloqueados;
 t_list* listaEsiTerminados;
+t_list* listaEsis;
 
 t_list* listaRecursos;
 
