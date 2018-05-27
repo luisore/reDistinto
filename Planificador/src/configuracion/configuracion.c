@@ -108,3 +108,8 @@ void mostrarConfiguracionPorConsola(t_log * console_log) {
 
 	log_info(console_log, "\tAlpha: %d", planificador_setup.ALPHA);
 }
+
+void liberarRecursosConfiguracion(){
+	free(planificador_setup.IP_COORDINADOR);
+	free(planificador_setup.NOMBRE_INSTANCIA);
+}

@@ -146,10 +146,11 @@ int consolaLeerComando()
 		break;
 	}
 
-//	free(parametro2);
-//	free(parametro1);
-//	free(comando);
-//	_liberar_comando_y_parametros(split_comandos);
+	//_liberar_comando_y_parametros(split_comandos);
+	free(comando);
+	free(parametro1);
+	free(parametro2);
+	//free(split_comandos);
 	free(entrada);
 	return retorno;
 }
@@ -291,7 +292,7 @@ void comando_kill_proceso_esi_por_id(char* id_esi) {
 		return string_equals_ignore_case(string_itoa(e->id), id_esi);
 	}
 
-	ESI_STRUCT* esi = list_find(listaEsis, (void*) _es_esi_unico);
+	//ESI_STRUCT* esi = list_find(listaEsis, (void*) _es_esi_unico);
 	/*TODO*/
 	list_clean(listaEsis);
 }
@@ -336,6 +337,10 @@ static t_command_struct tabla_referencia_comandos[] = {
 int getValorByClave(char *clave)
 {
 	int i;
+
+	if(clave == NULL)
+		return CONSOLA_COMANDO_DESCONOCIDO;
+
 	string_to_lower(clave);
 	for (i = 0; i < NCLAVE; i++)
 	{

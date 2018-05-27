@@ -59,10 +59,10 @@ void escucharConsola() {
 
 void iniciarPlanificador() {
 
-	conectarseConCoordinador();
+	//conectarseConCoordinador();
 
-	while (true)
-		;
+	/*while (true)
+		;*/
 	//create_tcp_server();
 
 	//	tcpserver_run(server, before_tpc_server_cycle, on_server_accept,
@@ -237,6 +237,7 @@ void liberarRecursos(int tipoSalida) {
 	pthread_mutex_destroy(&mutexPrincipal);
 
 	liberarRecursosEsi();
+	liberarRecursosConfiguracion();
 
 	exit_gracefully(tipoSalida);
 }

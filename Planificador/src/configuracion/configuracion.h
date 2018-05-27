@@ -26,5 +26,6 @@ CONFIGURACION planificador_setup;
 
 int cargarConfiguracion(t_log *console_log, char* archivoConfiguracion);
 void mostrarConfiguracionPorConsola(t_log * console_log);
+void liberarRecursosConfiguracion();
 
 #endif /* CONFIGURACION_CONFIGURACION_H_ */
