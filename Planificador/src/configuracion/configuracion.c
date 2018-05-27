@@ -1,7 +1,7 @@
 #include "configuracion.h"
 #include "../esi/esi.h"
 
-void bloquearClavesIniciales(){
+void bloquearClavesIniciales() {
 	int i = 0;
 
 	while (planificador_setup.CLAVES_INICIALMENTE_BLOQUEADAS[i] != NULL) {
@@ -25,10 +25,10 @@ int leerArchivoConfiguracion(t_log *console_log, char* archivoConfiguracion) {
 
 	if (configFile != NULL) {
 		// SI NO LO COPIO, CUANDO DESTRUYO EL CONFIG SE CORROMPEN
-		strcpy(planificador_setup.NOMBRE_INSTANCIA, config_get_string_value(configFile,
-				"NOMBRE_INSTANCIA"));
-		strcpy(planificador_setup.IP_COORDINADOR, config_get_string_value(configFile,
-						"IP_COORDINADOR"));
+		strcpy(planificador_setup.NOMBRE_INSTANCIA,
+				config_get_string_value(configFile, "NOMBRE_INSTANCIA"));
+		strcpy(planificador_setup.IP_COORDINADOR,
+				config_get_string_value(configFile, "IP_COORDINADOR"));
 		planificador_setup.PUERTO_COORDINADOR = config_get_int_value(configFile,
 				"PUERTO_COORDINADOR");
 		planificador_setup.ESTIMACION_INICIAL = config_get_int_value(configFile,
@@ -44,6 +44,7 @@ int leerArchivoConfiguracion(t_log *console_log, char* archivoConfiguracion) {
 				configFile, "CANTIDAD_MAXIMA_CLIENTES");
 		planificador_setup.TAMANIO_COLA_CONEXIONES = config_get_int_value(
 				configFile, "TAMANIO_COLA_CONEXIONES");
+		planificador_setup.ALPHA = config_get_int_value(configFile, "ALPHA");
 	}
 
 	config_destroy(configFile);
@@ -104,4 +105,6 @@ void mostrarConfiguracionPorConsola(t_log * console_log) {
 
 	log_info(console_log, "\tTamanio de la cola de conexiones: %d",
 			planificador_setup.TAMANIO_COLA_CONEXIONES);
+
+	log_info(console_log, "\tAlpha: %d", planificador_setup.ALPHA);
 }
