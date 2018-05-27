@@ -6,6 +6,7 @@ void inicializarListasEsi(){
 	listaEsiBloqueados = list_create();
 	listaEsiTerminados = list_create();
 	listaRecursos = list_create();
+	listaEsiNuevos = list_create();
 }
 
 ESI_STRUCT * nuevoESI(int p_id, int p_client_socket, int p_socket_id) {
@@ -25,7 +26,7 @@ ESI_STRUCT * clonarEsi(ESI_STRUCT *esi) {
 
 
 void agregarNuevoEsi(ESI_STRUCT * esi){
-	list_add(listaEsiListos, esi);
+	list_add(listaEsiNuevos, esi);
 }
 
 void terminarEsiActual(){
@@ -165,4 +166,5 @@ void liberarRecursosEsi() {
 	list_destroy_and_destroy_elements(listaEsiTerminados, (void*)liberarEsi);
 	list_destroy_and_destroy_elements(listaEsis, (void*)liberarEsi);
 	list_destroy_and_destroy_elements(listaRecursos, (void*)liberarTablaClaves);
+	list_destroy_and_destroy_elements(listaEsiNuevos, (void*)liberarEsi);
 }

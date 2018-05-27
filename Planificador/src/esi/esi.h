@@ -3,6 +3,7 @@
 
 #include "../commons/commons.h"
 
+t_list* listaEsiNuevos;
 t_list* listaEsiListos;
 t_list* listaEsiBloqueados;
 t_list* listaEsiTerminados;

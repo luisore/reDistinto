@@ -40,6 +40,9 @@ int inicializar() {
 		return -1;
 	}
 
+	float alpha = (float) planificador_setup.ALPHA / 100;
+	setAlpha(alpha);
+
 	return 0;
 }
 
