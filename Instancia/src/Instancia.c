@@ -122,7 +122,8 @@ void build_tabla_entradas(){
 		entrada->siguiente_instruccion = 0;
 		entrada->tamanio = tamanio_entradas;
 		entrada->valor = malloc(tamanio_entradas);
-		strcpy(entrada->valor , "PRUEBA VALOR");
+
+		//strcpy(entrada->valor , "PRUEBA VALOR");
 
 		// SE CARGAN LAS ESTRUCTURAS
 
@@ -148,16 +149,14 @@ void show_structs(){
 
 	int a = 0;
 
-	while(list_size(lista_entradas) > 0){
+	for (a= 0 ; a < list_size(lista_entradas) ; a++){
 
-		t_entrada * entrada = list_get(lista_entradas , 1);
+		t_entrada * entrada = list_get(lista_entradas , a);
 
-		log_info(console_log, "ENTRADA %d" , a);
-		log_info(console_log, "ENTRADA %d" ,entrada->tamanio  );
-		log_info(console_log, "ENTRADA %s", entrada->valor);
+		log_info(console_log, "ENTRADA NUMERO: %d" , a);
+		log_info(console_log, "TAMANIO: %d" ,entrada->tamanio);
+		log_info(console_log, "VALOR: %s", entrada->valor);
 
-		list_remove(lista_entradas , 1);
-		a++;
 	}
 
 }
@@ -180,8 +179,6 @@ void init_structs(){
 
 	show_structs();
 }
-
-
 
 void load_dump_files (){
 
@@ -226,6 +223,91 @@ void send_example(){
 
 }
 
+bool existe_capacidad_valor(char * valor){
+	// TODO
+	return true;
+}
+
+void reemplazar_por_algoritmo(){
+
+	switch(instancia_setup.ALGORITMO_REEMPLAZO){
+		case CIRC:
+			log_info(console_log, "Comienza reemplazo con algoritmo CIRCULAR");
+			reemplazoCircular();
+			break;
+		case LRU:
+			log_info(console_log, "Comienza reemplazo con algoritmo LAST RECENTLY USED");
+			reemplazoLeastRecentlyUsed();
+			break;
+		case BSU:
+			log_info(console_log, "Comienza reemplazo con algoritmo BSU");
+			reemplazoBiggestSpaceUsed();
+			break;
+	}
+
+}
+
+bool cargar_valor(char * clave , char * valor){
+
+	t_list * entradas_usar = list_create();
+
+	int espacio_necesario = strlen(valor);
+	int tamanio_valor = 0;
+
+	// CALCULO CANTIDAD ENTRADAS
+	float division = espacio_necesario / tamanio_entradas ;
+	int intpart = (int)division;
+	float decpart = division - intpart;
+
+	if (decpart > 0.5){
+		tamanio_valor = round(decpart);
+	}else{
+		tamanio_valor = round(decpart) + 1;
+	}
+
+	// DISPONIBILIDAD EN ENTRADAS
+	int i = 0;
+	int entrada_inicial= 0;
+	int entrada_final = 0;
+
+	for (i=0 ; i < list_size(lista_entradas) ; i++){
+
+		char clave[cantidad_entradas];
+		sprintf(clave, "%d", i);
+
+		int usado = dictionary_get(tabla_entradas,clave);
+
+		if(!usado){
+			list_add( entradas_usar , i);
+			//TODO
+		}
+	}
+
+	if (entrada_inicial == entrada_final)
+		return false;
+
+}
+
+void organizar_carga(){
+
+	// DEPENDERA DEL TIPO DE ALMACENAMIENTO
+
+	// EJEMPLOS
+	char * clave1 = "messi";
+	char * clave2 = "nico";
+
+	char * valor1 = "jugador";
+	char * valor2 = "tosco";
+
+	// COMIENZO CON CLAVE1
+
+	if(!cargar_valor(clave1 , valor1)){
+		reemplazar_por_algoritmo();
+		cargar_valor(clave1 , valor1)
+	}
+
+}
+
 // INICIO DE PROCESO
 int main(void) {
 
@@ -237,10 +319,10 @@ int main(void) {
 	init_structs();
 	load_dump_files();
 
-	connect_with_coordinator();
+	cargar_valor();
 
-	// EJEMPLO - BORRAR
-	send_example();
+	//connect_with_coordinator();
+	//send_example();
 
 
 	// 1. AL conectarse definir tamanio de entradas
