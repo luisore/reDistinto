@@ -19,11 +19,11 @@ void setEstimacionInicial(int p_estimacion){
 
 
 
-int calcularMediaExponencial(int estimacionTn) {
+int calcularMediaExponencial(int duracionRafaga, int estimacionTn) {
 	float estimacionTnMasUno = 0.0f;
 
 	//Τn+1 = αtn + (1 - α)Τn
-	estimacionTnMasUno = alpha * estimacionTn + (1 - alpha) * estimacionTn;
+	estimacionTnMasUno = alpha * duracionRafaga + (1 - alpha) * estimacionTn;
 
 	return (int) roundf(estimacionTnMasUno);
 }
@@ -49,14 +49,15 @@ void aplicarSJF(bool p_hayDesalojo) {
 	int i = 0;
 	hayDesalojo = p_hayDesalojo;
 
-	//1 - Calcular estimacion
+	pthread_mutex_lock(&mutexPrincipal);
+	//1 - Antes de admitirlos les seteo la estimacion inicial
 	for (i = 0; i < list_size(listaEsiNuevos); i++) {
 		ESI_STRUCT * esi = list_get(listaEsiNuevos, i);
 
 		if (esi == NULL)
 			continue;
 
-		esi->tiempoEstimado = calcularMediaExponencial(estimacionInicial);
+		esi->tiempoEstimado = estimacionInicial;
 	}
 
 	//2 - Admitir nuevos ESIs
@@ -101,6 +102,7 @@ void aplicarSJF(bool p_hayDesalojo) {
 			}
 		}
 	}
+	pthread_mutex_unlock(&mutexPrincipal);
 }
 
 
@@ -148,6 +150,10 @@ void chequearDesbloqueos(){
 
 		if(flagLiberar == 1)
 		{
+			// Calculo la estimacion
+			esi->tiempoEstimado = calcularMediaExponencial(esi->tiempoRafagaActual, esi->tiempoEstimado);
+
+			// Cambio de lista
 			list_remove(listaEsiBloqueados, i);
 			i--;
 			list_add(listaEsiListos, esi);

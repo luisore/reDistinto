@@ -16,6 +16,8 @@ ESI_STRUCT * nuevoESI(int p_id, int p_client_socket, int p_socket_id) {
 	nuevoEsi->socket_id = p_socket_id;
 	nuevoEsi->estado = ESI_LISTO;
 	nuevoEsi->tiempoEspera = 0;
+	nuevoEsi->tiempoRafagaActual = 0;
+	nuevoEsi->tiempoEstimado = 0;
 	return nuevoEsi;
 }
 
@@ -26,12 +28,13 @@ ESI_STRUCT * clonarEsi(ESI_STRUCT *esi) {
 
 
 void agregarNuevoEsi(ESI_STRUCT * esi){
+	pthread_mutex_lock(&mutexPrincipal);
 	list_add(listaEsiNuevos, esi);
+	pthread_mutex_unlock(&mutexPrincipal);
 }
 
 void terminarEsiActual(){
 	esiEjecutando->estado = ESI_TERMINADO;
-	// TODO: no me gusta esto. Cambiar. Investigar punteros
 	list_add(listaEsiTerminados, clonarEsi(esiEjecutando));
 	esiEjecutando = NULL;
 }

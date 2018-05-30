@@ -10,6 +10,7 @@
 #include <commons/collections/queue.h>
 #include <commons/log.h>
 #include <commons/string.h>
+#include <pthread.h>
 
 typedef enum  {
 	ESI_LISTO,
@@ -37,6 +38,7 @@ typedef struct {
 	ESI_BLOCKED_INFO* informacionDeBloqueo;
 	int tiempoEspera;
 	int tiempoEstimado;
+	int tiempoRafagaActual;
 } ESI_STRUCT;
 
 typedef struct {
@@ -47,6 +49,9 @@ typedef struct {
 
 // El log lo hago comun para todos los archivos
 t_log *console_log;
+
+pthread_mutex_t mutexConsola;
+pthread_mutex_t mutexPrincipal;
 
 int create_log();
 

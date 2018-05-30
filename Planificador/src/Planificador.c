@@ -225,6 +225,25 @@ void on_server_command(tcp_server_t* server) {
 	}
 }
 
+int generarId() {
+	return esi_id + 1;
+}
+
+void aplicar_algoritmo_planificacion() {
+	switch (planificador_setup.ALGORITMO_PLANIFICACION) {
+	case SJF_CD:
+		aplicarSJF(true);
+		break;
+	case SJF_SD:
+		aplicarSJF(false);
+		break;
+	case HRRN:
+		aplicarHRRN();
+		break;
+	}
+}
+
+
 void liberarRecursos(int tipoSalida) {
 	log_destroy(console_log);
 
@@ -244,59 +263,6 @@ void liberarRecursos(int tipoSalida) {
 	exit_gracefully(tipoSalida);
 }
 
-int generarId() {
-	return esi_id + 1;
-}
-
-void aplicar_algoritmo_planificacion() {
-	switch (planificador_setup.ALGORITMO_PLANIFICACION) {
-	case SJF_CD:
-		aplicarSJF(true);
-		break;
-	case SJF_SD:
-		aplicarSJF(false);
-		break;
-	case HRRN:
-		aplicarHRRN();
-		break;
-	}
-}
-
-/**
- * Retorna el siguiente ESI a ejecutar segun el algoritmo
- */
-void getNextESI() {
-	//TODO: implementacion pendiente
-}
-
-/**
- * Desaloja el ESI actual
- */
-void moveOutCurrentESI() {
-	//TODO: implementacion pendiente
-}
-
-/**
- * Le dice al ESI que puede seguir ejecutandose
- */
-void continueExecutingESI() {
-	//TODO: implementacion pendiente
-}
-
-/**
- * Notifica al Coordinador del resultado de bloquear un recurso
- */
-void sendLockResourceOperationResult(bool p_result) {
-	//TODO: implementacion pendiente
-}
-
-/**
- * Notifica al Coordinador del resultado de liberar un recurso
- */
-void sendUnlockResourceOperationResult(bool p_result) {
-	//TODO: implementacion pendiente
-}
-
 void exit_gracefully(int retVal) {
 
 	if (coordinator_socket != 0)
@@ -307,3 +273,4 @@ void exit_gracefully(int retVal) {
 
 	exit(retVal);
 }
+

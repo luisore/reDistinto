@@ -2,7 +2,6 @@
 #define PLANIFICADOR_SRC_PLANIFICADOR_H_
 
 #include <signal.h>
-#include <pthread.h>
 #include <sys/socket.h>
 #include <netdb.h>
 #include <unistd.h>
@@ -25,8 +24,6 @@ tcp_server_t* server;
 
 pthread_t hiloConsola;
 pthread_t hiloPrincipal;
-pthread_mutex_t mutexConsola;
-pthread_mutex_t mutexPrincipal;
 
 /*FUNCIONES*/
 void exit_gracefully(int retVal);
@@ -38,16 +35,8 @@ int generarId();
 void escucharConsola();
 void iniciarPlanificador();
 
-// Funciones de la aplicacion del algoritmo
-void applyPlaningAlgorithm();
-void getNextESI();
-void moveOutCurrentESI();
-void continueExecutingESI();
-
 //Comunicacion con el coordinador
 void conectarseConCoordinador();
-void sendLockResourceOperationResult(bool p_result);
-void sendUnlockResourceOperationResult(bool p_result);
 
 // TCP Server handlers
 void create_tcp_server();
