@@ -80,5 +80,38 @@ void* serialize_esi_operation_request(t_esi_operation_request *request){
 	return buffer;
 }
 
+void* serialize_coordinador_request(t_coordinador_request *request){
+	void* buffer = malloc(PLANNER_REQUEST_SIZE);
+	int lastIndex = 0;
 
+	serialize_data(&(request->coordinador_name), 31, &buffer, &lastIndex);
+
+	return buffer;
+}
+
+void* serialize_coordinador_request_instancia(t_coordinador_request_instancia *request){
+	void* buffer = malloc(INSTANCIA_REQUEST_SIZE);
+	int lastIndex = 0;
+
+	serialize_data(&(request->coordinador_name), 31, &buffer, &lastIndex);
+	serialize_data(&(request->CANTIDAD_ENTRADAS), 4, &buffer, &lastIndex);
+	serialize_data(&(request->CANTIDAD_ENTRADAS), 4, &buffer, &lastIndex);
+	return buffer;
+}
+
+
+int serialize_data(void *object, int nBytes, void **buffer, int *lastIndex) {
+    void * auxiliar = NULL;
+    auxiliar  = realloc(*buffer, nBytes+*lastIndex);
+    if(auxiliar  == NULL) {
+        return -1;
+    }
+    *buffer = auxiliar;
+    if (memcpy((*buffer + *lastIndex), object, nBytes) == NULL) {
+        return -2;
+    }
+    *lastIndex += nBytes;
+    return 0;
+
+}
 

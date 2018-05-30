@@ -1,16 +1,8 @@
-#include <stdio.h> //printf
-#include <string.h>    //strlen
-#include <stdbool.h>
-#include <signal.h>
 #include <commons/config.h>
 #include <commons/log.h>
-#include <commons/string.h>
-#include "libs/serialize.h"
+#include <stdio.h> //printf
+#include <commons/collections/list.h>
 #include "libs/tcpserver.h"
-#include <sys/socket.h> // Para crear sockets, enviar, recibir, etc
-#include <netdb.h> // Para getaddrinfo
-#include <unistd.h> // Para close
-#include "libs/protocols.h"
 
 #ifndef SRC_COORDINADOR_H_
 #define SRC_COORDINADOR_H_
@@ -28,6 +20,7 @@ char *planificador_ip = NULL;
 int planificador_port = 0;
 int planificador_socket = 0;
 char** initial_blocked_keys = NULL;
+t_list * lista_instancias;
 /*ESTRUCTURAS*/
 
 
@@ -58,7 +51,7 @@ void print_goodbye();
 void exit_program(int);
 
 void liberar_memoria();
-
+void enviar_respuesta_esi(int esi_socket, int socket_id);
 
 
 
