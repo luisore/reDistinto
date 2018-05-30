@@ -52,6 +52,8 @@ int storage;
 int tamanio_entradas;
 int cantidad_entradas;
 
+int IP;
+
 t_dictionary * tabla_entradas;
 t_dictionary * tabla_claves;
 t_list * lista_entradas;
@@ -81,9 +83,12 @@ void exit_program(int);
 /*FUNCIONES MEMORIA*/
 void lectura_archivo();
 void liberar_memoria();
-void cargar_valor();
+t_list * cargar_valor();
 bool existe_capacidad_valor(char * valor);
 void organizar_carga();
+
+void carga_real(t_list * lista , char * clave , char * valor);
+
 
 /*ALGORITMOS DE REEMPLAZO*/
 void reemplazar_por_algoritmo();
