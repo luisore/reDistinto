@@ -17,6 +17,8 @@ int main(void) {
 	pthread_mutex_init(&mutexPrincipal, NULL);
 	pthread_create(&hiloPrincipal, NULL, (void*) iniciarPlanificador, NULL);
 
+	pthread_create(&hiloPlanificacion, NULL, (void*) ejecutarPlanificacion, NULL);
+
 	pthread_join(hiloConsola, NULL);
 	pthread_join(hiloPrincipal, NULL);
 
@@ -63,14 +65,26 @@ void iniciarPlanificador() {
 
 	//conectarseConCoordinador();
 
-	/*while (true)
-		;*/
 	create_tcp_server();
 
 	tcpserver_run(server, before_tpc_server_cycle, on_server_accept,
 				on_server_read, on_server_command);
 
 	pthread_exit(0);
+}
+
+void ejecutarPlanificacion(){
+	while(true)
+	{
+		printf("Chequeando nuevos esis\n");
+		if(list_size(listaEsiNuevos) > 0)
+		{
+			ESI_STRUCT * esi = list_get(listaEsiNuevos, 0);
+			//send_execute_next_to_esi(esi->client_socket, esi->socket_id);
+			send_get_status_to_esi(esi->client_socket, esi->socket_id);
+		}
+		sleep(3);
+	}
 }
 
 void create_tcp_server() {
@@ -123,7 +137,6 @@ void send_get_status_to_esi(int esi_socket, int socket_id) {
 	char* code = "1";
 	strcpy(planner_request.planner_name, code);
 
-
 	void *buffer = serialize_planner_request(&planner_request);
 
 	int result = send(esi_socket, buffer, PLANNER_REQUEST_SIZE, 0);
@@ -132,16 +145,45 @@ void send_get_status_to_esi(int esi_socket, int socket_id) {
 		log_error(console_log, "Signal execute next to ESI failed for ID: %d");
 		tcpserver_remove_client(server, socket_id);
 	}
+
 	free(buffer);
+
+	void *res_buffer = malloc(ESI_STATUS_RESPONSE_SIZE);
+
+	if (recv(esi_socket, res_buffer, ESI_STATUS_RESPONSE_SIZE, MSG_WAITALL)
+			< ESI_STATUS_RESPONSE_SIZE) {
+		log_error(console_log, "Error receiving status from ESI!");
+		free(res_buffer);
+		tcpserver_remove_client(server, socket_id);
+		return;
+	}
+
+	t_esi_status_response *esi_status_response =
+			deserialize_esi_status_response(res_buffer);
+	log_info(console_log, "Estado del ESI: %d", esi_status_response->status);
+
+	switch (esi_status_response->status) {
+	case ESI_IDLE:
+		// Por ahora, mando la siguiente operacion
+		log_info(console_log, "ESI is IDLE. Signal next operation");
+		//send_execute_next_to_esi(client_socket, socket_id);
+		break;
+	case ESI_BLOCKED:
+		// Por ahora, no hago nada...
+		log_info(console_log, "ESI is BLOCKED.");
+		break;
+	case ESI_FINISHED:
+		log_info(console_log, "ESI Finished execution");
+		tcpserver_remove_client(server, socket_id);
+		break;
+	}
+
+	free(res_buffer);
+	free(esi_status_response);
 }
 
 void before_tpc_server_cycle(tcp_server_t* server) {
 	// ACÁ DEBERÍA IR LA LÓGICA DE SCHEDULING
-	if(list_size(listaEsiNuevos) > 0)
-	{
-		ESI_STRUCT * esi = list_get(listaEsiNuevos, 0);
-		send_execute_next_to_esi(esi->client_socket, esi->socket_id);
-	}
 }
 
 /**
@@ -195,7 +237,7 @@ void on_server_accept(tcp_server_t* server, int client_socket, int socket_id) {
 }
 
 void on_server_read(tcp_server_t* server, int client_socket, int socket_id) {
-	void *res_buffer = malloc(ESI_STATUS_RESPONSE_SIZE);
+	/*void *res_buffer = malloc(ESI_STATUS_RESPONSE_SIZE);
 
 	if (recv(client_socket, res_buffer, ESI_STATUS_RESPONSE_SIZE, MSG_WAITALL)
 			< ESI_STATUS_RESPONSE_SIZE) {
@@ -207,14 +249,14 @@ void on_server_read(tcp_server_t* server, int client_socket, int socket_id) {
 
 	t_esi_status_response *esi_status_response =
 			deserialize_esi_status_response(res_buffer);
-	log_info(console_log, "Received Status from ESI: %d",
+	log_info(console_log, "Estado del ESI: %d",
 			esi_status_response->status);
 
 	switch (esi_status_response->status) {
 	case ESI_IDLE:
 		// Por ahora, mando la siguiente operacion
 		log_info(console_log, "ESI is IDLE. Signal next operation");
-		send_execute_next_to_esi(client_socket, socket_id);
+		//send_execute_next_to_esi(client_socket, socket_id);
 		break;
 	case ESI_BLOCKED:
 		// Por ahora, no hago nada...
@@ -227,7 +269,7 @@ void on_server_read(tcp_server_t* server, int client_socket, int socket_id) {
 	}
 
 	free(res_buffer);
-	free(esi_status_response);
+	free(esi_status_response);*/
 }
 
 void on_server_command(tcp_server_t* server) {

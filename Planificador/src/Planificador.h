@@ -24,6 +24,7 @@ tcp_server_t* server;
 
 pthread_t hiloConsola;
 pthread_t hiloPrincipal;
+pthread_t hiloPlanificacion;
 
 /*FUNCIONES*/
 void exit_gracefully(int retVal);
@@ -34,6 +35,7 @@ int generarId();
 
 void escucharConsola();
 void iniciarPlanificador();
+void ejecutarPlanificacion();
 
 //Comunicacion con el coordinador
 void conectarseConCoordinador();
