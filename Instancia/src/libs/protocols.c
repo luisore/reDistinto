@@ -137,6 +137,30 @@ t_ack_message* deserialize_ack_message(void* buffer){
 	return message;
 }
 
+// SERIALIZATION
+
+
+
+void* serialize_abstract_request(t_response_process *request){
+	void* buffer = malloc(CONNECTION_PACKAGE_SIZE);
+	int lastIndex = 0;
+
+	serialize_data(&(request->response), 61, &buffer, &lastIndex);
+	serialize_data(&(request->instance_type), 4, &buffer, &lastIndex);
+
+	return buffer;
+}
+
+
+
+
+
+
+
+
+
+
+
 void* serialize_esi_operation_request(t_esi_operation_request *request){
 	void* buffer = malloc(ESI_OPERATION_REQUEST_SIZE);
 	int lastIndex = 0;

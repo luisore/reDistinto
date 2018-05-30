@@ -1,5 +1,7 @@
 #include "Coordinador.h"
 
+#include <stdlib.h>
+
 
 void print_header() {
 	printf("\n\t\e[31;1m=========================================\e[0m\n");
@@ -147,12 +149,115 @@ void on_server_read(tcp_server_t* server, int client_socket, int socket_id){
 
 //	Aca el coordinador tiene que switchear entre los diferentes posibles clientes (planificador, esi, instancia) utilizando la info del header para identificarlos
 //	una vez que identifica tiene que haber un deseralize por cada uno respetando el protocolo (header | response) para procesar cada response.
+
+
+	// 1. Verifica que lo que haya llegado este completo y de acuerdo al protocolo.
+	void *package_buffer = malloc(CONNECTION_PACKAGE_SIZE);
+
+	if (recv(client_socket, package_buffer, CONNECTION_PACKAGE_SIZE, MSG_WAITALL) < CONNECTION_PACKAGE_SIZE) {
+		log_error(coordinador_log, "Error receiving status from ESI!");
+		free(package_buffer);
+		tcpserver_remove_client(server, socket_id);
+		return;
+	}
+
+	t_response_process * abstract_response = deserialize_abstract_response(package_buffer);
+	switch(abstract_response->instance_type){
+		case ESI:
+			log_info(coordinador_log, "EL proceso que envia informacion fue un ESI");
+			enviar_respuesta_esi(client_socket, socket_id);
+			break;
+		case PLANNER:
+			log_info(coordinador_log, "EL proceso que envia informacion fue el PLANIFICADOR");
+			break;
+		case REDIS_INSTANCE:
+			log_info(coordinador_log, "EL proceso que envia informacion fue una INSTANCIA");
+
+			void *estado=tratar_instancia(&abstract_response);
+			//Agregar a lista de instancias en estado status (inicializacion de instancia)
+			enviar_respuesta_instancia(client_socket, socket_id, estado);
+			break;
+	}
+
+	free(package_buffer);
+	free(abstract_response);
+
+
+
+}
+
+
+void* tratar_instancia(t_response_process * abstract_response){
+	void* buffer = malloc(4);
+	int lastIndex = 0;
+
+	serialize_data_instancia(&(abstract_response->response),4, &buffer, &lastIndex);
+
+	return buffer;
+}
+
+int serialize_data_instancia(void *object, int nBytes, void **buffer, int *lastIndex){
+    void * auxiliar = NULL;
+    auxiliar  = realloc(*buffer, nBytes+*lastIndex);
+    if(auxiliar  == NULL) {
+        return -1;
+    }
+    *buffer = auxiliar;
+    if (memcpy((*buffer + *lastIndex), object, nBytes) == NULL) {
+        return -2;
+    }
+    *lastIndex += nBytes;
+    return 0;
 }
 
 void on_server_command(tcp_server_t* server){
 	// TODO: FALTA HACER!
 
 }
+
+
+void enviar_respuesta_instancia(int instancia_socket, int socket_id, void *estado){
+	switch(estado){
+	case STATUS:
+		lista_instancias = list_create();
+		t_coordinador_request_instancia coordinador_request;
+		t_instancia instancia;
+		instancia->id_socket=socket_id;
+		instancia->tamanio_entrada_bytes=coordinador_request->TAMANIO_ENTRADA_BYTES;
+		instancia->vantidad_entradas=coordinador_request->CANTIDAD_ENTRADAS;
+		list_add(lista_instancias, instancia);
+		strcpy(coordinador_request.coordinador_name, coordinador_setup.NOMBRE_INSTANCIA);
+		strcpy(coordinador_request.TAMANIO_ENTRADA_BYTES, coordinador_setup.TAMANIO_ENTRADA_BYTES);
+		strcpy(coordinador_request.CANTIDAD_ENTRADAS, coordinador_setup.CANTIDAD_ENTRADAS);
+		void *buffer = serialize_coordinador_request_instancia(&coordinador_request);
+		int result = send(instancia_socket, buffer, PLANNER_REQUEST_SIZE, 0);
+		if (result <= 0) {
+			log_error(coordinador_log, "Signal execute next to ESI failed for ID: %d");
+			tcpserver_remove_client(server, socket_id);
+		}
+		free(buffer);
+		break;
+	}
+
+	free(estado);
+}
+
+void enviar_respuesta_esi(int esi_socket, int socket_id) {
+	t_coordinador_request coordinador_request;
+	strcpy(coordinador_request.coordinador_name, coordinador_setup.NOMBRE_INSTANCIA);
+
+	void *buffer = serialize_coordinador_request(&coordinador_request);
+
+	int result = send(esi_socket, buffer, PLANNER_REQUEST_SIZE, 0);
+
+	if (result <= 0) {
+		log_error(coordinador_log, "Signal execute next to ESI failed for ID: %d");
+		tcpserver_remove_client(server, socket_id);
+	}
+	free(buffer);
+}
+
+
 
 
 int main(void) {

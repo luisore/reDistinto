@@ -84,6 +84,19 @@ typedef struct {
 
 static const int ESI_STATUS_RESPONSE_SIZE = 31 + 4;
 
+
+// ABSTRACT PROTOCOLS
+
+typedef struct {
+	instance_type_e instance_type;
+	char response[60];
+
+} t_response_process;
+
+static const int CONNECTION_PACKAGE_SIZE = 4 + 61;
+
+
+
 // Connection Messages
 int connect_to_server(char *ip, int port, t_log *logger);
 bool perform_connection_handshake(int server_socket, char* instance_name,
@@ -94,6 +107,14 @@ bool wait_for_acknowledge(int server_socket, t_log *logger);
 
 
 // Serialization
+
+
+void* serialize_abstract_request(t_response_process *request);
+
+
+
+// ELIMINAR
+
 void* serialize_connection_header(t_connection_header *header);
 t_connection_header* deserialize_connection_header(void* buffer);
 

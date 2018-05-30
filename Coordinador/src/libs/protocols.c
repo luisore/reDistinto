@@ -36,6 +36,20 @@ t_esi_status_response* deserialize_esi_status_response(void *buffer){
 	return response;
 }
 
+// ABSTRACT CONTENT
+
+t_response_process * deserialize_abstract_response (void *buffer){
+
+	t_response_process * abstract_response = malloc (sizeof(t_response_process));
+	int lastIndex = 0;
+
+	deserialize_data(&(abstract_response->response), 61, buffer, &lastIndex);
+	deserialize_data(&(abstract_response->instance_type), 4, buffer, &lastIndex);
+
+	return abstract_response;
+}
+
+
 
 void* serialize_ack_message(t_ack_message *ack_message){
 	void* buffer = malloc(ACK_MESSAGE_SIZE);
@@ -66,5 +80,38 @@ void* serialize_esi_operation_request(t_esi_operation_request *request){
 	return buffer;
 }
 
+void* serialize_coordinador_request(t_coordinador_request *request){
+	void* buffer = malloc(PLANNER_REQUEST_SIZE);
+	int lastIndex = 0;
 
+	serialize_data(&(request->coordinador_name), 31, &buffer, &lastIndex);
+
+	return buffer;
+}
+
+void* serialize_coordinador_request_instancia(t_coordinador_request_instancia *request){
+	void* buffer = malloc(INSTANCIA_REQUEST_SIZE);
+	int lastIndex = 0;
+
+	serialize_data(&(request->coordinador_name), 31, &buffer, &lastIndex);
+	serialize_data(&(request->CANTIDAD_ENTRADAS), 4, &buffer, &lastIndex);
+	serialize_data(&(request->CANTIDAD_ENTRADAS), 4, &buffer, &lastIndex);
+	return buffer;
+}
+
+
+int serialize_data(void *object, int nBytes, void **buffer, int *lastIndex) {
+    void * auxiliar = NULL;
+    auxiliar  = realloc(*buffer, nBytes+*lastIndex);
+    if(auxiliar  == NULL) {
+        return -1;
+    }
+    *buffer = auxiliar;
+    if (memcpy((*buffer + *lastIndex), object, nBytes) == NULL) {
+        return -2;
+    }
+    *lastIndex += nBytes;
+    return 0;
+
+}
 
