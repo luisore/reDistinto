@@ -65,10 +65,10 @@ void iniciarPlanificador() {
 
 	/*while (true)
 		;*/
-	//create_tcp_server();
+	create_tcp_server();
 
-	//	tcpserver_run(server, before_tpc_server_cycle, on_server_accept,
-	//			on_server_read, on_server_command);
+	tcpserver_run(server, before_tpc_server_cycle, on_server_accept,
+				on_server_read, on_server_command);
 
 	pthread_exit(0);
 }
@@ -102,7 +102,27 @@ void conectarseConCoordinador() {
 
 void send_execute_next_to_esi(int esi_socket, int socket_id) {
 	t_planner_request planner_request;
-	strcpy(planner_request.planner_name, planificador_setup.NOMBRE_INSTANCIA);
+	//strcpy(planner_request.planner_name, planificador_setup.NOMBRE_INSTANCIA);
+	char* code = "0";
+	strcpy(planner_request.planner_name, code);
+
+	void *buffer = serialize_planner_request(&planner_request);
+
+	int result = send(esi_socket, buffer, PLANNER_REQUEST_SIZE, 0);
+
+	if (result <= 0) {
+		log_error(console_log, "Signal execute next to ESI failed for ID: %d");
+		tcpserver_remove_client(server, socket_id);
+	}
+	free(buffer);
+}
+
+void send_get_status_to_esi(int esi_socket, int socket_id) {
+	t_planner_request planner_request;
+	//strcpy(planner_request.planner_name, planificador_setup.NOMBRE_INSTANCIA);
+	char* code = "1";
+	strcpy(planner_request.planner_name, code);
+
 
 	void *buffer = serialize_planner_request(&planner_request);
 
@@ -117,6 +137,11 @@ void send_execute_next_to_esi(int esi_socket, int socket_id) {
 
 void before_tpc_server_cycle(tcp_server_t* server) {
 	// ACÁ DEBERÍA IR LA LÓGICA DE SCHEDULING
+	if(list_size(listaEsiNuevos) > 0)
+	{
+		ESI_STRUCT * esi = list_get(listaEsiNuevos, 0);
+		send_execute_next_to_esi(esi->client_socket, esi->socket_id);
+	}
 }
 
 /**
