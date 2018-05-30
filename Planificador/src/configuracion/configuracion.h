@@ -6,7 +6,7 @@
 #include <string.h>
 
 enum AlgortimoPlanificacion {
-	SJF_CD = 1, SJF_SD = 2, HRRN = 3
+	SJF_SD = 0, SJF_CD = 1, HRRN = 2
 };
 
 typedef struct {

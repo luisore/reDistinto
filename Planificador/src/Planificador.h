@@ -37,6 +37,8 @@ void escucharConsola();
 void iniciarPlanificador();
 void ejecutarPlanificacion();
 
+void aplicar_algoritmo_planificacion();
+
 //Comunicacion con el coordinador
 void conectarseConCoordinador();
 

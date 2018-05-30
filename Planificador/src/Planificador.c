@@ -76,14 +76,31 @@ void iniciarPlanificador() {
 void ejecutarPlanificacion(){
 	while(true)
 	{
-		printf("Chequeando nuevos esis\n");
+		aplicar_algoritmo_planificacion();
+		if(esiEjecutando != NULL){
+			printf("ESI actual\tid: %d \tTiempo estimado: %d\n", esiEjecutando->id, esiEjecutando->tiempoEstimado);
+
+			printf("Los demas ESIs eran:\n");
+			for (int var = 0; var < list_size(listaEsiListos); var++) {
+				ESI_STRUCT * e = list_get(listaEsiListos, var);
+				printf("ESI \tid: %d \tTiempo estimado: %d\n", e->id, e->tiempoEstimado);
+			}
+
+			esiEjecutando->tiempoEstimado++;
+		}
+		else
+			printf("Esi actual: no hay esi\n");
+
+		printf("************************************\n");
+
+		/*printf("Chequeando nuevos esis\n");
 		if(list_size(listaEsiNuevos) > 0)
 		{
 			ESI_STRUCT * esi = list_get(listaEsiNuevos, 0);
 			//send_execute_next_to_esi(esi->client_socket, esi->socket_id);
 			send_get_status_to_esi(esi->client_socket, esi->socket_id);
-		}
-		sleep(3);
+		}*/
+		sleep(5);
 	}
 }
 
@@ -293,16 +310,16 @@ void on_server_command(tcp_server_t* server) {
 }
 
 int generarId() {
-	return esi_id + 1;
+	return esi_id++;
 }
 
 void aplicar_algoritmo_planificacion() {
 	switch (planificador_setup.ALGORITMO_PLANIFICACION) {
-	case SJF_CD:
-		aplicarSJF(true);
-		break;
 	case SJF_SD:
 		aplicarSJF(false);
+		break;
+	case SJF_CD:
+		aplicarSJF(true);
 		break;
 	case HRRN:
 		aplicarHRRN();

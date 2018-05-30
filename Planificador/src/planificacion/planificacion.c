@@ -31,6 +31,8 @@ int calcularMediaExponencial(int duracionRafaga, int estimacionTn) {
 int getIndiceMenorEstimacion(){
 	int menorIdx = 0, menorEstimacion = 100000, i = 0;
 
+	printf("CANTIDAD DE ESIS LISTOS: %d\n", list_size(listaEsiListos));
+
 	for (i = 0; i < list_size(listaEsiListos); i++) {
 		ESI_STRUCT * esi = list_get(listaEsiListos, i);
 
@@ -50,35 +52,43 @@ void aplicarSJF(bool p_hayDesalojo) {
 	hayDesalojo = p_hayDesalojo;
 
 	pthread_mutex_lock(&mutexPrincipal);
-	//1 - Antes de admitirlos les seteo la estimacion inicial
-	for (i = 0; i < list_size(listaEsiNuevos); i++) {
-		ESI_STRUCT * esi = list_get(listaEsiNuevos, i);
 
-		if (esi == NULL)
-			continue;
+	if(list_size(listaEsiNuevos) > 0)
+	{
+		//1 - Antes de admitirlos les seteo la estimacion inicial
+		for (i = 0; i < list_size(listaEsiNuevos); i++) {
+			ESI_STRUCT * esi = list_get(listaEsiNuevos, i);
 
-		esi->tiempoEstimado = estimacionInicial;
+			if (esi == NULL)
+				continue;
+
+			esi->tiempoEstimado = estimacionInicial;
+		}
+
+		//2 - Admitir nuevos ESIs
+		list_add_all(listaEsiListos, listaEsiNuevos);
+		list_clean(listaEsiNuevos);
 	}
-
-	//2 - Admitir nuevos ESIs
-	list_add_all(listaEsiListos, listaEsiNuevos);
-	list_clean(listaEsiNuevos);
 
 	//3 - Se desbloquea algun proceso?
 	chequearDesbloqueos();
 
 	//4 - Hay procesos listos para ejecutar?
 	if(list_size(listaEsiListos) <= 0)
+	{
+		pthread_mutex_unlock(&mutexPrincipal);
 		return;
+	}
 
 	if(!hayDesalojo){
 		if(esiEjecutando == NULL)
 		{
 			int indexMenorEstimacion = getIndiceMenorEstimacion();
 			esiEjecutando = list_get(listaEsiListos, indexMenorEstimacion);
+			list_remove(listaEsiListos, indexMenorEstimacion);
 		}
 		else {
-			// Habria que chequear si el esi actual puede seguir ejecutando
+			// Habria que chequear si el esi actual puede seguir ejecutando?
 		}
 	}
 	else { //Hay desalojo
@@ -86,6 +96,7 @@ void aplicarSJF(bool p_hayDesalojo) {
 		if(esiEjecutando == NULL){
 			int indexMenorEstimacion = getIndiceMenorEstimacion();
 			esiEjecutando = list_get(listaEsiListos, indexMenorEstimacion);
+			list_remove(listaEsiListos, indexMenorEstimacion);
 		}
 		else {
 			int indexMenorEstimacion = getIndiceMenorEstimacion();
@@ -94,11 +105,15 @@ void aplicarSJF(bool p_hayDesalojo) {
 
 			if(esiMenorEstimacion->id != esiEjecutando->id)
 			{
-				list_add(listaEsiListos, esiEjecutando);
-				esiEjecutando = esiMenorEstimacion;
+				if(esiMenorEstimacion->tiempoEstimado < esiEjecutando->tiempoEstimado)
+				{
+					list_add(listaEsiListos, esiEjecutando);
+					esiEjecutando = esiMenorEstimacion;
+					list_remove(listaEsiListos, indexMenorEstimacion);
+				}
 			}
 			else {
-				// Habria que chequear si el esi actual puede seguir ejecutando
+				// Habria que chequear si el esi actual puede seguir ejecutando?
 			}
 		}
 	}
