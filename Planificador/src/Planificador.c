@@ -43,6 +43,8 @@ int inicializar() {
 	float alpha = (float) planificador_setup.ALPHA / 100;
 	setAlpha(alpha);
 
+	setEstimacionInicial(planificador_setup.ESTIMACION_INICIAL);
+
 	return 0;
 }
 

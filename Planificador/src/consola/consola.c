@@ -272,7 +272,7 @@ void comando_listar_procesos_por_recurso(char* recurso)
 
 	bool _espera_por_recurso(ESI_STRUCT* esi)
 	{
-		return string_equals_ignore_case(esi->informacionDeBloqueo.recursoNecesitado, recurso);
+		return string_equals_ignore_case(esi->informacionDeBloqueo->recursoNecesitado, recurso);
 	}
 
 	t_list* esis_filtrados = list_filter(listaEsis, (void*) _espera_por_recurso);

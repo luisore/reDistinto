@@ -34,8 +34,9 @@ typedef struct {
 	int client_socket;
 	int socket_id;
 	ESI_STATUS estado;
-	ESI_BLOCKED_INFO informacionDeBloqueo;
+	ESI_BLOCKED_INFO* informacionDeBloqueo;
 	int tiempoEspera;
+	int tiempoEstimado;
 } ESI_STRUCT;
 
 typedef struct {

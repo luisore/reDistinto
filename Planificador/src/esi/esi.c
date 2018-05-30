@@ -42,10 +42,10 @@ void terminarEsiActual(){
 void bloquearEsi(char * recursoEsperado) {
 
 	// Creo la informacion de bloqueo
-	ESI_BLOCKED_INFO infoBloqueo;
-	infoBloqueo.recursoNecesitado = "";
-	strcpy(infoBloqueo.recursoNecesitado,recursoEsperado);
-	infoBloqueo.unidadesDeTiempoBloqueado = 0;
+	ESI_BLOCKED_INFO* infoBloqueo = malloc(sizeof(ESI_BLOCKED_INFO));
+	infoBloqueo->recursoNecesitado = "";
+	strcpy(infoBloqueo->recursoNecesitado,recursoEsperado);
+	infoBloqueo->unidadesDeTiempoBloqueado = 0;
 
 	esiEjecutando->estado = ESI_BLOQUEADO;
 	esiEjecutando->informacionDeBloqueo = infoBloqueo;
