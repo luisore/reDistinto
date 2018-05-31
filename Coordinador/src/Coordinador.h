@@ -3,6 +3,7 @@
 #include <stdio.h> //printf
 #include <commons/collections/list.h>
 #include "libs/tcpserver.h"
+#include "libs/protocols.h"
 
 #ifndef SRC_COORDINADOR_H_
 #define SRC_COORDINADOR_H_
@@ -13,6 +14,7 @@
 /*VARIABLES GLOBALES*/
 t_log * coordinador_log;
 t_config *config;
+t_list* connected_clients;
 
 tcp_server_t* server;
 char* instance_name = NULL;
@@ -40,6 +42,12 @@ struct {
 	int RETARDO_MS;
 } coordinador_setup;
 
+typedef struct {
+	char instance_name[30];
+	instance_type_e instance_type;
+	int socket_id;
+} t_connected_client;
+
 
 /*FUNCIONES GENERALES*/
 
@@ -52,7 +60,7 @@ void exit_program(int);
 
 void liberar_memoria();
 void enviar_respuesta_esi(int esi_socket, int socket_id);
-
+void destroy_connected_client(t_connected_client* connected_client);
 
 
 

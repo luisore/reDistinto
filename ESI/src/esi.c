@@ -298,15 +298,16 @@ void execute_program(char *program_filename){
 	operation_result_e operation_result;
 
 	while(queue_size(instructions) > 0){
-		if(!wait_for_planner_signal()){
-			queue_destroy_and_destroy_elements(instructions, destroy_program_instruction);
-			exit_gracefully(EXIT_FAILURE);
-		}
+		// Comentada interaccion con Planificador
+		//if(!wait_for_planner_signal()){
+		//	queue_destroy_and_destroy_elements(instructions, destroy_program_instruction);
+		//	exit_gracefully(EXIT_FAILURE);
+		//}
 
 		next_instruction = (t_program_instruction* ) queue_peek(instructions);
 		log_instruction(next_instruction);
 
-		operation_result = OP_SUCCESS; //coordinate_operation(next_instruction);
+		operation_result = coordinate_operation(next_instruction);
 
 		if(operation_result == OP_ERROR){
 			log_error(esi_log, "There was an error performing the current operation. Type:%d. Key: %s.",
@@ -317,15 +318,17 @@ void execute_program(char *program_filename){
 			queue_pop(instructions);
 			destroy_program_instruction(next_instruction);
 
-			if(!send_status_to_planner(queue_size(instructions) > 0 ? ESI_IDLE : ESI_FINISHED)){
+			// Comentada la interaccion con el Planificador
+			/*if(!send_status_to_planner(queue_size(instructions) > 0 ? ESI_IDLE : ESI_FINISHED)){
 				queue_destroy_and_destroy_elements(instructions, destroy_program_instruction);
 				exit_gracefully(EXIT_FAILURE);
-			}
+			}*/
 		} else { // operation_result == OP_BLOCKED
-			if(!send_status_to_planner(ESI_BLOCKED)){
-				queue_destroy_and_destroy_elements(instructions, destroy_program_instruction);
-				exit_gracefully(EXIT_FAILURE);
-			}
+			// Comentada interaccion con planificador
+//			if(!send_status_to_planner(ESI_BLOCKED)){
+//				queue_destroy_and_destroy_elements(instructions, destroy_program_instruction);
+//				exit_gracefully(EXIT_FAILURE);
+//			}
 		}
 	}
 
@@ -363,17 +366,11 @@ int main(int argc, char **argv) {
 
 	connect_with_coordinator();
 
-//	connect_with_planner();
-//
-//	execute_program(program_filename);
-//
-//	log_info(esi_log, "Finished execution successfully.");
+	//connect_with_planner();
 
 	execute_program(program_filename);
 
 	log_info(esi_log, "Finished execution successfully.");
-	//En caso de que se quede escuchando
-	//for(;;);
 
 	exit_gracefully(EXIT_SUCCESS);
 

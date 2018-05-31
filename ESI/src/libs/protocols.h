@@ -23,7 +23,7 @@ typedef enum { ESI_IDLE = 0, ESI_BLOCKED = 1, ESI_FINISHED = 2 } esi_status_e;
  * OP_ERROR   = There was an error with the requested key.
  * OP_BLOCKED = The requested key is blocked by another ESI.
  */
-typedef enum { OP_SUCCESS = 0, OP_ERROR = 1, OP_BLOCKED = 2 } operation_result_e;
+typedef enum { OP_SUCCESS = 1, OP_ERROR = 2, OP_BLOCKED = 3 } operation_result_e;
 
 /*
  * Header used in every connection between processes.

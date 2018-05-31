@@ -1,4 +1,5 @@
 #include "Planificador.h"
+#include <commons/log.h>
 
 int main(void) {
 
@@ -56,14 +57,14 @@ void escucharConsola() {
 
 void iniciarPlanificador() {
 
-	conectarseConCoordinador();
+	//conectarseConCoordinador();
 
 	while (true)
 		;
-	//create_tcp_server();
+	create_tcp_server();
 
-	//	tcpserver_run(server, before_tpc_server_cycle, on_server_accept,
-	//			on_server_read, on_server_command);
+	tcpserver_run(server, before_tpc_server_cycle, on_server_accept,
+				on_server_read, on_server_command);
 
 	pthread_exit(0);
 }

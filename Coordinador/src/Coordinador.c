@@ -1,5 +1,5 @@
 #include "Coordinador.h"
-
+#include "libs/protocols.h"
 #include <stdlib.h>
 
 
@@ -64,7 +64,7 @@ void loadConfig() {
 }
 
 void liberar_memoria() {
-
+	if(connected_clients != NULL) list_destroy_and_destroy_elements(connected_clients, destroy_connected_client);
 	if(server != NULL) tcpserver_destroy(server);
 	if(coordinador_setup.NOMBRE_INSTANCIA != NULL) free(coordinador_setup.NOMBRE_INSTANCIA);
 }
@@ -98,6 +98,7 @@ void log_inicial_consola() {
 
 
 void create_tcp_server(){
+	connected_clients = list_create();
 
 	server = tcpserver_create(coordinador_setup.NOMBRE_INSTANCIA, coordinador_log,
 			coordinador_setup.CANTIDAD_MAXIMA_CLIENTES,
@@ -114,13 +115,25 @@ void before_tpc_server_cycle(tcp_server_t* server){
 	// ACÁ DEBERÍA IR LA LÓGICA DE DISTRIBUCION
 }
 
+
+
+void remove_client(server, socket_id){
+	bool is_linked_to_socket(void* conn_client){
+		t_connected_client* connected_client = (t_connected_client*)conn_client;
+		return connected_client->socket_id == socket_id;
+	};
+
+	tcpserver_remove_client(server, socket_id);
+	list_remove_and_destroy_by_condition(connected_clients, is_linked_to_socket, destroy_connected_client);
+}
+
 void on_server_accept(tcp_server_t* server, int client_socket, int socket_id){
 	void *header_buffer = malloc(CONNECTION_HEADER_SIZE);
 
 	int res = recv(client_socket, header_buffer, CONNECTION_HEADER_SIZE, MSG_WAITALL);
 	if (res <= 0) {
 		log_error(coordinador_log, "Error receiving handshake request from TCP Client!");
-		tcpserver_remove_client(server, socket_id);
+		remove_client(server, socket_id);
 		free(header_buffer);
 		return;
 	}
@@ -136,21 +149,100 @@ void on_server_accept(tcp_server_t* server, int client_socket, int socket_id){
 	if( send(client_socket, ack_buffer, ACK_MESSAGE_SIZE, 0) != ACK_MESSAGE_SIZE)
 	{
 		log_error(coordinador_log, "Could not send handshake acknowledge to TCP client.");
-		tcpserver_remove_client(server, socket_id);
+		remove_client(server, socket_id);
 	} else {
 		log_info(coordinador_log, "Successfully connected to TCP Client: %s", connection_header->instance_name);
 	}
+
+	//TODO: Modularizar
+
+	t_connected_client* connected_client = malloc(sizeof(t_connected_client));
+	strcpy(&(connected_client->instance_name), connection_header->instance_name);
+	connected_client->instance_type = connection_header->instance_type;
+	connected_client->socket_id = socket_id;
+	list_add(connected_clients, (void*)connected_client);
 
 	free(connection_header);
 	free(ack_buffer);
 }
 
+t_connected_client* find_connected_client(int socket_id){
+	bool is_linked_to_socket(void* conn_client){
+		t_connected_client* connected_client = (t_connected_client*)conn_client;
+		return connected_client->socket_id == socket_id;
+	};
+
+	return list_find(connected_clients, is_linked_to_socket);
+}
+
+void send_response_to_esi(int esi_socket, t_connected_client* client, operation_result_e op_result){
+	t_coordinator_operation_response op_response;
+	op_response.operation_result = op_result;
+
+	char* buffer = serialize_coordinator_operation_response(&op_response);
+
+	int result = send(esi_socket, buffer, COORD_OPERATION_RESPONSE_SIZE, 0);
+
+	if (result < COORD_OPERATION_RESPONSE_SIZE) {
+		log_error(coordinador_log, "Signal execute next to ESI failed for ID: %d");
+		remove_client(server, client->socket_id); // TODO: IDEM ANTES, REFACTORIZAR
+	}
+	free(buffer);
+}
+
+void handle_esi_request(t_esi_operation_request* esi_request, t_connected_client* client, int socket){
+	switch(esi_request->operation_type){
+	case GET:
+		log_info(coordinador_log, "Handling GET from ESI:%s. Key:%s.", client->instance_name, esi_request->key);
+		// TODO: HACER EL GET
+		send_response_to_esi(socket, client, OP_SUCCESS);
+		break;
+	case STORE:
+		log_info(coordinador_log, "Handling STORE from ESI:%s. Key:%s.", client->instance_name, esi_request->key);
+		// TODO: HACER EL STORE
+		send_response_to_esi(socket, client, OP_SUCCESS);
+		break;
+	case SET:
+		// leer del buffer el contenido y procesar
+		//TODO: HANDLE!
+		break;
+	}
+}
+
+void handle_esi_read(t_connected_client* client, int socket){
+	char* buffer = malloc(ESI_OPERATION_REQUEST_SIZE);
+
+	if (recv(socket, buffer, ESI_OPERATION_REQUEST_SIZE, MSG_WAITALL) < ESI_OPERATION_REQUEST_SIZE) {
+		log_error(coordinador_log, "Error receiving status from ESI: %s", client->instance_name);
+		free(buffer);
+		remove_client(server, client->socket_id); //TODO: NO HACE FALTA EL FIND PORQUE YA LO TENGO. SE PUEDE MEJORAR
+		return;
+	}
+
+	t_esi_operation_request* esi_request = deserialize_esi_operation_request(buffer);
+
+	handle_esi_request(esi_request, client, socket);
+
+	free(esi_request);
+	free(buffer);
+}
+
 void on_server_read(tcp_server_t* server, int client_socket, int socket_id){
+    // Verifico que instancia estoy leyendo:
+	t_connected_client* client = find_connected_client(socket_id);
 
-//	Aca el coordinador tiene que switchear entre los diferentes posibles clientes (planificador, esi, instancia) utilizando la info del header para identificarlos
-//	una vez que identifica tiene que haber un deseralize por cada uno respetando el protocolo (header | response) para procesar cada response.
+	if(client == NULL){
+		// TODO: VER QUE HACEMOS! CLIENTE INVALIDO, no deberia pasar nunca
+		return;
+	}
 
+	switch(client->instance_type){
+	case ESI:
+		handle_esi_read(client, client_socket);
+		break;
+	}
 
+	/*
 	// 1. Verifica que lo que haya llegado este completo y de acuerdo al protocolo.
 	void *package_buffer = malloc(CONNECTION_PACKAGE_SIZE);
 
@@ -161,7 +253,7 @@ void on_server_read(tcp_server_t* server, int client_socket, int socket_id){
 		return;
 	}
 
-	t_response_process * abstract_response = deserialize_abstract_response(package_buffer);
+	t_response_process* abstract_response = deserialize_abstract_response(package_buffer);
 	switch(abstract_response->instance_type){
 		case ESI:
 			log_info(coordinador_log, "EL proceso que envia informacion fue un ESI");
@@ -173,28 +265,29 @@ void on_server_read(tcp_server_t* server, int client_socket, int socket_id){
 		case REDIS_INSTANCE:
 			log_info(coordinador_log, "EL proceso que envia informacion fue una INSTANCIA");
 
-			void *estado=tratar_instancia(&abstract_response);
+			//void* estado=tratar_instancia(abstract_response);
 			//Agregar a lista de instancias en estado status (inicializacion de instancia)
-			enviar_respuesta_instancia(client_socket, socket_id, estado);
+			//enviar_respuesta_instancia(client_socket, socket_id, estado);
 			break;
 	}
 
 	free(package_buffer);
 	free(abstract_response);
-
+*/
 
 
 }
 
 
-void* tratar_instancia(t_response_process * abstract_response){
+/*
+void* tratar_instancia(t_response_process* abstract_response){
 	void* buffer = malloc(4);
 	int lastIndex = 0;
 
 	serialize_data_instancia(&(abstract_response->response),4, &buffer, &lastIndex);
 
 	return buffer;
-}
+}*/
 
 int serialize_data_instancia(void *object, int nBytes, void **buffer, int *lastIndex){
     void * auxiliar = NULL;
@@ -217,7 +310,7 @@ void on_server_command(tcp_server_t* server){
 
 
 void enviar_respuesta_instancia(int instancia_socket, int socket_id, void *estado){
-	switch(estado){
+	/*switch(estado){
 	case STATUS:
 		lista_instancias = list_create();
 		t_coordinador_request_instancia coordinador_request;
@@ -239,24 +332,12 @@ void enviar_respuesta_instancia(int instancia_socket, int socket_id, void *estad
 		break;
 	}
 
-	free(estado);
+	free(estado); */
 }
 
-void enviar_respuesta_esi(int esi_socket, int socket_id) {
-	t_coordinador_request coordinador_request;
-	strcpy(coordinador_request.coordinador_name, coordinador_setup.NOMBRE_INSTANCIA);
-
-	void *buffer = serialize_coordinador_request(&coordinador_request);
-
-	int result = send(esi_socket, buffer, PLANNER_REQUEST_SIZE, 0);
-
-	if (result <= 0) {
-		log_error(coordinador_log, "Signal execute next to ESI failed for ID: %d");
-		tcpserver_remove_client(server, socket_id);
-	}
-	free(buffer);
+void destroy_connected_client(t_connected_client* connected_client){
+	free(connected_client);
 }
-
 
 
 
