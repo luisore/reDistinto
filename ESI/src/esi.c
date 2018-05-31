@@ -264,7 +264,7 @@ operation_result_e coordinate_operation(t_program_instruction *instruction){
 	} else {
 		t_coordinator_operation_response *coordinator_response = deserialize_coordinator_operation_response(res_buffer);
 		operation_result = coordinator_response->operation_result;
-		log_info(esi_log, "Received Coordinator response: %s.", coordinator_response->operation_result);
+		log_info(esi_log, "Received Coordinator response: %i.", coordinator_response->operation_result);
 		free(coordinator_response);
 	}
 

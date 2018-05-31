@@ -193,12 +193,12 @@ void send_response_to_esi(int esi_socket, t_connected_client* client, operation_
 void handle_esi_request(t_esi_operation_request* esi_request, t_connected_client* client, int socket){
 	switch(esi_request->operation_type){
 	case GET:
-		log_info(coordinador_log, "Handling GET from ESI:%s. Key:%s.", client->instance_name, esi_request->key);
+		log_info(coordinador_log, "Handling GET from ESI: %s. Key: %s.", client->instance_name, esi_request->key);
 		// TODO: HACER EL GET
 		send_response_to_esi(socket, client, OP_SUCCESS);
 		break;
 	case STORE:
-		log_info(coordinador_log, "Handling STORE from ESI:%s. Key:%s.", client->instance_name, esi_request->key);
+		log_info(coordinador_log, "Handling STORE from ESI: %s. Key: %s.", client->instance_name, esi_request->key);
 		// TODO: HACER EL STORE
 		send_response_to_esi(socket, client, OP_SUCCESS);
 		break;
@@ -213,7 +213,7 @@ void handle_esi_read(t_connected_client* client, int socket){
 	char* buffer = malloc(ESI_OPERATION_REQUEST_SIZE);
 
 	if (recv(socket, buffer, ESI_OPERATION_REQUEST_SIZE, MSG_WAITALL) < ESI_OPERATION_REQUEST_SIZE) {
-		log_error(coordinador_log, "Error receiving status from ESI: %s", client->instance_name);
+		log_warning(coordinador_log, "ESI Disconnected: %s", client->instance_name);
 		free(buffer);
 		remove_client(server, client->socket_id); //TODO: NO HACE FALTA EL FIND PORQUE YA LO TENGO. SE PUEDE MEJORAR
 		return;
