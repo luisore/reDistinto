@@ -77,6 +77,20 @@ void ejecutarPlanificacion(){
 	while(true)
 	{
 		aplicar_algoritmo_planificacion();
+
+		if(esiEjecutando != NULL){
+			printf("ESI actual\tid: %d \tTiempo estimado: %d\n", esiEjecutando->id, esiEjecutando->tiempoEstimado);
+		}
+		else
+			printf("Esi actual: no hay esi\n");
+
+		printf("************************************\n");
+	}
+
+	/** PARA PROBAR LOS ALGORITMOS:
+	 while(true)
+	 {
+		aplicar_algoritmo_planificacion();
 		if(esiEjecutando != NULL){
 			printf("ESI actual\tid: %d \tTiempo estimado: %d\n", esiEjecutando->id, esiEjecutando->tiempoEstimado);
 
@@ -93,15 +107,9 @@ void ejecutarPlanificacion(){
 
 		printf("************************************\n");
 
-		/*printf("Chequeando nuevos esis\n");
-		if(list_size(listaEsiNuevos) > 0)
-		{
-			ESI_STRUCT * esi = list_get(listaEsiNuevos, 0);
-			//send_execute_next_to_esi(esi->client_socket, esi->socket_id);
-			send_get_status_to_esi(esi->client_socket, esi->socket_id);
-		}*/
 		sleep(5);
-	}
+	  }
+	 */
 }
 
 void create_tcp_server() {
