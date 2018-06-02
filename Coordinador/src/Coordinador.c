@@ -190,7 +190,7 @@ void send_response_to_esi(int esi_socket, t_connected_client* client, operation_
 	free(buffer);
 }
 
-void handle_esi_request(t_esi_operation_request* esi_request, t_connected_client* client, int socket){
+void handle_esi_request(t_operation_request* esi_request, t_connected_client* client, int socket){
 	switch(esi_request->operation_type){
 	case GET:
 		log_info(coordinador_log, "Handling GET from ESI: %s. Key: %s.", client->instance_name, esi_request->key);
@@ -219,7 +219,7 @@ void handle_esi_read(t_connected_client* client, int socket){
 		return;
 	}
 
-	t_esi_operation_request* esi_request = deserialize_operation_request(buffer);
+	t_operation_request* esi_request = deserialize_operation_request(buffer);
 
 	handle_esi_request(esi_request, client, socket);
 
