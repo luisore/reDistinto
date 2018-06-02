@@ -34,8 +34,6 @@ void exit_program(int entero) {
 
 	list_destroy(lista_entradas);
 
-	liberar_memoria();
-
 	printf("\n\t\e[31;1m FINALIZA INSTANCIA \e[0m\n");
 	exit(entero);
 }
@@ -76,11 +74,6 @@ void loadConfig() {
 	config_destroy(config);
 }
 
-void liberar_memoria() {
-	// ADD
-
-}
-
 void log_inicial_consola() {
 
 	log_info(console_log, "\tCOORDINADOR: IP: %s, PUERTO: %d",
@@ -110,7 +103,6 @@ void log_inicial_consola() {
 void build_tabla_entradas(){
 
 	log_info(console_log, "Se arma la estructura de entradas");
-	log_info(console_log, "\t Cantidad total: %d" , storage);
 	log_info(console_log, "\t Tamanio entradas: %d" , tamanio_entradas);
 	log_info(console_log, "\t Cantidad de entradas: %d" , cantidad_entradas);
 
@@ -122,10 +114,6 @@ void build_tabla_entradas(){
 		entrada->siguiente_instruccion = 0;
 		entrada->tamanio = tamanio_entradas;
 		entrada->valor = malloc(tamanio_entradas);
-
-		//strcpy(entrada->valor , "PRUEBA VALOR");
-
-		// SE CARGAN LAS ESTRUCTURAS
 
 		list_add(lista_entradas, entrada);
 
@@ -140,8 +128,7 @@ void build_tabla_entradas(){
 
 	}
 
-	log_info(console_log, "TERMINA LA CARGA DE ESTRUCTURAS");
-
+	log_info(console_log, "Finished building structures");
 
 }
 
@@ -161,23 +148,15 @@ void show_structs(){
 
 }
 
-void init_structs(){
+void init_structs(t_instance_init_values * init_struct){
 
 	tabla_entradas = dictionary_create();
 	tabla_claves = dictionary_create();
 	lista_entradas = list_create();
 
-	// EJEMPLO CARGA
-
-	storage = 500;
-	tamanio_entradas = 50;
-	cantidad_entradas = rint(storage / tamanio_entradas);
-
 	build_tabla_entradas();
 
-	// EJEMPLO DE VISUALIZACION
-
-	show_structs();
+	//show_structs();
 }
 
 void load_dump_files (){
@@ -188,39 +167,32 @@ void load_dump_files (){
 
 void connect_with_coordinator() {
 
-
 	log_info(console_log, "Connecting to Coordinador.");
 	coordinator_socket = connect_to_server(instancia_setup.IP_COORDINADOR, instancia_setup.PUERTO_COORDINADOR, console_log);
 	if(coordinator_socket <= 0){
 		exit_program(EXIT_FAILURE);
 	}
 
-	if(!perform_connection_handshake(coordinator_socket, instancia_setup.NOMBRE_INSTANCIA, ESI, console_log)){
+	if(!perform_connection_handshake(coordinator_socket, instancia_setup.NOMBRE_INSTANCIA, REDIS_INSTANCE, console_log)){
 		exit_program(EXIT_FAILURE);
 	}
-	log_info(console_log, "Successfully connected to Coordinador.");
 
-}
+	void* init_buffer = malloc(INSTANCE_INIT_VALUES_SIZE);
 
-void send_example(){
-
-	log_info(console_log, "Prepareo envio de prueba");
-
-	t_response_process  abstract_response_intancia;
-	abstract_response_intancia.instance_type = REDIS_INSTANCE;
-	strcpy(abstract_response_intancia.response, "HOLA SOY INSTANCIA");
-
-	void *buffer = serialize_abstract_request(&abstract_response_intancia);
-
-	int result = send(coordinator_socket, buffer, CONNECTION_PACKAGE_SIZE, 0);
-	free(buffer);
-
-	if (result < CONNECTION_PACKAGE_SIZE) {
-		log_error(console_log, "Could not send status response to Planner.");
+	if (recv(coordinator_socket, init_buffer, INSTANCE_INIT_VALUES_SIZE, MSG_WAITALL) <= 0) {
+		log_error(console_log, "Error receiving initialization response. Aborting execution.");
+		free(init_buffer);
+		exit_program(EXIT_FAILURE);
 	}
 
-	log_info(console_log, "SE LE ENVIO EL MENSAJE OK AL COORDINADOR");
+	t_instance_init_values * init_struct = deserialize_init_instancia_message(init_buffer);
 
+	log_info(console_log, "Sending OK ");
+
+	// SEND OK
+
+	init_structs(init_struct);
+	free(init_struct);
 }
 
 bool existe_capacidad_valor(char * valor){
@@ -379,12 +351,13 @@ int main(void) {
 	loadConfig();
 	log_inicial_consola();
 
-	init_structs();
-	load_dump_files();
+	connect_with_coordinator();
 
-	organizar_carga();
+	// CICLO - INSTANCIA
 
-	//connect_with_coordinator();
+	//load_dump_files();
+
+	//organizar_carga();
 	//send_example();
 
 

@@ -48,7 +48,6 @@ typedef struct {
 } t_entrada;
 
 
-int storage;
 int tamanio_entradas;
 int cantidad_entradas;
 
@@ -66,7 +65,7 @@ void create_log();
 void loadConfig();
 void log_inicial_consola();
 
-void init_structs();
+void init_structs(t_instance_init_values * init_struct);
 void load_dump_files();
 
 void connect_with_coordinator();
