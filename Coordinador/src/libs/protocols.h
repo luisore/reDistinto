@@ -51,7 +51,7 @@ static const int ESI_INSTRUCTION_REQUEST_SIZE = 31 + 4;
  */
 typedef struct {
 	char planner_name[30];
-} t_planner_request;
+} t_planner_execute_request;
 
 
 typedef struct {
@@ -101,7 +101,7 @@ static const int ESI_OPERATION_REQUEST_SIZE = 4 + 41 + 4;
  */
 typedef struct {
 	operation_result_e operation_result;
-} t_coordinator_operation_response;
+} t_operation_response;
 
 static const int COORD_OPERATION_RESPONSE_SIZE = 4;
 
@@ -117,10 +117,10 @@ t_ack_message* deserialize_ack_message(void* buffer);
 void* serialize_esi_status_response(t_esi_status_response *response);
 t_esi_status_response* deserialize_esi_status_response(void *buffer);
 
-void* serialize_esi_operation_request(t_esi_operation_request *request);
-t_esi_operation_request* deserialize_esi_operation_request(void* buffer);
+void* serialize_operation_request(t_esi_operation_request *request);
+t_esi_operation_request* deserialize_operation_request(void* buffer);
 
-void* serialize_coordinator_operation_response(t_coordinator_operation_response *response);
-t_coordinator_operation_response* deserialize_coordinator_operation_response(void* buffer);
+void* serialize_operation_response(t_operation_response *response);
+t_operation_response* deserialize_operation_response(void* buffer);
 
 #endif /* _PROTOCOLS_H_ */

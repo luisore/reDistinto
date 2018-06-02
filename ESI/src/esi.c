@@ -208,7 +208,7 @@ bool wait_for_planner_signal(){
 		return false;
 	}
 
-	t_planner_request *planner_request = deserialize_planner_request(buffer);
+	t_planner_execute_request *planner_request = deserialize_planner_execute_request(buffer);
 
 	log_info(esi_log, "Received signal from planner: %s.", planner_request->planner_name);
 
@@ -226,18 +226,18 @@ void destroy_program_instruction(void* instruction){
 }
 
 operation_result_e coordinate_operation(t_program_instruction *instruction){
-	t_esi_operation_request esi_operation_request;
+	t_operation_request esi_operation_request;
 	strcpy(esi_operation_request.key, instruction->key);
 	esi_operation_request.operation_type = instruction->operation_type;
 	esi_operation_request.payload_size = instruction->value_size;
 
 	log_trace(esi_log, "Sending operation request to Coordinator ...");
 
-	void *req_buffer = malloc(ESI_OPERATION_REQUEST_SIZE);
-	req_buffer = serialize_esi_operation_request(&esi_operation_request);
+	void *req_buffer = malloc(OPERATION_REQUEST_SIZE);
+	req_buffer = serialize_operation_request(&esi_operation_request);
 
-	int result = send(coordinator_socket, req_buffer, ESI_OPERATION_REQUEST_SIZE, 0);
-	if (result < ESI_OPERATION_REQUEST_SIZE) {
+	int result = send(coordinator_socket, req_buffer, OPERATION_REQUEST_SIZE, 0);
+	if (result < OPERATION_REQUEST_SIZE) {
 		free(req_buffer);
 		log_error(esi_log, "Could not send operation request to Coordinator.");
 		return OP_ERROR;
@@ -253,16 +253,16 @@ operation_result_e coordinate_operation(t_program_instruction *instruction){
 		}
 	}
 
-	void *res_buffer = malloc(COORD_OPERATION_RESPONSE_SIZE);
+	void *res_buffer = malloc(OPERATION_RESPONSE_SIZE);
 
 	operation_result_e operation_result;
 
-	if (recv(coordinator_socket, res_buffer, COORD_OPERATION_RESPONSE_SIZE, MSG_WAITALL) < COORD_OPERATION_RESPONSE_SIZE) {
+	if (recv(coordinator_socket, res_buffer, OPERATION_RESPONSE_SIZE, MSG_WAITALL) < OPERATION_RESPONSE_SIZE) {
 		log_error(esi_log, "Error receiving Coordinator response.");
 		operation_result = OP_ERROR;
 
 	} else {
-		t_coordinator_operation_response *coordinator_response = deserialize_coordinator_operation_response(res_buffer);
+		t_operation_response *coordinator_response = deserialize_operation_response(res_buffer);
 		operation_result = coordinator_response->operation_result;
 		log_info(esi_log, "Received Coordinator response: %i.", coordinator_response->operation_result);
 		free(coordinator_response);

@@ -54,8 +54,8 @@ t_ack_message* deserialize_ack_message(void* buffer){
 	return message;
 }
 
-void* serialize_esi_operation_request(t_esi_operation_request *request){
-	void* buffer = malloc(ESI_OPERATION_REQUEST_SIZE);
+void* serialize_operation_request(t_esi_operation_request *request){
+	void* buffer = malloc(OPERATION_REQUEST_SIZE);
 	int lastIndex = 0;
 
 	serialize_data(&(request->operation_type), 4, &buffer, &lastIndex);
@@ -65,7 +65,7 @@ void* serialize_esi_operation_request(t_esi_operation_request *request){
 	return buffer;
 }
 
-t_esi_operation_request* deserialize_esi_operation_request(void *buffer){
+t_esi_operation_request* deserialize_operation_request(void *buffer){
 	t_esi_operation_request* request = malloc(sizeof(t_esi_operation_request));
 	int lastIndex = 0;
 
@@ -76,8 +76,8 @@ t_esi_operation_request* deserialize_esi_operation_request(void *buffer){
 	return request;
 }
 
-void* serialize_coordinator_operation_response(t_coordinator_operation_response *response){
-	void* buffer = malloc(COORD_OPERATION_RESPONSE_SIZE);
+void* serialize_operation_response(t_operation_response *response){
+	void* buffer = malloc(OPERATION_RESPONSE_SIZE);
 	int lastIndex = 0;
 
 	serialize_data(&(response->operation_result), 4, &buffer, &lastIndex);
@@ -85,8 +85,8 @@ void* serialize_coordinator_operation_response(t_coordinator_operation_response 
 	return buffer;
 }
 
-t_coordinator_operation_response* deserialize_coordinator_operation_response(void *buffer){
-	t_coordinator_operation_response* response = malloc(sizeof(t_coordinator_operation_response));
+t_operation_response* deserialize_operation_response(void *buffer){
+	t_operation_response* response = malloc(sizeof(t_operation_response));
 	int lastIndex = 0;
 
 	deserialize_data(&(response->operation_result), 4, buffer, &lastIndex);
