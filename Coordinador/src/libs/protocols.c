@@ -137,6 +137,27 @@ t_ack_message* deserialize_ack_message(void* buffer){
 	return message;
 }
 
+void* serialize_init_instancia_message(t_instance_init_values *init_values_message){
+	void* buffer = malloc(INSTANCE_INIT_VALUES_SIZE);
+	int lastIndex = 0;
+
+	serialize_data(&(init_values_message->entry_size), 4, &buffer, &lastIndex);
+	serialize_data(&(init_values_message->number_of_entries), 4, &buffer, &lastIndex);
+
+	return buffer;
+}
+
+
+t_instance_init_values* deserialize_init_instancia_message(void* buffer){
+	t_instance_init_values* message = malloc(sizeof(t_instance_init_values));
+	int lastIndex = 0;
+
+	deserialize_data(&(message->entry_size), 4, buffer, &lastIndex);
+	deserialize_data(&(message->number_of_entries), 4, buffer, &lastIndex);
+
+	return message;
+}
+
 void* serialize_operation_request(t_operation_request *request){
 	void* buffer = malloc(OPERATION_REQUEST_SIZE);
 	int lastIndex = 0;

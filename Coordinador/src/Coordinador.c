@@ -141,7 +141,43 @@ void on_server_accept(tcp_server_t* server, int client_socket, int socket_id){
 	t_connection_header *connection_header = deserialize_connection_header(header_buffer);
 	log_info(coordinador_log, "Received handshake from TCP Client: %s", connection_header->instance_name);
 	free(header_buffer);
+	switch (connection_header->instance_type){
+	case REDIS_INSTANCE:
+		send_message_instance(coordinador_setup, client_socket, socket_id);
+		break;
+	default:
+		send_message_clients(coordinador_setup, client_socket, socket_id);
+	}
+	//TODO: Modularizar
 
+	t_connected_client* connected_client = malloc(sizeof(t_connected_client));
+	strcpy(&(connected_client->instance_name), connection_header->instance_name);
+	connected_client->instance_type = connection_header->instance_type;
+	connected_client->socket_id = socket_id;
+	list_add(connected_clients, (void*)connected_client);
+
+	free(connection_header);
+//	free(ack_buffer);
+}
+
+
+void send_message_instance(t_connection_header *connection_header, int client_socket, int socket_id){
+	t_instance_init_values init_values_message;
+			init_values_message.entry_size = coordinador_setup.TAMANIO_ENTRADA_BYTES;
+			init_values_message.number_of_entries = coordinador_setup.CANTIDAD_ENTRADAS;
+			void *init_value_instance_buffer = serialize_init_instancia_message(&init_values_message);
+
+			if( send(client_socket, init_value_instance_buffer, INSTANCE_INIT_VALUES_SIZE, 0) != INSTANCE_INIT_VALUES_SIZE)
+			{
+				log_error(coordinador_log, "Could not send handshake acknowledge to TCP client.");
+				remove_client(server, socket_id);
+			} else {
+				log_info(coordinador_log, "Successfully connected to TCP Client: %s", connection_header->instance_name);
+			}
+			free(init_value_instance_buffer);
+}
+
+void send_message_clients(t_connection_header *connection_header, int client_socket, int socket_id){
 	t_ack_message ack_message;
 	strcpy(ack_message.instance_name, coordinador_setup.NOMBRE_INSTANCIA);
 	void *ack_buffer = serialize_ack_message(&ack_message);
@@ -153,18 +189,9 @@ void on_server_accept(tcp_server_t* server, int client_socket, int socket_id){
 	} else {
 		log_info(coordinador_log, "Successfully connected to TCP Client: %s", connection_header->instance_name);
 	}
-
-	//TODO: Modularizar
-
-	t_connected_client* connected_client = malloc(sizeof(t_connected_client));
-	strcpy(&(connected_client->instance_name), connection_header->instance_name);
-	connected_client->instance_type = connection_header->instance_type;
-	connected_client->socket_id = socket_id;
-	list_add(connected_clients, (void*)connected_client);
-
-	free(connection_header);
 	free(ack_buffer);
 }
+
 
 t_connected_client* find_connected_client(int socket_id){
 	bool is_linked_to_socket(void* conn_client){

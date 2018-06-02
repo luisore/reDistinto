@@ -150,5 +150,10 @@ t_coordinator_operation_request* deserialize_coordinator_operation_request(void 
 void* serialize_instance_response(t_instance_response *response);
 t_instance_response* deserialize_instance_response(void *buffer);
 
+void* serialize_operation_response(t_operation_response *response);
+t_operation_response* deserialize_operation_response(void *buffer);
+
+void* serialize_init_instancia_message(t_instance_init_values *init_values_message);
+t_instance_init_values* deserialize_init_instancia_message(void* buffer);
 
 #endif /* _PROTOCOLS_H_ */
