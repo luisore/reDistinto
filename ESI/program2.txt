@@ -1,0 +1,3 @@
+GET deportes:futbol:messi
+GET deportes:basquet:ginobili
+STORE deportes:basquet:ginobili
