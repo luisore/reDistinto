@@ -193,11 +193,6 @@ t_queue* parse_program_instructions(char *program_filename){
 }
 
 bool wait_for_planner_signal(){
-	if (!send_status_to_planner(ESI_IDLE)){
-		log_error(esi_log, "Could not signal Planner to send the next instruction!");
-		exit_gracefully(EXIT_FAILURE);
-	}
-
 	log_info(esi_log, "Waiting for Planner to signal next execution...");
 
 	void *buffer = malloc(PLANNER_REQUEST_SIZE);
@@ -298,16 +293,15 @@ void execute_program(char *program_filename){
 	operation_result_e operation_result;
 
 	while(queue_size(instructions) > 0){
-		// Comentada interaccion con Planificador
-		//if(!wait_for_planner_signal()){
-		//	queue_destroy_and_destroy_elements(instructions, destroy_program_instruction);
-		//	exit_gracefully(EXIT_FAILURE);
-		//}
+		if(!wait_for_planner_signal()){
+			queue_destroy_and_destroy_elements(instructions, destroy_program_instruction);
+			exit_gracefully(EXIT_FAILURE);
+		}
 
 		next_instruction = (t_program_instruction* ) queue_peek(instructions);
 		log_instruction(next_instruction);
 
-		operation_result = coordinate_operation(next_instruction);
+		operation_result = OP_SUCCESS; //coordinate_operation(next_instruction);
 
 		if(operation_result == OP_ERROR){
 			log_error(esi_log, "There was an error performing the current operation. Type:%d. Key: %s.",
@@ -318,17 +312,15 @@ void execute_program(char *program_filename){
 			queue_pop(instructions);
 			destroy_program_instruction(next_instruction);
 
-			// Comentada la interaccion con el Planificador
-			/*if(!send_status_to_planner(queue_size(instructions) > 0 ? ESI_IDLE : ESI_FINISHED)){
+			if(!send_status_to_planner(queue_size(instructions) > 0 ? ESI_IDLE : ESI_FINISHED)){
 				queue_destroy_and_destroy_elements(instructions, destroy_program_instruction);
 				exit_gracefully(EXIT_FAILURE);
-			}*/
+			}
 		} else { // operation_result == OP_BLOCKED
-			// Comentada interaccion con planificador
-//			if(!send_status_to_planner(ESI_BLOCKED)){
-//				queue_destroy_and_destroy_elements(instructions, destroy_program_instruction);
-//				exit_gracefully(EXIT_FAILURE);
-//			}
+			if(!send_status_to_planner(ESI_BLOCKED)){
+				queue_destroy_and_destroy_elements(instructions, destroy_program_instruction);
+				exit_gracefully(EXIT_FAILURE);
+			}
 		}
 	}
 
@@ -345,13 +337,6 @@ int main(int argc, char **argv) {
 	char* program_filename;
 
 	print_header();
-//
-//	if(argc != 2){
-//		printf("\t\e[31;1m ERROR:\e[0m Debe proveer como único parámetro el path del archivo con el programa a correr.");
-//		exit_gracefully(EXIT_SUCCESS);
-//	}
-//
-//	program_filename = argv[1];
 
 	if(argc != 2){
 		printf("\t\e[31;1m ERROR:\e[0m Debe proveer como único parámetro el path del archivo con el programa a correr.");
@@ -364,9 +349,9 @@ int main(int argc, char **argv) {
 
 	load_config();
 
-	connect_with_coordinator();
+	//connect_with_coordinator();
 
-	//connect_with_planner();
+	connect_with_planner();
 
 	execute_program(program_filename);
 

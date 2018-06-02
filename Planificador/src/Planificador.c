@@ -102,11 +102,14 @@ void ejecutarPlanificacion(){
 				terminarEsiActual();
 				break;
 			}
-		}
-		else
-			printf("Esi actual: no hay esi\n");
 
-		printf("************************************\n");
+			printf("************************************\n");
+		}
+		//else
+			//printf("Esi actual: no hay esi\n");
+
+//		printf("************************************\n");
+		//sleep(3);
 	}
 
 	/** PARA PROBAR LOS ALGORITMOS:
