@@ -33,12 +33,16 @@ void print_header() {
 	printf("\n\t\e[31;1m=========================================\e[0m\n\n");
 }
 
+int generarId() {
+	return esi_id++;
+}
+
 int inicializar() {
 
 	if (create_log() == EXIT_FAILURE)
 		exit_gracefully(EXIT_FAILURE);
 
-	if (cargarConfiguracion(console_log, PLANNER_CFG_FILE) < 0) {
+	if (cargarConfiguracion(PLANNER_CFG_FILE) < 0) {
 		log_error(console_log, "No se encontró el archivo de configuración");
 		return -1;
 	}
@@ -95,17 +99,8 @@ void ejecutarPlanificacion() {
 
 			ejecutarSiguienteESI(esiEjecutando->client_socket, esiEjecutando->socket_id);
 
-
-			// TODO: ACA VA LO DEL COORDINADOR
+			// Escucho al coordinador
 			escucharCoordinador();
-
-
-			// Aumento contadores esi actual
-			esiEjecutando->tiempoRafagaActual++;
-			esiEjecutando->tiempoEstimado--;
-			if(esiEjecutando->tiempoEstimado < 0)
-				esiEjecutando->tiempoEstimado = 0;
-
 
 			// ACA LE TENGO QUE ESPERAR AL ESTADO DEL ESI
 			int estado = esperarEstadoDelEsi(esiEjecutando->client_socket,
@@ -118,10 +113,18 @@ void ejecutarPlanificacion() {
 				break;
 			case ESI_IDLE:
 				log_info(console_log, "El ESI puede seguir ejecutando");
+
+				// Aumento contadores esi actual
+				esiEjecutando->tiempoRafagaActual++;
+				esiEjecutando->tiempoEstimado--;
+				if(esiEjecutando->tiempoEstimado < 0)
+					esiEjecutando->tiempoEstimado = 0;
+
 				break;
 			case ESI_BLOCKED:
+				// En un bloqueo se supone que el esi no pudo ejecutar
+				// por eso no hago el incremento de contadores
 				log_info(console_log, "El ESI esta bloqueado");
-				// El bloqueo lo manejo por la parte de recursos
 				break;
 			case ESI_FINISHED:
 				log_info(console_log, "El ESI termino");
@@ -153,8 +156,10 @@ void create_tcp_server() {
 
 void conectarseConCoordinador() {
 	log_info(console_log, "Conectando al Coordinador ...");
+
 	coordinator_socket = connect_to_server(planificador_setup.IP_COORDINADOR,
 			planificador_setup.PUERTO_COORDINADOR, console_log);
+
 	if (coordinator_socket <= 0) {
 		exit_gracefully(EXIT_FAILURE);
 	}
@@ -168,16 +173,14 @@ void conectarseConCoordinador() {
 
 void ejecutarSiguienteESI(int esi_socket, int socket_id) {
 	t_planner_execute_request planner_request;
-	//strcpy(planner_request.planner_name, planificador_setup.NOMBRE_INSTANCIA);
-	char* code = "0";
-	strcpy(planner_request.planner_name, code);
+	strcpy(planner_request.planner_name, planificador_setup.NOMBRE_INSTANCIA);
 
 	void *buffer = serialize_planner_execute_request(&planner_request);
 
 	int result = send(esi_socket, buffer, PLANNER_REQUEST_SIZE, 0);
 
 	if (result <= 0) {
-		log_error(console_log, "Signal execute next to ESI failed for ID: %d");
+		log_error(console_log, "Fallo al enviar instruccion de seguir ejecutando");
 		tcpserver_remove_client(server, socket_id);
 	}
 	free(buffer);
@@ -186,6 +189,7 @@ void ejecutarSiguienteESI(int esi_socket, int socket_id) {
 int esperarEstadoDelEsi(int esi_socket, int socket_id) {
 	int esi_status = -1, bytesReceived = 0;
 	void *res_buffer = malloc(ESI_STATUS_RESPONSE_SIZE);
+	t_esi_status_response *esi_status_response = NULL;
 
 	bytesReceived = recv(esi_socket, res_buffer, ESI_STATUS_RESPONSE_SIZE,
 			MSG_WAITALL);
@@ -201,8 +205,7 @@ int esperarEstadoDelEsi(int esi_socket, int socket_id) {
 		return esi_status;
 	}
 
-	t_esi_status_response *esi_status_response =
-			deserialize_esi_status_response(res_buffer);
+	esi_status_response = deserialize_esi_status_response(res_buffer);
 
 	log_info(console_log, "Estado del ESI: %d", esi_status_response->status);
 
@@ -220,28 +223,32 @@ void before_tpc_server_cycle(tcp_server_t* server) {
  * Funcion que se ejecuta cuando un externo se conecta a nuestro servidor
  */
 void on_server_accept(tcp_server_t* server, int client_socket, int socket_id) {
+
+	t_connection_header *connection_header = NULL;
+	t_ack_message ack_message;
+	void *ack_buffer;
 	void *header_buffer = malloc(CONNECTION_HEADER_SIZE);
 
-	int res = recv(client_socket, header_buffer, CONNECTION_HEADER_SIZE,
-	MSG_WAITALL);
+
+	/*************************** LEER EL HANDSHAKE *********************************/
+	int res = recv(client_socket, header_buffer, CONNECTION_HEADER_SIZE, MSG_WAITALL);
+
 	if (res <= 0) {
-		log_error(console_log,
-				"Error receiving handshake request from TCP Client!");
+		log_error(console_log, "¡Error en el handshake del cliente!");
 		tcpserver_remove_client(server, socket_id);
 		free(header_buffer);
 		return;
 	}
 
-	t_connection_header *connection_header = deserialize_connection_header(
-			header_buffer);
+	connection_header = deserialize_connection_header(header_buffer);
 
-	log_info(console_log, "Received handshake from TCP Client: %s",
-			connection_header->instance_name);
+	log_info(console_log, "Se recibio handshake del cliente: %s", connection_header->instance_name);
 
-	t_ack_message ack_message;
+
+	/*************************** RESPONDER AL HANDSHAKE *********************************/
 	strcpy(ack_message.instance_name, planificador_setup.NOMBRE_INSTANCIA);
 
-	void *ack_buffer = serialize_ack_message(&ack_message);
+	ack_buffer = serialize_ack_message(&ack_message);
 
 	if (send(client_socket, ack_buffer, ACK_MESSAGE_SIZE, 0)
 			!= ACK_MESSAGE_SIZE) {
@@ -253,14 +260,16 @@ void on_server_accept(tcp_server_t* server, int client_socket, int socket_id) {
 				connection_header->instance_name);
 	}
 
+
+	/*************************** SI EL HANDSHAKE LO HIZO UN ESI *********************************/
 	if (connection_header->instance_type == ESI) {
-		log_info(console_log, "************* NUEVO ESI");
+		log_info(console_log, "************* NUEVO ESI ***************");
 
 		int id_esi = generarId();
 		ESI_STRUCT * esi = nuevoESI(id_esi, client_socket, socket_id);
 		agregarNuevoEsi(esi);
 
-		// Nuevo esi -> libero el hilo de planificacion
+		// Nuevo esi => libero el hilo de planificacion
 		pthread_mutex_unlock(&mutexPlanificacion);
 	}
 
@@ -308,6 +317,7 @@ void escucharCoordinador(){
 			if(result == 0)
 			{
 				// Esta bloqueado por otro esi
+				bloquearEsiActual(key);
 				responderCoordinador(coordinator_socket, OP_BLOCKED);
 			}
 			else if(result == 1) {
@@ -329,6 +339,7 @@ void escucharCoordinador(){
 			if(result == 0)
 			{
 				// Esta bloqueado por otro esi
+				bloquearEsiActual(key);
 				responderCoordinador(coordinator_socket, OP_BLOCKED);
 			}
 			else if(result == 1) {
@@ -368,8 +379,18 @@ void escucharCoordinador(){
 	free(request);
 }
 
-int generarId() {
-	return esi_id++;
+void responderCoordinador(int socket, operation_result_e result){
+	t_operation_response response;
+	response.operation_result = result;
+
+	void *buffer = serialize_operation_response(&response);
+
+	int r = send(socket, buffer, OPERATION_RESPONSE_SIZE, 0);
+
+	if (r <= 0) {
+		log_error(console_log, "No se pudo enviar la respuesta al coordinador");
+	}
+	free(buffer);
 }
 
 void aplicar_algoritmo_planificacion() {
@@ -415,20 +436,4 @@ void exit_gracefully(int retVal) {
 		tcpserver_destroy(server);
 
 	exit(retVal);
-}
-
-
-
-void responderCoordinador(int socket, operation_result_e result){
-	t_operation_response response;
-	response.operation_result = result;
-
-	void *buffer = serialize_operation_response(&response);
-
-	int r = send(socket, buffer, OPERATION_RESPONSE_SIZE, 0);
-
-	if (r <= 0) {
-		log_error(console_log, "No se pudo enviar la respuesta al coordinador");
-	}
-	free(buffer);
 }

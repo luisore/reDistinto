@@ -80,6 +80,16 @@ void aplicarSJF(bool p_hayDesalojo) {
 
 	pthread_mutex_lock(&mutexPrincipal);
 
+	// 0 - Si el esi actual termino bloqueado lo encolo
+	if(esiEjecutando != NULL && esiEjecutando->estado == ESI_BLOQUEADO)
+	{
+		log_info(console_log, "El esi actual esta bloqueado, lo mando a la lista de bloqueados");
+		// Encolo el esi en la lista de bloqueados
+		list_add(listaEsiBloqueados, clonarEsi(esiEjecutando));
+		// Libero el esi actual
+		esiEjecutando = NULL;
+	}
+
 	if(list_size(listaEsiNuevos) > 0)
 	{
 		//1 - Antes de admitirlos les seteo la estimacion inicial
@@ -114,9 +124,6 @@ void aplicarSJF(bool p_hayDesalojo) {
 			esiEjecutando = list_get(listaEsiListos, indexMenorEstimacion);
 			list_remove(listaEsiListos, indexMenorEstimacion);
 		}
-		else {
-			// Habria que chequear si el esi actual puede seguir ejecutando?
-		}
 	}
 	else { //Hay desalojo
 
@@ -138,9 +145,6 @@ void aplicarSJF(bool p_hayDesalojo) {
 					esiEjecutando = esiMenorEstimacion;
 					list_remove(listaEsiListos, indexMenorEstimacion);
 				}
-			}
-			else {
-				// Habria que chequear si el esi actual puede seguir ejecutando?
 			}
 		}
 	}

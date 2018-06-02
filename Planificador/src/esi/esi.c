@@ -50,12 +50,6 @@ void bloquearEsiActual(char * recursoEsperado) {
 
 	esiEjecutando->estado = ESI_BLOQUEADO;
 	esiEjecutando->informacionDeBloqueo = infoBloqueo;
-
-	// Encolo el esi en la lista de bloqueados
-	list_add(listaEsiBloqueados, clonarEsi(esiEjecutando));
-
-	// Libero el esi actual
-	esiEjecutando = NULL;
 }
 
 /**

@@ -24,8 +24,8 @@ typedef struct {
 
 CONFIGURACION planificador_setup;
 
-int cargarConfiguracion(t_log *console_log, char* archivoConfiguracion);
-void mostrarConfiguracionPorConsola(t_log * console_log);
+int cargarConfiguracion(char* archivoConfiguracion);
+void mostrarConfiguracionPorConsola();
 void liberarRecursosConfiguracion();
 
 #endif /* CONFIGURACION_CONFIGURACION_H_ */
