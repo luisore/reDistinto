@@ -52,6 +52,8 @@ int storage;
 int tamanio_entradas;
 int cantidad_entradas;
 
+int IP;
+
 t_dictionary * tabla_entradas;
 t_dictionary * tabla_claves;
 t_list * lista_entradas;
@@ -70,7 +72,6 @@ void load_dump_files();
 void connect_with_coordinator();
 
 
-
 void send_example();
 
 void build_tabla_entradas();
@@ -82,9 +83,15 @@ void exit_program(int);
 /*FUNCIONES MEMORIA*/
 void lectura_archivo();
 void liberar_memoria();
+t_list * cargar_valor();
+bool existe_capacidad_valor(char * valor);
+void organizar_carga();
+
+void carga_real(t_list * lista , char * clave , char * valor);
 
 
 /*ALGORITMOS DE REEMPLAZO*/
+void reemplazar_por_algoritmo();
 void reemplazoCircular();
 void reemplazoLeastRecentlyUsed();
 void reemplazoBiggestSpaceUsed();
@@ -92,7 +99,6 @@ void reemplazoBiggestSpaceUsed();
 /*COMPACTACION Y DUMP*/
 
 void compactar();
-
 void dump();
 
 
