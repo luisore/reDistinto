@@ -24,7 +24,7 @@ typedef enum { STATUS = 0 } instancia_status_e;
  * OP_ERROR   = There was an error with the requested key.
  * OP_BLOCKED = The requested key is blocked by another ESI.
  */
-typedef enum { OP_SUCCESS = 0, OP_ERROR = 1, OP_BLOCKED = 2 } operation_result_e;
+typedef enum { OP_SUCCESS = 1, OP_ERROR = 2, OP_BLOCKED = 3 } operation_result_e;
 
 /*
  * Header used in every connection between processes.
@@ -37,20 +37,6 @@ typedef struct {
 
 static const int CONNECTION_HEADER_SIZE = 31 + 4;
 
-
-// Cada proceso debe castear el response segun sea necesario  y segun cada situacion.
-
-typedef struct {
-	instance_type_e instance_type;
-	char response[60];
-
-} t_response_process;
-
-static const int CONNECTION_PACKAGE_SIZE = 4 + 61;
-
-
-
-
 typedef struct {
 	char instance_name[30];
 } t_ack_message;
@@ -58,26 +44,6 @@ typedef struct {
 static const int ACK_MESSAGE_SIZE = 31;
 
 static const int ESI_INSTRUCTION_REQUEST_SIZE = 31 + 4;
-
-/*
- * ESI Operation to send to the Coordinator
- */
-typedef struct {
-	operation_type_e operation_type;
-	char key[40];
-	unsigned int payload_size;
-} t_esi_operation_request;
-
-static const int ESI_OPERATION_REQUEST_SIZE = 4 + 41 + 4;
-
-/*
- * Coordinator response with the operation result
- */
-typedef struct {
-	operation_result_e operation_result;
-} t_coordinator_operation_response;
-
-static const int COORD_OPERATION_RESPONSE_SIZE = 4;
 
 
 /*
@@ -119,20 +85,42 @@ typedef struct {
 
 static const int ESI_STATUS_RESPONSE_SIZE = 31 + 4;
 
+/*
+ * ESI Operation to send to the Coordinator
+ */
+typedef struct {
+	operation_type_e operation_type;
+	char key[40];
+	unsigned int payload_size;
+} t_esi_operation_request;
+
+static const int ESI_OPERATION_REQUEST_SIZE = 4 + 41 + 4;
+
+/*
+ * Coordinator response with the operation result
+ */
+typedef struct {
+	operation_result_e operation_result;
+} t_coordinator_operation_response;
+
+static const int COORD_OPERATION_RESPONSE_SIZE = 4;
+
+
 // Connection Messages
 
 // Serialization
 t_connection_header* deserialize_connection_header(void* buffer);
-
-t_response_process * deserialize_abstract_response (void *buffer);
-
 
 void* serialize_ack_message(t_ack_message *ack_message);
 t_ack_message* deserialize_ack_message(void* buffer);
 
 void* serialize_esi_status_response(t_esi_status_response *response);
 t_esi_status_response* deserialize_esi_status_response(void *buffer);
-void* serialize_coordinador_request(t_coordinador_request *request);
-int serialize_data(void *object, int nBytes, void **buffer, int *lastIndex);
+
+void* serialize_esi_operation_request(t_esi_operation_request *request);
+t_esi_operation_request* deserialize_esi_operation_request(void* buffer);
+
+void* serialize_coordinator_operation_response(t_coordinator_operation_response *response);
+t_coordinator_operation_response* deserialize_coordinator_operation_response(void* buffer);
 
 #endif /* _PROTOCOLS_H_ */
