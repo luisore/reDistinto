@@ -80,6 +80,30 @@ void ejecutarPlanificacion(){
 
 		if(esiEjecutando != NULL){
 			printf("ESI actual\tid: %d \tTiempo estimado: %d\n", esiEjecutando->id, esiEjecutando->tiempoEstimado);
+
+			send_execute_next_to_esi(esiEjecutando->client_socket, esiEjecutando->socket_id);
+
+			// ACA VA LO DEL COORDINADOR
+
+			// ACA TENGO QUE ESCUCHAR AL ESI QUE ME AVISE QUE TERMINO
+
+			// ACA LE TENGO QUE PREGUNTAR AL ESI SI YA TERMINO TODA SU EJECUCION
+			int estado = send_get_status_to_esi(esiEjecutando->client_socket, esiEjecutando->socket_id);
+
+			switch (estado) {
+			case ESI_IDLE:
+				log_info(console_log, "El ESI puede seguir ejecutando");
+				break;
+			case ESI_BLOCKED:
+				log_info(console_log, "El ESI esta bloqueado");
+				// El bloqueo lo manejo por la parte de recursos
+				break;
+			case ESI_FINISHED:
+				log_info(console_log, "El ESI termino");
+				tcpserver_remove_client(server, esiEjecutando->socket_id);
+				terminarEsiActual();
+				break;
+			}
 		}
 		else
 			printf("Esi actual: no hay esi\n");
@@ -156,8 +180,10 @@ void send_execute_next_to_esi(int esi_socket, int socket_id) {
 	free(buffer);
 }
 
-void send_get_status_to_esi(int esi_socket, int socket_id) {
+int send_get_status_to_esi(int esi_socket, int socket_id) {
 	t_planner_request planner_request;
+	int esi_status = -1;
+
 	//strcpy(planner_request.planner_name, planificador_setup.NOMBRE_INSTANCIA);
 	char* code = "1";
 	strcpy(planner_request.planner_name, code);
@@ -167,12 +193,13 @@ void send_get_status_to_esi(int esi_socket, int socket_id) {
 	int result = send(esi_socket, buffer, PLANNER_REQUEST_SIZE, 0);
 
 	if (result <= 0) {
-		log_error(console_log, "Signal execute next to ESI failed for ID: %d");
 		tcpserver_remove_client(server, socket_id);
+		free(buffer);
+		return esi_status;
 	}
 
-	free(buffer);
 
+	// AHORA ESCUCHO SU RESPUESTA
 	void *res_buffer = malloc(ESI_STATUS_RESPONSE_SIZE);
 
 	if (recv(esi_socket, res_buffer, ESI_STATUS_RESPONSE_SIZE, MSG_WAITALL)
@@ -180,31 +207,20 @@ void send_get_status_to_esi(int esi_socket, int socket_id) {
 		log_error(console_log, "Error receiving status from ESI!");
 		free(res_buffer);
 		tcpserver_remove_client(server, socket_id);
-		return;
+		return esi_status;
 	}
 
 	t_esi_status_response *esi_status_response =
 			deserialize_esi_status_response(res_buffer);
+
 	log_info(console_log, "Estado del ESI: %d", esi_status_response->status);
 
-	switch (esi_status_response->status) {
-	case ESI_IDLE:
-		// Por ahora, mando la siguiente operacion
-		log_info(console_log, "ESI is IDLE. Signal next operation");
-		//send_execute_next_to_esi(client_socket, socket_id);
-		break;
-	case ESI_BLOCKED:
-		// Por ahora, no hago nada...
-		log_info(console_log, "ESI is BLOCKED.");
-		break;
-	case ESI_FINISHED:
-		log_info(console_log, "ESI Finished execution");
-		tcpserver_remove_client(server, socket_id);
-		break;
-	}
+	esi_status = esi_status_response->status;
 
+	free(buffer);
 	free(res_buffer);
 	free(esi_status_response);
+	return esi_status;
 }
 
 void before_tpc_server_cycle(tcp_server_t* server) {

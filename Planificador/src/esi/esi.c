@@ -34,9 +34,11 @@ void agregarNuevoEsi(ESI_STRUCT * esi){
 }
 
 void terminarEsiActual(){
+	pthread_mutex_lock(&mutexPrincipal);
 	esiEjecutando->estado = ESI_TERMINADO;
 	list_add(listaEsiTerminados, clonarEsi(esiEjecutando));
 	esiEjecutando = NULL;
+	pthread_mutex_unlock(&mutexPrincipal);
 }
 
 /**
