@@ -17,7 +17,8 @@ int main(void) {
 
 	pthread_create(&hiloConsola, NULL, (void*) escucharConsola, NULL);
 	pthread_create(&hiloPrincipal, NULL, (void*) iniciarPlanificador, NULL);
-	pthread_create(&hiloPlanificacion, NULL, (void*) ejecutarPlanificacion, NULL);
+	pthread_create(&hiloPlanificacion, NULL, (void*) ejecutarPlanificacion,
+			NULL);
 
 	pthread_join(hiloConsola, NULL);
 	pthread_join(hiloPrincipal, NULL);
@@ -35,7 +36,7 @@ void print_header() {
 
 int inicializar() {
 
-	if(create_log() == EXIT_FAILURE)
+	if (create_log() == EXIT_FAILURE)
 		exit_gracefully(EXIT_FAILURE);
 
 	if (cargarConfiguracion(console_log, PLANNER_CFG_FILE) < 0) {
@@ -69,41 +70,45 @@ void iniciarPlanificador() {
 	create_tcp_server();
 
 	tcpserver_run(server, before_tpc_server_cycle, on_server_accept,
-				on_server_read, on_server_command);
+			on_server_read, on_server_command);
 
 	pthread_exit(0);
 }
 
-void ejecutarPlanificacion(){
-	while(true)
-	{
+void ejecutarPlanificacion() {
+	while (true) {
 		pthread_mutex_lock(&mutexPlanificacion);
 
-		if(cantidadEsiTotales() == 0)
-		{
-			log_info(console_log, "\n\n **************** NO HAY ESI *******************\n");
+		if (cantidadEsiTotales() == 0) {
+			log_info(console_log,
+					"\n\n **************** NO HAY ESI *******************\n");
 			pthread_mutex_lock(&mutexPlanificacion);
 		}
 
-		log_info(console_log, "\n\n **************** HAY ESI *******************\n");
+		log_info(console_log,
+				"\n\n **************** HAY ESI *******************\n");
 
 		aplicar_algoritmo_planificacion();
 
-		if(esiEjecutando != NULL){
-			log_info(console_log, "ESI actual\tid: %d \tTiempo estimado: %d\n", esiEjecutando->id, esiEjecutando->tiempoEstimado);
+		if (esiEjecutando != NULL) {
+			log_info(console_log, "ESI actual\tid: %d \tTiempo estimado: %d\n",
+					esiEjecutando->id, esiEjecutando->tiempoEstimado);
 
-			ejecutarSiguienteESI(esiEjecutando->client_socket, esiEjecutando->socket_id);
+			ejecutarSiguienteESI(esiEjecutando->client_socket,
+					esiEjecutando->socket_id);
 
 			// ACA VA LO DEL COORDINADOR
 
 			// TODO
 
 			// ACA LE TENGO QUE ESPERAR AL ESTADO DEL ESI
-			int estado = esperarEstadoDelEsi(esiEjecutando->client_socket, esiEjecutando->socket_id);
+			int estado = esperarEstadoDelEsi(esiEjecutando->client_socket,
+					esiEjecutando->socket_id);
 
 			switch (estado) {
 			case -1:
-				log_info(console_log, "Error al pedir el estado del ESI. Abortando ESI");
+				log_info(console_log,
+						"Error al pedir el estado del ESI. Abortando ESI");
 				terminarEsiActual();
 				break;
 			case ESI_IDLE:
@@ -125,6 +130,7 @@ void ejecutarPlanificacion(){
 
 		pthread_mutex_unlock(&mutexPlanificacion);
 	}
+	pthread_exit(0);
 }
 
 void create_tcp_server() {
@@ -172,17 +178,17 @@ void ejecutarSiguienteESI(int esi_socket, int socket_id) {
 }
 
 int esperarEstadoDelEsi(int esi_socket, int socket_id) {
-	int esi_status = -1;
-
+	int esi_status = -1, bytesReceived = 0;
 	void *res_buffer = malloc(ESI_STATUS_RESPONSE_SIZE);
 
-	int bytesReceived = recv(esi_socket, res_buffer, ESI_STATUS_RESPONSE_SIZE, MSG_WAITALL);
+	bytesReceived = recv(esi_socket, res_buffer, ESI_STATUS_RESPONSE_SIZE,
+			MSG_WAITALL);
 
 	if (bytesReceived < ESI_STATUS_RESPONSE_SIZE) {
 		log_error(console_log, "Error receiving status from ESI!");
 
-		log_error(console_log, "Bytes leidos: %d | Esperados: %d", bytesReceived, ESI_STATUS_RESPONSE_SIZE);
-
+		log_error(console_log, "Bytes leidos: %d | Esperados: %d",
+				bytesReceived, ESI_STATUS_RESPONSE_SIZE);
 
 		free(res_buffer);
 		tcpserver_remove_client(server, socket_id);
@@ -281,7 +287,6 @@ void aplicar_algoritmo_planificacion() {
 	}
 }
 
-
 void liberarRecursos(int tipoSalida) {
 	log_destroy(console_log);
 
@@ -294,6 +299,7 @@ void liberarRecursos(int tipoSalida) {
 
 	pthread_mutex_destroy(&mutexConsola);
 	pthread_mutex_destroy(&mutexPrincipal);
+	pthread_mutex_destroy(&mutexPlanificacion);
 
 	liberarRecursosEsi();
 	liberarRecursosConfiguracion();
