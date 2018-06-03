@@ -2,10 +2,10 @@
 
 int create_log() {
 	console_log = log_create("planificador.log", "ReDistinto-Planificador",
-	true, LOG_LEVEL_TRACE);
+	false, LOG_LEVEL_TRACE);
 
 	if (console_log == NULL) {
-		printf("Could not create log. Execution aborted.");
+		log_info(console_log, "No se pudo crear el log. Abortando ejecución");
 		return EXIT_FAILURE;
 	}
 

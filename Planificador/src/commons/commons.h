@@ -52,6 +52,7 @@ t_log *console_log;
 
 pthread_mutex_t mutexConsola;
 pthread_mutex_t mutexPrincipal;
+pthread_mutex_t mutexPlanificacion;
 
 int create_log();
 

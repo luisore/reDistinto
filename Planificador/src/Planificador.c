@@ -12,15 +12,16 @@ int main(void) {
 	}
 
 	pthread_mutex_init(&mutexConsola, NULL);
-	pthread_create(&hiloConsola, NULL, (void*) escucharConsola, NULL);
-
 	pthread_mutex_init(&mutexPrincipal, NULL);
-	pthread_create(&hiloPrincipal, NULL, (void*) iniciarPlanificador, NULL);
+	pthread_mutex_init(&mutexPlanificacion, NULL);
 
+	pthread_create(&hiloConsola, NULL, (void*) escucharConsola, NULL);
+	pthread_create(&hiloPrincipal, NULL, (void*) iniciarPlanificador, NULL);
 	pthread_create(&hiloPlanificacion, NULL, (void*) ejecutarPlanificacion, NULL);
 
 	pthread_join(hiloConsola, NULL);
 	pthread_join(hiloPrincipal, NULL);
+	pthread_join(hiloPlanificacion, NULL);
 
 	liberarRecursos(EXIT_SUCCESS);
 	return 0;
@@ -76,19 +77,35 @@ void iniciarPlanificador() {
 void ejecutarPlanificacion(){
 	while(true)
 	{
+		pthread_mutex_lock(&mutexPlanificacion);
+
+		if(cantidadEsiTotales() == 0)
+		{
+			log_info(console_log, "\n\n **************** NO HAY ESI *******************\n");
+			pthread_mutex_lock(&mutexPlanificacion);
+		}
+
+		log_info(console_log, "\n\n **************** HAY ESI *******************\n");
+
 		aplicar_algoritmo_planificacion();
 
 		if(esiEjecutando != NULL){
-			printf("ESI actual\tid: %d \tTiempo estimado: %d\n", esiEjecutando->id, esiEjecutando->tiempoEstimado);
+			log_info(console_log, "ESI actual\tid: %d \tTiempo estimado: %d\n", esiEjecutando->id, esiEjecutando->tiempoEstimado);
 
 			ejecutarSiguienteESI(esiEjecutando->client_socket, esiEjecutando->socket_id);
 
 			// ACA VA LO DEL COORDINADOR
 
+			// TODO
+
 			// ACA LE TENGO QUE ESPERAR AL ESTADO DEL ESI
 			int estado = esperarEstadoDelEsi(esiEjecutando->client_socket, esiEjecutando->socket_id);
 
 			switch (estado) {
+			case -1:
+				log_info(console_log, "Error al pedir el estado del ESI. Abortando ESI");
+				terminarEsiActual();
+				break;
 			case ESI_IDLE:
 				log_info(console_log, "El ESI puede seguir ejecutando");
 				break;
@@ -102,39 +119,12 @@ void ejecutarPlanificacion(){
 				terminarEsiActual();
 				break;
 			}
-
-			printf("************************************\n");
 		}
-		//else
-			//printf("Esi actual: no hay esi\n");
 
-//		printf("************************************\n");
-		//sleep(3);
+		// TODO: Realizar incrementos de contadores
+
+		pthread_mutex_unlock(&mutexPlanificacion);
 	}
-
-	/** PARA PROBAR LOS ALGORITMOS:
-	 while(true)
-	 {
-		aplicar_algoritmo_planificacion();
-		if(esiEjecutando != NULL){
-			printf("ESI actual\tid: %d \tTiempo estimado: %d\n", esiEjecutando->id, esiEjecutando->tiempoEstimado);
-
-			printf("Los demas ESIs eran:\n");
-			for (int var = 0; var < list_size(listaEsiListos); var++) {
-				ESI_STRUCT * e = list_get(listaEsiListos, var);
-				printf("ESI \tid: %d \tTiempo estimado: %d\n", e->id, e->tiempoEstimado);
-			}
-
-			esiEjecutando->tiempoEstimado++;
-		}
-		else
-			printf("Esi actual: no hay esi\n");
-
-		printf("************************************\n");
-
-		sleep(5);
-	  }
-	 */
 }
 
 void create_tcp_server() {
@@ -182,14 +172,18 @@ void ejecutarSiguienteESI(int esi_socket, int socket_id) {
 }
 
 int esperarEstadoDelEsi(int esi_socket, int socket_id) {
-	t_planner_execute_request planner_request;
 	int esi_status = -1;
 
 	void *res_buffer = malloc(ESI_STATUS_RESPONSE_SIZE);
 
-	if (recv(esi_socket, res_buffer, ESI_STATUS_RESPONSE_SIZE, MSG_WAITALL)
-			< ESI_STATUS_RESPONSE_SIZE) {
+	int bytesReceived = recv(esi_socket, res_buffer, ESI_STATUS_RESPONSE_SIZE, MSG_WAITALL);
+
+	if (bytesReceived < ESI_STATUS_RESPONSE_SIZE) {
 		log_error(console_log, "Error receiving status from ESI!");
+
+		log_error(console_log, "Bytes leidos: %d | Esperados: %d", bytesReceived, ESI_STATUS_RESPONSE_SIZE);
+
+
 		free(res_buffer);
 		tcpserver_remove_client(server, socket_id);
 		return esi_status;
@@ -232,17 +226,7 @@ void on_server_accept(tcp_server_t* server, int client_socket, int socket_id) {
 	log_info(console_log, "Received handshake from TCP Client: %s",
 			connection_header->instance_name);
 
-	if (connection_header->instance_type == ESI) {
-		int id_esi = generarId();
-		ESI_STRUCT * esi = nuevoESI(id_esi, client_socket, socket_id);
-		agregarNuevoEsi(esi);
-	}
-
-	free(header_buffer);
-	free(connection_header);
-
 	t_ack_message ack_message;
-
 	strcpy(ack_message.instance_name, planificador_setup.NOMBRE_INSTANCIA);
 
 	void *ack_buffer = serialize_ack_message(&ack_message);
@@ -257,6 +241,19 @@ void on_server_accept(tcp_server_t* server, int client_socket, int socket_id) {
 				connection_header->instance_name);
 	}
 
+	if (connection_header->instance_type == ESI) {
+		log_info(console_log, "************* NUEVO ESI");
+
+		int id_esi = generarId();
+		ESI_STRUCT * esi = nuevoESI(id_esi, client_socket, socket_id);
+		agregarNuevoEsi(esi);
+
+		// Nuevo esi -> libero el hilo de planificacion
+		pthread_mutex_unlock(&mutexPlanificacion);
+	}
+
+	free(header_buffer);
+	free(connection_header);
 	free(ack_buffer);
 }
 
@@ -264,23 +261,6 @@ void on_server_read(tcp_server_t* server, int client_socket, int socket_id) {
 }
 
 void on_server_command(tcp_server_t* server) {
-	// TODO: FALTA HACER!
-	int valread;
-	char buffer[1024];
-
-	valread = read(STDIN_FILENO, buffer, 1024);
-
-	// To skip the \n...
-	buffer[valread - 1] = '\0';
-
-	if (strcmp("exit", buffer) == 0) {
-		printf("Exit command received.\n");
-		log_info(server->logger, "TCP Server %s. Exit requested by console.",
-				server->name);
-		exit_gracefully(EXIT_SUCCESS);
-	} else {
-		printf("Unknown command: %s. Enter 'exit' to exit.\n", buffer);
-	}
 }
 
 int generarId() {

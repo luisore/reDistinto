@@ -32,6 +32,9 @@ void liberarRecursosEsi();
 void liberarEsi(ESI_STRUCT * esi);
 
 
+int cantidadEsiTotales();
+
+
 // Recursos
 int bloquearRecurso(char * p_recurso);
 int liberarRecurso(char * p_recurso);
