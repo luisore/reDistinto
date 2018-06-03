@@ -74,11 +74,21 @@ void comando_listar_recursos();
 
 int retorno = CONTINUAR_EJECUTANDO_CONSOLA;
 void _obtener_todos_los_esis();
+void _obtener_todos_los_esis_corriendo();
+void _obtener_esis_listos();
+void _obtener_esis_ejecutando();
+void _obtener_esis_bloqueados();
+void _obtener_esis_nuevos();
+void _obtener_esis_terminados();
+ESI_STRUCT* obtener_esi_por_id(char* id_esi);
+
 void _finalizar_cadena(char *entrada);
 char *_obtener_comando(char** split_comandos);
 char *_obtener_primer_parametro(char** split_comandos);
 char *_obtener_segundo_parametro(char** split_comandos);
 void _liberar_comando_y_parametros(char** split_comandos);
+bool _estaVacia(char* cadena);
+void _validar_parametro(char* cadena);
 
 
 int consolaLeerComando()
@@ -161,6 +171,21 @@ void _finalizar_cadena(char *entrada)
 			entrada[strlen (entrada) - 1] = '\0';
 }
 
+bool _estaVacia(char* cadena)
+{
+	return cadena == NULL || string_is_empty(cadena) || string_contains(cadena, " ");
+}
+
+void _validar_parametro(char* cadena)
+{
+	if(_estaVacia(cadena))
+	{
+		printf("El parametro no esta vacio o no es correcto\n");
+		log_info(console_log, "El parametro ingresado es invalido: %s\n", cadena);
+		return;
+	}
+}
+
 char* _obtener_comando(char** split_comandos)
 {
 	return split_comandos[0];
@@ -206,9 +231,93 @@ void comando_continuar()
 	log_info(console_log, "Consola: Continuar\n");
 }
 
+void comando_bloquear_esi_por_id_y_recurso_de_clave(char* id_esi, char* clave)
+{
+	log_info(console_log, "Consola: Bloquear id_esi: %s - clave: %s\n", id_esi, clave);
+	_validar_parametro(clave);
+	_validar_parametro(id_esi);
+
+	_obtener_esis_ejecutando();
+	_obtener_esis_listos();
+	_obtener_esis_nuevos();
+
+	ESI_STRUCT* esi = obtener_esi_por_id(id_esi);
+
+	list_clean(listaEsis);
+}
+
+void comando_desbloquear_primer_esi_por_clave(char* clave)
+{
+	log_info(console_log, "Consola: Desbloquear clave: %s\n", clave);
+
+	_validar_parametro(clave);
+	_obtener_esis_bloqueados();
+
+	list_clean(listaEsis);
+}
+
+void comando_listar_procesos_por_recurso(char* recurso)
+{
+	log_info(console_log, "Consola: Listar %s\n", recurso);
+
+	_validar_parametro(recurso);
+	_obtener_todos_los_esis();
+
+	bool _espera_por_recurso(ESI_STRUCT* esi)
+	{
+		return string_equals_ignore_case(esi->informacionDeBloqueo->recursoNecesitado, recurso);
+	}
+
+	t_list* esis_filtrados = list_filter(listaEsis, (void*) _espera_por_recurso);
+	if(!list_is_empty(esis_filtrados)) {
+		list_iterate(esis_filtrados, (void*) _list_esis);
+	} else {
+		printf("No se encuentran procesos esi esperando por el recurso: %s\n", recurso);
+		log_info(console_log, "Sin procesos esi esperando por el recurso: %s\n", recurso);
+	}
+	list_destroy(esis_filtrados);
+	list_clean(listaEsis);
+}
+
 void comando_deadlock()
 {
 	log_info(console_log, "Consola: Deadlock\n");
+
+}
+
+void comando_kill_proceso_esi_por_id(char* id_esi) {
+	log_info(console_log, "Consola: Kill %s\n", id_esi);
+
+	_validar_parametro(id_esi);
+	_obtener_todos_los_esis_corriendo();
+
+	ESI_STRUCT* esi = obtener_esi_por_id(id_esi);
+
+	if(esi != NULL)
+	{
+		printf("Id_esi: %d", esi->id);
+	} else {
+		printf("No se encontro proceso esi con id: %s especificado \n", id_esi);
+		log_info(console_log, "No existe proceso esi con el id: %s\n", id_esi);
+	}
+	list_clean(listaEsis);
+}
+
+ESI_STRUCT* obtener_esi_por_id(char* id_esi)
+{
+	int _es_esi_unico(ESI_STRUCT *e)
+	{
+		return string_equals_ignore_case(string_itoa(e->id), id_esi);
+	}
+
+	ESI_STRUCT* esi = list_find(listaEsis, (void*) _es_esi_unico);
+	return esi;
+}
+
+void comando_status_instancias_por_clave(char* clave)
+{
+	log_info(console_log, "Consola: Status %s\n", clave);
+	_validar_parametro(clave);
 }
 
 void comando_exit()
@@ -226,7 +335,6 @@ void comando_show_esis()
 	printf("-------------------------------------------\n");
 
 	_obtener_todos_los_esis();
-	list_add_all(listaEsis, listaEsiTerminados);
 	list_iterate(listaEsis, (void*) _list_esis);
 
 	printf("-------------------------------------------\n");
@@ -255,55 +363,6 @@ void _list_esis(ESI_STRUCT *e)
 	free(estado);
 }
 
-void comando_bloquear_esi_por_id_y_recurso_de_clave(char* id_esi, char* clave)
-{
-	log_info(console_log, "Consola: Bloquear %s - %s\n", id_esi, clave);
-}
-
-void comando_desbloquear_primer_esi_por_clave(char* clave)
-{
-	log_info(console_log, "Consola: Desbloquear %s\n", clave);
-}
-
-void comando_listar_procesos_por_recurso(char* recurso)
-{
-	log_info(console_log, "Consola: Listar %s\n", recurso);
-	_obtener_todos_los_esis();
-
-	bool _espera_por_recurso(ESI_STRUCT* esi)
-	{
-		return string_equals_ignore_case(esi->informacionDeBloqueo->recursoNecesitado, recurso);
-	}
-
-	t_list* esis_filtrados = list_filter(listaEsis, (void*) _espera_por_recurso);
-	list_iterate(esis_filtrados, (void*) _list_esis);
-	list_destroy(esis_filtrados);
-	list_clean(listaEsis);
-}
-
-
-void comando_kill_proceso_esi_por_id(char* id_esi) {
-	log_info(console_log, "Consola: Kill %s\n", id_esi);
-
-	_obtener_todos_los_esis();
-
-	int _es_esi_unico(ESI_STRUCT *e)
-	{
-		return string_equals_ignore_case(string_itoa(e->id), id_esi);
-	}
-
-	//ESI_STRUCT* esi = list_find(listaEsis, (void*) _es_esi_unico);
-	/*TODO*/
-	list_clean(listaEsis);
-}
-
-
-void comando_status_instancias_por_clave(char* clave)
-{
-	log_info(console_log, "Consola: Status %s\n", clave);
-
-}
-
 void comando_listar_recursos()
 {
 	log_info(console_log, "Consola: Listar Recursos\n");
@@ -317,8 +376,44 @@ void _list_recursos(RECURSO *r)
 
 void _obtener_todos_los_esis()
 {
+	_obtener_esis_listos();
+	_obtener_esis_ejecutando();
+	_obtener_esis_nuevos();
+	_obtener_esis_bloqueados();
+	_obtener_esis_terminados();
+}
+
+void _obtener_todos_los_esis_corriendo()
+{
+	_obtener_esis_listos();
+	_obtener_esis_ejecutando();
+	_obtener_esis_nuevos();
+	_obtener_esis_bloqueados();
+}
+
+void _obtener_esis_listos()
+{
 	list_add_all(listaEsis, listaEsiListos);
+}
+
+void _obtener_esis_ejecutando()
+{
+//	list_add_all(listaEsis, listaEsiEjecutando);
+}
+
+void _obtener_esis_bloqueados()
+{
 	list_add_all(listaEsis, listaEsiBloqueados);
+}
+
+void _obtener_esis_nuevos()
+{
+	list_add_all(listaEsis, listaEsiNuevos);
+}
+
+void _obtener_esis_terminados()
+{
+	list_add_all(listaEsis, listaEsiTerminados);
 }
 
 static t_command_struct tabla_referencia_comandos[] = {
