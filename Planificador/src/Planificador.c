@@ -79,7 +79,7 @@ void ejecutarPlanificacion(){
 		aplicar_algoritmo_planificacion();
 
 		if(esiEjecutando != NULL){
-			printf("ESI actual\tid: %d \tTiempo estimado: %d\n", esiEjecutando->id, esiEjecutando->tiempoEstimado);
+			log_info(console_log, "ESI actual\tid: %d \tTiempo estimado: %d\n", esiEjecutando->id, esiEjecutando->tiempoEstimado);
 
 			ejecutarSiguienteESI(esiEjecutando->client_socket, esiEjecutando->socket_id);
 
@@ -102,39 +102,8 @@ void ejecutarPlanificacion(){
 				terminarEsiActual();
 				break;
 			}
-
-			printf("************************************\n");
 		}
-		//else
-			//printf("Esi actual: no hay esi\n");
-
-//		printf("************************************\n");
-		//sleep(3);
 	}
-
-	/** PARA PROBAR LOS ALGORITMOS:
-	 while(true)
-	 {
-		aplicar_algoritmo_planificacion();
-		if(esiEjecutando != NULL){
-			printf("ESI actual\tid: %d \tTiempo estimado: %d\n", esiEjecutando->id, esiEjecutando->tiempoEstimado);
-
-			printf("Los demas ESIs eran:\n");
-			for (int var = 0; var < list_size(listaEsiListos); var++) {
-				ESI_STRUCT * e = list_get(listaEsiListos, var);
-				printf("ESI \tid: %d \tTiempo estimado: %d\n", e->id, e->tiempoEstimado);
-			}
-
-			esiEjecutando->tiempoEstimado++;
-		}
-		else
-			printf("Esi actual: no hay esi\n");
-
-		printf("************************************\n");
-
-		sleep(5);
-	  }
-	 */
 }
 
 void create_tcp_server() {
@@ -182,7 +151,6 @@ void ejecutarSiguienteESI(int esi_socket, int socket_id) {
 }
 
 int esperarEstadoDelEsi(int esi_socket, int socket_id) {
-	t_planner_execute_request planner_request;
 	int esi_status = -1;
 
 	void *res_buffer = malloc(ESI_STATUS_RESPONSE_SIZE);
@@ -264,23 +232,6 @@ void on_server_read(tcp_server_t* server, int client_socket, int socket_id) {
 }
 
 void on_server_command(tcp_server_t* server) {
-	// TODO: FALTA HACER!
-	int valread;
-	char buffer[1024];
-
-	valread = read(STDIN_FILENO, buffer, 1024);
-
-	// To skip the \n...
-	buffer[valread - 1] = '\0';
-
-	if (strcmp("exit", buffer) == 0) {
-		printf("Exit command received.\n");
-		log_info(server->logger, "TCP Server %s. Exit requested by console.",
-				server->name);
-		exit_gracefully(EXIT_SUCCESS);
-	} else {
-		printf("Unknown command: %s. Enter 'exit' to exit.\n", buffer);
-	}
 }
 
 int generarId() {
