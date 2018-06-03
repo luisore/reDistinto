@@ -156,6 +156,29 @@ RECURSO_ESTADO estadoRecurso(char * p_recurso){
 	return RECURSO_UNK;
 }
 
+
+int cantidadEsiTotales(){
+	int cantidadTotal = 0;
+
+	pthread_mutex_lock(&mutexPrincipal);
+
+	log_info(console_log, "ESI ejecutando: %s", esiEjecutando == NULL? "NO" : "SI");
+	log_info(console_log, "ESI nuevos: %d", list_size(listaEsiNuevos));
+	log_info(console_log, "ESI listos: %d", list_size(listaEsiListos));
+	log_info(console_log, "ESI bloqueados: %d", list_size(listaEsiBloqueados));
+
+	cantidadTotal += esiEjecutando == NULL? 0 : 1;
+	cantidadTotal += list_size(listaEsiNuevos);
+	cantidadTotal += list_size(listaEsiListos);
+	cantidadTotal += list_size(listaEsiBloqueados);
+
+	pthread_mutex_unlock(&mutexPrincipal);
+
+	return cantidadTotal;
+}
+
+
+
 void liberarEsi(ESI_STRUCT * esi) {
 	free(esi);
 }
