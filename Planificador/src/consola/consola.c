@@ -81,6 +81,7 @@ void _obtener_esis_bloqueados();
 void _obtener_esis_nuevos();
 void _obtener_esis_terminados();
 ESI_STRUCT* obtener_esi_por_id(char* id_esi);
+ESI_STRUCT* obtener_esi_por_clave_recurso(char* clave);
 
 void _finalizar_cadena(char *entrada);
 char *_obtener_comando(char** split_comandos);
@@ -243,6 +244,14 @@ void comando_bloquear_esi_por_id_y_recurso_de_clave(char* id_esi, char* clave)
 
 	ESI_STRUCT* esi = obtener_esi_por_id(id_esi);
 
+	if(esi != NULL)
+	{
+		bloquearEsi(clave);
+	} else {
+		printf("No se encontro nignun proceso esi para bloquear con id_esi: %s - clave: %s\n", id_esi, clave);
+		log_info(console_log, "No existe proceso esi para bloquear con id_esi: %s - clave: %s\n", id_esi, clave);
+	}
+
 	list_clean(listaEsis);
 }
 
@@ -253,7 +262,22 @@ void comando_desbloquear_primer_esi_por_clave(char* clave)
 	_validar_parametro(clave);
 	_obtener_esis_bloqueados();
 
+	ESI_STRUCT* esi = obtener_esi_por_clave_recurso(clave);
+	if(esi != NULL)
+	{
+		desbloquearEsi(esi);
+	} else {
+		printf("No se encontro nignun proceso esi bloquedo por la clave: %s especificada\n", clave);
+		log_info(console_log, "No existe proceso esi bloquedo por la clave: %s\n", clave);
+	}
+
 	list_clean(listaEsis);
+}
+
+ESI_STRUCT* obtener_esi_por_clave_recurso(char* clave)
+{
+	ESI_STRUCT* esi = list_find(listaEsis, (void*) _espera_por_recurso);
+	return esi;
 }
 
 void comando_listar_procesos_por_recurso(char* recurso)
@@ -262,11 +286,6 @@ void comando_listar_procesos_por_recurso(char* recurso)
 
 	_validar_parametro(recurso);
 	_obtener_todos_los_esis();
-
-	bool _espera_por_recurso(ESI_STRUCT* esi)
-	{
-		return string_equals_ignore_case(esi->informacionDeBloqueo->recursoNecesitado, recurso);
-	}
 
 	t_list* esis_filtrados = list_filter(listaEsis, (void*) _espera_por_recurso);
 	if(!list_is_empty(esis_filtrados)) {
@@ -277,6 +296,11 @@ void comando_listar_procesos_por_recurso(char* recurso)
 	}
 	list_destroy(esis_filtrados);
 	list_clean(listaEsis);
+}
+
+bool _espera_por_recurso(ESI_STRUCT* esi, char* recurso)
+{
+	return string_equals_ignore_case(esi->informacionDeBloqueo->recursoNecesitado, recurso);
 }
 
 void comando_deadlock()
