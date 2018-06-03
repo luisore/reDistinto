@@ -176,21 +176,21 @@ t_connected_client* find_connected_client(int socket_id){
 }
 
 void send_response_to_esi(int esi_socket, t_connected_client* client, operation_result_e op_result){
-	t_coordinator_operation_response op_response;
+	t_operation_response op_response;
 	op_response.operation_result = op_result;
 
-	char* buffer = serialize_coordinator_operation_response(&op_response);
+	char* buffer = serialize_operation_response(&op_response);
 
-	int result = send(esi_socket, buffer, COORD_OPERATION_RESPONSE_SIZE, 0);
+	int result = send(esi_socket, buffer, OPERATION_RESPONSE_SIZE, 0);
 
-	if (result < COORD_OPERATION_RESPONSE_SIZE) {
+	if (result < OPERATION_RESPONSE_SIZE) {
 		log_error(coordinador_log, "Signal execute next to ESI failed for ID: %d");
 		remove_client(server, client->socket_id); // TODO: IDEM ANTES, REFACTORIZAR
 	}
 	free(buffer);
 }
 
-void handle_esi_request(t_esi_operation_request* esi_request, t_connected_client* client, int socket){
+void handle_esi_request(t_operation_request* esi_request, t_connected_client* client, int socket){
 	switch(esi_request->operation_type){
 	case GET:
 		log_info(coordinador_log, "Handling GET from ESI: %s. Key: %s.", client->instance_name, esi_request->key);
@@ -210,16 +210,16 @@ void handle_esi_request(t_esi_operation_request* esi_request, t_connected_client
 }
 
 void handle_esi_read(t_connected_client* client, int socket){
-	char* buffer = malloc(ESI_OPERATION_REQUEST_SIZE);
+	char* buffer = malloc(OPERATION_REQUEST_SIZE);
 
-	if (recv(socket, buffer, ESI_OPERATION_REQUEST_SIZE, MSG_WAITALL) < ESI_OPERATION_REQUEST_SIZE) {
+	if (recv(socket, buffer, OPERATION_REQUEST_SIZE, MSG_WAITALL) < OPERATION_REQUEST_SIZE) {
 		log_warning(coordinador_log, "ESI Disconnected: %s", client->instance_name);
 		free(buffer);
 		remove_client(server, client->socket_id); //TODO: NO HACE FALTA EL FIND PORQUE YA LO TENGO. SE PUEDE MEJORAR
 		return;
 	}
 
-	t_esi_operation_request* esi_request = deserialize_esi_operation_request(buffer);
+	t_operation_request* esi_request = deserialize_operation_request(buffer);
 
 	handle_esi_request(esi_request, client, socket);
 

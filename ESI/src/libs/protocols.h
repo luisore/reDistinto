@@ -11,11 +11,11 @@
 #include <stdbool.h>
 #include <commons/log.h>
 
-typedef enum { ESI = 0, COORDINATOR = 1, PLANNER = 2, REDIS_INSTANCE = 3 } instance_type_e;
+typedef enum { ESI = 1, COORDINATOR = 2, PLANNER = 3, REDIS_INSTANCE = 4 } instance_type_e;
 
-typedef enum  { GET = 0, SET = 1, STORE = 2 } operation_type_e;
+typedef enum  { GET = 1, SET = 2, STORE = 3 } operation_type_e;
 
-typedef enum { ESI_IDLE = 0, ESI_BLOCKED = 1, ESI_FINISHED = 2 } esi_status_e;
+typedef enum { ESI_IDLE = 1, ESI_BLOCKED = 2, ESI_FINISHED = 3 } esi_status_e;
 
 /*
  * Result of the operation performed by the Coordinator. It can be:
@@ -24,6 +24,15 @@ typedef enum { ESI_IDLE = 0, ESI_BLOCKED = 1, ESI_FINISHED = 2 } esi_status_e;
  * OP_BLOCKED = The requested key is blocked by another ESI.
  */
 typedef enum { OP_SUCCESS = 1, OP_ERROR = 2, OP_BLOCKED = 3 } operation_result_e;
+
+/*
+ * Status of the instance after executing the operation:
+ * INSTANCE_SUCCESS: The operation completed successfully.
+ * INSTANCE_ERROR: The operation failed.
+ * INSTANCE_COMPACT: The instance needs to compact and the operation should be
+ * resubmitted after the compaction.
+ */
+typedef enum { INSTANCE_SUCCESS = 1, INSTANCE_ERROR = 2, INSTANCE_COMPACT = 3 } instance_status_e;
 
 /*
  * Header used in every connection between processes.
@@ -46,31 +55,32 @@ static const int ESI_INSTRUCTION_REQUEST_SIZE = 31 + 4;
 
 /*
  * ESI Operation to send to the Coordinator
+ * Coordinator Operation to send to the Instance
  */
 typedef struct {
 	operation_type_e operation_type;
 	char key[40];
 	unsigned int payload_size;
-} t_esi_operation_request;
+} t_operation_request;
 
-static const int ESI_OPERATION_REQUEST_SIZE = 4 + 41 + 4;
+static const int OPERATION_REQUEST_SIZE = 4 + 41 + 4;
 
 /*
  * Coordinator response with the operation result
  */
 typedef struct {
 	operation_result_e operation_result;
-} t_coordinator_operation_response;
+} t_operation_response;
 
-static const int COORD_OPERATION_RESPONSE_SIZE = 4;
+static const int OPERATION_RESPONSE_SIZE = 4;
 
 
 /*
  * Planner request to execute next instruction
  */
 typedef struct {
-	char planner_name[30];
-} t_planner_request;
+	char planner_name[30]; // En realidad no importa lo que mandes!
+} t_planner_execute_request;
 
 static const int PLANNER_REQUEST_SIZE = 31;
 
@@ -83,6 +93,28 @@ typedef struct {
 } t_esi_status_response;
 
 static const int ESI_STATUS_RESPONSE_SIZE = 31 + 4;
+
+
+typedef struct {
+	operation_type_e operation_type;
+	char key[40];
+} t_coordinator_operation_request;
+
+static const int COORDINATOR_OPERATION_REQUEST_SIZE = 4 + 41;
+
+typedef struct {
+	instance_status_e status;
+	int payload_size;
+} t_instance_response;
+
+static const int INSTANCE_RESPONSE_SIZE = 4 + 4;
+
+typedef struct {
+	int entry_size;
+	int number_of_entries;
+} t_instance_init_values;
+
+static const int INSTANCE_INIT_VALUES_SIZE = 4 + 4;
 
 // Connection Messages
 int connect_to_server(char *ip, int port, t_log *logger);
@@ -100,17 +132,23 @@ t_connection_header* deserialize_connection_header(void* buffer);
 void* serialize_ack_message(t_ack_message *ack_message);
 t_ack_message* deserialize_ack_message(void* buffer);
 
-void* serialize_esi_operation_request(t_esi_operation_request *request);
-t_esi_operation_request* deserialize_esi_operation_request(void* buffer);
+void* serialize_operation_request(t_operation_request *request);
+t_operation_request* deserialize_operation_request(void* buffer);
 
-void* serialize_coordinator_operation_response(t_coordinator_operation_response *response);
-t_coordinator_operation_response* deserialize_coordinator_operation_response(void* buffer);
+void* serialize_operation_response(t_operation_response *response);
+t_operation_response* deserialize_operation_response(void* buffer);
 
-void* serialize_planner_request(t_planner_request *request);
-t_planner_request* deserialize_planner_request(void *buffer);
+void* serialize_planner_execute_request(t_planner_execute_request *request);
+t_planner_execute_request* deserialize_planner_execute_request(void *buffer);
 
 void* serialize_esi_status_response(t_esi_status_response *response);
 t_esi_status_response* deserialize_esi_status_response(void *buffer);
+
+void* serialize_coordinator_operation_request(t_coordinator_operation_request *request);
+t_coordinator_operation_request* deserialize_coordinator_operation_request(void *buffer);
+
+void* serialize_instance_response(t_instance_response *response);
+t_instance_response* deserialize_instance_response(void *buffer);
 
 
 #endif /* _PROTOCOLS_H_ */

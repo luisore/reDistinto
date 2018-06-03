@@ -31,7 +31,7 @@ int calcularMediaExponencial(int duracionRafaga, int estimacionTn) {
 int getIndiceMenorEstimacion(){
 	int menorIdx = 0, menorEstimacion = 100000, i = 0;
 
-	printf("CANTIDAD DE ESIS LISTOS: %d\n", list_size(listaEsiListos));
+	log_info(console_log, "\nCANTIDAD DE ESIS LISTOS: %d\n", list_size(listaEsiListos));
 
 	for (i = 0; i < list_size(listaEsiListos); i++) {
 		ESI_STRUCT * esi = list_get(listaEsiListos, i);

@@ -79,16 +79,14 @@ void ejecutarPlanificacion(){
 		aplicar_algoritmo_planificacion();
 
 		if(esiEjecutando != NULL){
-			printf("ESI actual\tid: %d \tTiempo estimado: %d\n", esiEjecutando->id, esiEjecutando->tiempoEstimado);
+			log_info(console_log, "ESI actual\tid: %d \tTiempo estimado: %d\n", esiEjecutando->id, esiEjecutando->tiempoEstimado);
 
-			send_execute_next_to_esi(esiEjecutando->client_socket, esiEjecutando->socket_id);
+			ejecutarSiguienteESI(esiEjecutando->client_socket, esiEjecutando->socket_id);
 
 			// ACA VA LO DEL COORDINADOR
 
-			// ACA TENGO QUE ESCUCHAR AL ESI QUE ME AVISE QUE TERMINO
-
-			// ACA LE TENGO QUE PREGUNTAR AL ESI SI YA TERMINO TODA SU EJECUCION
-			int estado = send_get_status_to_esi(esiEjecutando->client_socket, esiEjecutando->socket_id);
+			// ACA LE TENGO QUE ESPERAR AL ESTADO DEL ESI
+			int estado = esperarEstadoDelEsi(esiEjecutando->client_socket, esiEjecutando->socket_id);
 
 			switch (estado) {
 			case ESI_IDLE:
@@ -105,35 +103,7 @@ void ejecutarPlanificacion(){
 				break;
 			}
 		}
-		else
-			printf("Esi actual: no hay esi\n");
-
-		printf("************************************\n");
 	}
-
-	/** PARA PROBAR LOS ALGORITMOS:
-	 while(true)
-	 {
-		aplicar_algoritmo_planificacion();
-		if(esiEjecutando != NULL){
-			printf("ESI actual\tid: %d \tTiempo estimado: %d\n", esiEjecutando->id, esiEjecutando->tiempoEstimado);
-
-			printf("Los demas ESIs eran:\n");
-			for (int var = 0; var < list_size(listaEsiListos); var++) {
-				ESI_STRUCT * e = list_get(listaEsiListos, var);
-				printf("ESI \tid: %d \tTiempo estimado: %d\n", e->id, e->tiempoEstimado);
-			}
-
-			esiEjecutando->tiempoEstimado++;
-		}
-		else
-			printf("Esi actual: no hay esi\n");
-
-		printf("************************************\n");
-
-		sleep(5);
-	  }
-	 */
 }
 
 void create_tcp_server() {
@@ -163,13 +133,13 @@ void conectarseConCoordinador() {
 	log_info(console_log, "Conexion exitosa al Coordinador.");
 }
 
-void send_execute_next_to_esi(int esi_socket, int socket_id) {
-	t_planner_request planner_request;
+void ejecutarSiguienteESI(int esi_socket, int socket_id) {
+	t_planner_execute_request planner_request;
 	//strcpy(planner_request.planner_name, planificador_setup.NOMBRE_INSTANCIA);
 	char* code = "0";
 	strcpy(planner_request.planner_name, code);
 
-	void *buffer = serialize_planner_request(&planner_request);
+	void *buffer = serialize_planner_execute_request(&planner_request);
 
 	int result = send(esi_socket, buffer, PLANNER_REQUEST_SIZE, 0);
 
@@ -180,26 +150,9 @@ void send_execute_next_to_esi(int esi_socket, int socket_id) {
 	free(buffer);
 }
 
-int send_get_status_to_esi(int esi_socket, int socket_id) {
-	t_planner_request planner_request;
+int esperarEstadoDelEsi(int esi_socket, int socket_id) {
 	int esi_status = -1;
 
-	//strcpy(planner_request.planner_name, planificador_setup.NOMBRE_INSTANCIA);
-	char* code = "1";
-	strcpy(planner_request.planner_name, code);
-
-	void *buffer = serialize_planner_request(&planner_request);
-
-	int result = send(esi_socket, buffer, PLANNER_REQUEST_SIZE, 0);
-
-	if (result <= 0) {
-		tcpserver_remove_client(server, socket_id);
-		free(buffer);
-		return esi_status;
-	}
-
-
-	// AHORA ESCUCHO SU RESPUESTA
 	void *res_buffer = malloc(ESI_STATUS_RESPONSE_SIZE);
 
 	if (recv(esi_socket, res_buffer, ESI_STATUS_RESPONSE_SIZE, MSG_WAITALL)
@@ -217,14 +170,12 @@ int send_get_status_to_esi(int esi_socket, int socket_id) {
 
 	esi_status = esi_status_response->status;
 
-	free(buffer);
 	free(res_buffer);
 	free(esi_status_response);
 	return esi_status;
 }
 
 void before_tpc_server_cycle(tcp_server_t* server) {
-	// ACÁ DEBERÍA IR LA LÓGICA DE SCHEDULING
 }
 
 /**
@@ -278,59 +229,9 @@ void on_server_accept(tcp_server_t* server, int client_socket, int socket_id) {
 }
 
 void on_server_read(tcp_server_t* server, int client_socket, int socket_id) {
-	/*void *res_buffer = malloc(ESI_STATUS_RESPONSE_SIZE);
-
-	if (recv(client_socket, res_buffer, ESI_STATUS_RESPONSE_SIZE, MSG_WAITALL)
-			< ESI_STATUS_RESPONSE_SIZE) {
-		log_error(console_log, "Error receiving status from ESI!");
-		free(res_buffer);
-		tcpserver_remove_client(server, socket_id);
-		return;
-	}
-
-	t_esi_status_response *esi_status_response =
-			deserialize_esi_status_response(res_buffer);
-	log_info(console_log, "Estado del ESI: %d",
-			esi_status_response->status);
-
-	switch (esi_status_response->status) {
-	case ESI_IDLE:
-		// Por ahora, mando la siguiente operacion
-		log_info(console_log, "ESI is IDLE. Signal next operation");
-		//send_execute_next_to_esi(client_socket, socket_id);
-		break;
-	case ESI_BLOCKED:
-		// Por ahora, no hago nada...
-		log_info(console_log, "ESI is BLOCKED.");
-		break;
-	case ESI_FINISHED:
-		log_info(console_log, "ESI Finished execution");
-		tcpserver_remove_client(server, socket_id);
-		break;
-	}
-
-	free(res_buffer);
-	free(esi_status_response);*/
 }
 
 void on_server_command(tcp_server_t* server) {
-	// TODO: FALTA HACER!
-	int valread;
-	char buffer[1024];
-
-	valread = read(STDIN_FILENO, buffer, 1024);
-
-	// To skip the \n...
-	buffer[valread - 1] = '\0';
-
-	if (strcmp("exit", buffer) == 0) {
-		printf("Exit command received.\n");
-		log_info(server->logger, "TCP Server %s. Exit requested by console.",
-				server->name);
-		exit_gracefully(EXIT_SUCCESS);
-	} else {
-		printf("Unknown command: %s. Enter 'exit' to exit.\n", buffer);
-	}
 }
 
 int generarId() {

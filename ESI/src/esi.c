@@ -193,11 +193,6 @@ t_queue* parse_program_instructions(char *program_filename){
 }
 
 bool wait_for_planner_signal(){
-	if (!send_status_to_planner(ESI_IDLE)){
-		log_error(esi_log, "Could not signal Planner to send the next instruction!");
-		exit_gracefully(EXIT_FAILURE);
-	}
-
 	log_info(esi_log, "Waiting for Planner to signal next execution...");
 
 	void *buffer = malloc(PLANNER_REQUEST_SIZE);
@@ -208,7 +203,7 @@ bool wait_for_planner_signal(){
 		return false;
 	}
 
-	t_planner_request *planner_request = deserialize_planner_request(buffer);
+	t_planner_execute_request *planner_request = deserialize_planner_execute_request(buffer);
 
 	log_info(esi_log, "Received signal from planner: %s.", planner_request->planner_name);
 
@@ -226,18 +221,18 @@ void destroy_program_instruction(void* instruction){
 }
 
 operation_result_e coordinate_operation(t_program_instruction *instruction){
-	t_esi_operation_request esi_operation_request;
+	t_operation_request esi_operation_request;
 	strcpy(esi_operation_request.key, instruction->key);
 	esi_operation_request.operation_type = instruction->operation_type;
 	esi_operation_request.payload_size = instruction->value_size;
 
 	log_trace(esi_log, "Sending operation request to Coordinator ...");
 
-	void *req_buffer = malloc(ESI_OPERATION_REQUEST_SIZE);
-	req_buffer = serialize_esi_operation_request(&esi_operation_request);
+	void *req_buffer = malloc(OPERATION_REQUEST_SIZE);
+	req_buffer = serialize_operation_request(&esi_operation_request);
 
-	int result = send(coordinator_socket, req_buffer, ESI_OPERATION_REQUEST_SIZE, 0);
-	if (result < ESI_OPERATION_REQUEST_SIZE) {
+	int result = send(coordinator_socket, req_buffer, OPERATION_REQUEST_SIZE, 0);
+	if (result < OPERATION_REQUEST_SIZE) {
 		free(req_buffer);
 		log_error(esi_log, "Could not send operation request to Coordinator.");
 		return OP_ERROR;
@@ -253,16 +248,16 @@ operation_result_e coordinate_operation(t_program_instruction *instruction){
 		}
 	}
 
-	void *res_buffer = malloc(COORD_OPERATION_RESPONSE_SIZE);
+	void *res_buffer = malloc(OPERATION_RESPONSE_SIZE);
 
 	operation_result_e operation_result;
 
-	if (recv(coordinator_socket, res_buffer, COORD_OPERATION_RESPONSE_SIZE, MSG_WAITALL) < COORD_OPERATION_RESPONSE_SIZE) {
+	if (recv(coordinator_socket, res_buffer, OPERATION_RESPONSE_SIZE, MSG_WAITALL) < OPERATION_RESPONSE_SIZE) {
 		log_error(esi_log, "Error receiving Coordinator response.");
 		operation_result = OP_ERROR;
 
 	} else {
-		t_coordinator_operation_response *coordinator_response = deserialize_coordinator_operation_response(res_buffer);
+		t_operation_response *coordinator_response = deserialize_operation_response(res_buffer);
 		operation_result = coordinator_response->operation_result;
 		log_info(esi_log, "Received Coordinator response: %i.", coordinator_response->operation_result);
 		free(coordinator_response);
@@ -298,16 +293,15 @@ void execute_program(char *program_filename){
 	operation_result_e operation_result;
 
 	while(queue_size(instructions) > 0){
-		// Comentada interaccion con Planificador
-		//if(!wait_for_planner_signal()){
-		//	queue_destroy_and_destroy_elements(instructions, destroy_program_instruction);
-		//	exit_gracefully(EXIT_FAILURE);
-		//}
+		if(!wait_for_planner_signal()){
+			queue_destroy_and_destroy_elements(instructions, destroy_program_instruction);
+			exit_gracefully(EXIT_FAILURE);
+		}
 
 		next_instruction = (t_program_instruction* ) queue_peek(instructions);
 		log_instruction(next_instruction);
 
-		operation_result = coordinate_operation(next_instruction);
+		operation_result = OP_SUCCESS; //coordinate_operation(next_instruction);
 
 		if(operation_result == OP_ERROR){
 			log_error(esi_log, "There was an error performing the current operation. Type:%d. Key: %s.",
@@ -318,17 +312,15 @@ void execute_program(char *program_filename){
 			queue_pop(instructions);
 			destroy_program_instruction(next_instruction);
 
-			// Comentada la interaccion con el Planificador
-			/*if(!send_status_to_planner(queue_size(instructions) > 0 ? ESI_IDLE : ESI_FINISHED)){
+			if(!send_status_to_planner(queue_size(instructions) > 0 ? ESI_IDLE : ESI_FINISHED)){
 				queue_destroy_and_destroy_elements(instructions, destroy_program_instruction);
 				exit_gracefully(EXIT_FAILURE);
-			}*/
+			}
 		} else { // operation_result == OP_BLOCKED
-			// Comentada interaccion con planificador
-//			if(!send_status_to_planner(ESI_BLOCKED)){
-//				queue_destroy_and_destroy_elements(instructions, destroy_program_instruction);
-//				exit_gracefully(EXIT_FAILURE);
-//			}
+			if(!send_status_to_planner(ESI_BLOCKED)){
+				queue_destroy_and_destroy_elements(instructions, destroy_program_instruction);
+				exit_gracefully(EXIT_FAILURE);
+			}
 		}
 	}
 
@@ -345,13 +337,6 @@ int main(int argc, char **argv) {
 	char* program_filename;
 
 	print_header();
-//
-//	if(argc != 2){
-//		printf("\t\e[31;1m ERROR:\e[0m Debe proveer como único parámetro el path del archivo con el programa a correr.");
-//		exit_gracefully(EXIT_SUCCESS);
-//	}
-//
-//	program_filename = argv[1];
 
 	if(argc != 2){
 		printf("\t\e[31;1m ERROR:\e[0m Debe proveer como único parámetro el path del archivo con el programa a correr.");
@@ -364,9 +349,9 @@ int main(int argc, char **argv) {
 
 	load_config();
 
-	connect_with_coordinator();
+	//connect_with_coordinator();
 
-	//connect_with_planner();
+	connect_with_planner();
 
 	execute_program(program_filename);
 

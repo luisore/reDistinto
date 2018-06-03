@@ -68,7 +68,7 @@ void mostrarConfiguracionPorConsola(t_log * console_log) {
 
 	int i = 0;
 
-	log_info(console_log, "Se cargó el setup del PLANIFICADOR");
+	log_info(console_log, "\nSe cargó el setup del PLANIFICADOR");
 
 	log_info(console_log, "\tNombre de instancia: %s",
 			planificador_setup.NOMBRE_INSTANCIA);
