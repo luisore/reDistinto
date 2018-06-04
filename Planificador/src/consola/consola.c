@@ -225,11 +225,13 @@ void _liberar_comando_y_parametros(char** split_comandos)
 void comando_pausar()
 {
 	log_info(console_log, "Consola: Pausar\n");
+	pthread_mutex_lock(&mutexPrincipal);
 }
 
 void comando_continuar()
 {
 	log_info(console_log, "Consola: Continuar\n");
+	pthread_mutex_unlock(&mutexPrincipal);
 }
 
 void comando_bloquear_esi_por_id_y_recurso_de_clave(char* id_esi, char* clave)
@@ -238,15 +240,17 @@ void comando_bloquear_esi_por_id_y_recurso_de_clave(char* id_esi, char* clave)
 	_validar_parametro(clave);
 	_validar_parametro(id_esi);
 
-	_obtener_esis_ejecutando();
-	_obtener_esis_listos();
 	_obtener_esis_nuevos();
+	_obtener_esis_listos();
+	_obtener_esis_ejecutando();
 
 	ESI_STRUCT* esi = obtener_esi_por_id(id_esi);
 
 	if(esi != NULL)
 	{
-		bloquearEsi(clave);
+		pthread_mutex_lock(&mutexPrincipal);
+		bloquearEsi(esi->id, clave);
+		pthread_mutex_unlock(&mutexPrincipal);
 	} else {
 		printf("No se encontro nignun proceso esi para bloquear con id_esi: %s - clave: %s\n", id_esi, clave);
 		log_info(console_log, "No existe proceso esi para bloquear con id_esi: %s - clave: %s\n", id_esi, clave);
@@ -265,13 +269,20 @@ void comando_desbloquear_primer_esi_por_clave(char* clave)
 	ESI_STRUCT* esi = obtener_esi_por_clave_recurso(clave);
 	if(esi != NULL)
 	{
+		pthread_mutex_lock(&mutexPrincipal);
 		desbloquearEsi(esi);
+		pthread_mutex_unlock(&mutexPrincipal);
 	} else {
 		printf("No se encontro nignun proceso esi bloquedo por la clave: %s especificada\n", clave);
 		log_info(console_log, "No existe proceso esi bloquedo por la clave: %s\n", clave);
 	}
 
 	list_clean(listaEsis);
+}
+
+bool _espera_por_recurso(ESI_STRUCT* esi, char* recurso)
+{
+	return string_equals_ignore_case(esi->informacionDeBloqueo->recursoNecesitado, recurso);
 }
 
 ESI_STRUCT* obtener_esi_por_clave_recurso(char* clave)
@@ -296,11 +307,6 @@ void comando_listar_procesos_por_recurso(char* recurso)
 	}
 	list_destroy(esis_filtrados);
 	list_clean(listaEsis);
-}
-
-bool _espera_por_recurso(ESI_STRUCT* esi, char* recurso)
-{
-	return string_equals_ignore_case(esi->informacionDeBloqueo->recursoNecesitado, recurso);
 }
 
 void comando_deadlock()
@@ -422,7 +428,7 @@ void _obtener_esis_listos()
 
 void _obtener_esis_ejecutando()
 {
-//	list_add_all(listaEsis, listaEsiEjecutando);
+	list_add(listaEsis, esiEjecutando);
 }
 
 void _obtener_esis_bloqueados()

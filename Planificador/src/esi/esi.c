@@ -44,7 +44,7 @@ void terminarEsiActual(){
 /**
  * Encola un ESI en la lista de bloqueados
  */
-void bloquearEsi(char * recursoEsperado) {
+void bloquearEsiActual(char * recursoEsperado) {
 
 	// Creo la informacion de bloqueo
 	ESI_BLOCKED_INFO* infoBloqueo = malloc(sizeof(ESI_BLOCKED_INFO));
@@ -177,7 +177,72 @@ int cantidadEsiTotales(){
 	return cantidadTotal;
 }
 
+void bloquearEsi(int id_esi, char* clave)
+{
+	int i;
+	for(i = 0; i < list_size(listaEsiBloqueados); i++)
+	{
+		ESI_STRUCT *esi = list_get(listaEsiBloqueados, i);
+		if(esi->id == id_esi)
+		{
+			return;
+		}
+	}
+	if(esiEjecutando != NULL)
+	{
+		if(id_esi == esiEjecutando->id)
+		{
+			bloquearEsiActual(clave);
+			return;
+		}
+	}
 
+	for(i = 0; i < list_size(listaEsiNuevos); i++)
+	{
+		ESI_STRUCT *esi = list_get(listaEsiNuevos, i);
+		if(esi->id == id_esi)
+		{
+			ESI_BLOCKED_INFO* infoBloqueo = malloc(sizeof(ESI_BLOCKED_INFO));
+			infoBloqueo->recursoNecesitado = "";
+			strcpy(infoBloqueo->recursoNecesitado, clave);
+			infoBloqueo->unidadesDeTiempoBloqueado = 0;
+
+			esi->estado = ESI_BLOQUEADO;
+			esi->informacionDeBloqueo = infoBloqueo;
+
+			// Encolo el esi en la lista de bloqueados
+			list_add(listaEsiBloqueados, clonarEsi(esi));
+			list_remove(listaEsiNuevos, i);
+			return;
+		}
+	}
+
+	for(i = 0; i < list_size(listaEsiListos); i++)
+	{
+		ESI_STRUCT *esi = list_get(listaEsiListos, i);
+		if(esi->id == id_esi)
+		{
+			ESI_BLOCKED_INFO* infoBloqueo = malloc(sizeof(ESI_BLOCKED_INFO));
+			infoBloqueo->recursoNecesitado = "";
+			strcpy(infoBloqueo->recursoNecesitado, clave);
+			infoBloqueo->unidadesDeTiempoBloqueado = 0;
+
+			esi->estado = ESI_BLOQUEADO;
+			esi->informacionDeBloqueo = infoBloqueo;
+
+			// Encolo el esi en la lista de bloqueados
+			list_add(listaEsiBloqueados, clonarEsi(esi));
+			list_remove(listaEsiListos, i);
+			return;
+		}
+	}
+/*
+ *
+ * 1- Fijarme si el que esto ejecutando es el que necesito
+ * 2- si no es el que necesito -> lo busco en la lista  la de bloqueados (no lo bloqueo) -> sino en la de nuevos (sino en al de listos )
+ *
+ * */
+}
 
 void liberarEsi(ESI_STRUCT * esi) {
 	free(esi);
