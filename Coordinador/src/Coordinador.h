@@ -61,7 +61,9 @@ void exit_program(int);
 void liberar_memoria();
 void enviar_respuesta_esi(int esi_socket, int socket_id);
 void destroy_connected_client(t_connected_client* connected_client);
-
-
+t_connected_client* find_connected_client(int socket_id);
+void send_response_to_esi(int esi_socket, t_connected_client* client, operation_result_e op_result);
+void send_message_instance(t_connection_header *connection_header, int client_socket, int socket_id);
+void send_message_clients(t_connection_header *connection_header, int client_socket, int socket_id);
 
 #endif /* SRC_COORDINADOR_H_ */

@@ -141,17 +141,12 @@ void on_server_accept(tcp_server_t* server, int client_socket, int socket_id){
 	t_connection_header *connection_header = deserialize_connection_header(header_buffer);
 	log_info(coordinador_log, "Received handshake from TCP Client: %s", connection_header->instance_name);
 	free(header_buffer);
-
-	t_ack_message ack_message;
-	strcpy(ack_message.instance_name, coordinador_setup.NOMBRE_INSTANCIA);
-	void *ack_buffer = serialize_ack_message(&ack_message);
-
-	if( send(client_socket, ack_buffer, ACK_MESSAGE_SIZE, 0) != ACK_MESSAGE_SIZE)
-	{
-		log_error(coordinador_log, "Could not send handshake acknowledge to TCP client.");
-		remove_client(server, socket_id);
-	} else {
-		log_info(coordinador_log, "Successfully connected to TCP Client: %s", connection_header->instance_name);
+	switch (connection_header->instance_type){
+	case REDIS_INSTANCE:
+		send_message_instance(connection_header, client_socket, socket_id);
+		break;
+	default:
+		send_message_clients(connection_header, client_socket, socket_id);
 	}
 
 	//TODO: Modularizar
@@ -163,8 +158,41 @@ void on_server_accept(tcp_server_t* server, int client_socket, int socket_id){
 	list_add(connected_clients, (void*)connected_client);
 
 	free(connection_header);
+//	free(ack_buffer);
+}
+
+void send_message_instance(t_connection_header *connection_header, int client_socket, int socket_id){
+	t_instance_init_values init_values_message;
+			init_values_message.entry_size = coordinador_setup.TAMANIO_ENTRADA_BYTES;
+			init_values_message.number_of_entries = coordinador_setup.CANTIDAD_ENTRADAS;
+			void *init_value_instance_buffer = serialize_init_instancia_message(&init_values_message);
+
+			if( send(client_socket, init_value_instance_buffer, INSTANCE_INIT_VALUES_SIZE, 0) != INSTANCE_INIT_VALUES_SIZE)
+			{
+				log_error(coordinador_log, "Could not send handshake acknowledge to TCP client.");
+				remove_client(server, socket_id);
+			} else {
+				log_info(coordinador_log, "Successfully connected to TCP Client: %s", connection_header->instance_name);
+			}
+			free(init_value_instance_buffer);
+}
+
+
+void send_message_clients(t_connection_header *connection_header, int client_socket, int socket_id){
+	t_ack_message ack_message;
+	strcpy(ack_message.instance_name, coordinador_setup.NOMBRE_INSTANCIA);
+	void *ack_buffer = serialize_ack_message(&ack_message);
+
+	if( send(client_socket, ack_buffer, ACK_MESSAGE_SIZE, 0) != ACK_MESSAGE_SIZE)
+	{
+		log_error(coordinador_log, "Could not send handshake acknowledge to TCP client.");
+		remove_client(server, socket_id);
+	} else {
+		log_info(coordinador_log, "Successfully connected to TCP Client: %s", connection_header->instance_name);
+	}
 	free(ack_buffer);
 }
+
 
 t_connected_client* find_connected_client(int socket_id){
 	bool is_linked_to_socket(void* conn_client){
@@ -189,6 +217,7 @@ void send_response_to_esi(int esi_socket, t_connected_client* client, operation_
 	}
 	free(buffer);
 }
+
 
 void handle_esi_request(t_operation_request* esi_request, t_connected_client* client, int socket){
 	switch(esi_request->operation_type){
@@ -239,6 +268,12 @@ void on_server_read(tcp_server_t* server, int client_socket, int socket_id){
 	switch(client->instance_type){
 	case ESI:
 		handle_esi_read(client, client_socket);
+		break;
+	case REDIS_INSTANCE:
+		break;
+	case PLANNER:
+		break;
+	case COORDINATOR:
 		break;
 	}
 
