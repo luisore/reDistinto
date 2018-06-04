@@ -5,6 +5,12 @@
 #include "../commons/commons.h"
 
 
+/**
+ * Incrementa en 1 la unidad de tiempo de ejecucion
+ */
+void nuevoCicloDeCPU();
+
+
 /********** SJF **********/
 void setAlpha(float p_alpha);
 void setEstimacionInicial(int p_estimacion);

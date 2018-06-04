@@ -19,6 +19,33 @@ void setEstimacionInicial(int p_estimacion){
 
 
 
+
+/**
+ * Incrementa en 1 la unidad de tiempo de ejecucion
+ */
+void nuevoCicloDeCPU() {
+	int i = 0;
+	pthread_mutex_lock(&mutexPrincipal);
+
+	for(i = 0; i < list_size(listaEsiListos); i++)
+	{
+		ESI_STRUCT * esi = list_get(listaEsiListos, i);
+		esi->tiempoEspera++;
+	}
+
+	for(i = 0; i < list_size(listaEsiBloqueados); i++)
+	{
+		ESI_STRUCT * esi = list_get(listaEsiBloqueados, i);
+		esi->tiempoEspera++;
+		esi->informacionDeBloqueo->unidadesDeTiempoBloqueado++;
+	}
+
+	pthread_mutex_unlock(&mutexPrincipal);
+}
+
+
+
+
 int calcularMediaExponencial(int duracionRafaga, int estimacionTn) {
 	float estimacionTnMasUno = 0.0f;
 

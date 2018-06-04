@@ -17,8 +17,7 @@ int main(void) {
 
 	pthread_create(&hiloConsola, NULL, (void*) escucharConsola, NULL);
 	pthread_create(&hiloPrincipal, NULL, (void*) iniciarPlanificador, NULL);
-	pthread_create(&hiloPlanificacion, NULL, (void*) ejecutarPlanificacion,
-			NULL);
+	pthread_create(&hiloPlanificacion, NULL, (void*) ejecutarPlanificacion, NULL);
 
 	pthread_join(hiloConsola, NULL);
 	pthread_join(hiloPrincipal, NULL);
@@ -64,7 +63,6 @@ void escucharConsola() {
 }
 
 void iniciarPlanificador() {
-
 	//conectarseConCoordinador();
 
 	create_tcp_server();
@@ -79,14 +77,15 @@ void ejecutarPlanificacion() {
 	while (true) {
 		pthread_mutex_lock(&mutexPlanificacion);
 
+		// Hay algun esi conectado?
 		if (cantidadEsiTotales() == 0) {
-			log_info(console_log,
-					"\n\n **************** NO HAY ESI *******************\n");
+			log_info(console_log, "\n\n **************** NO HAY ESI *******************\n");
+
+			// Espero a que se conecte algun esi, para que esto no itere infinitamente
 			pthread_mutex_lock(&mutexPlanificacion);
 		}
 
-		log_info(console_log,
-				"\n\n **************** HAY ESI *******************\n");
+		log_info(console_log, "\n\n **************** HAY ESI *******************\n");
 
 		aplicar_algoritmo_planificacion();
 
@@ -94,12 +93,18 @@ void ejecutarPlanificacion() {
 			log_info(console_log, "ESI actual\tid: %d \tTiempo estimado: %d\n",
 					esiEjecutando->id, esiEjecutando->tiempoEstimado);
 
-			ejecutarSiguienteESI(esiEjecutando->client_socket,
-					esiEjecutando->socket_id);
+			ejecutarSiguienteESI(esiEjecutando->client_socket, esiEjecutando->socket_id);
 
-			// ACA VA LO DEL COORDINADOR
 
-			// TODO
+			// TODO: ACA VA LO DEL COORDINADOR
+
+
+			// Aumento contadores esi actual
+			esiEjecutando->tiempoRafagaActual++;
+			esiEjecutando->tiempoEstimado--;
+			if(esiEjecutando->tiempoEstimado < 0)
+				esiEjecutando->tiempoEstimado = 0;
+
 
 			// ACA LE TENGO QUE ESPERAR AL ESTADO DEL ESI
 			int estado = esperarEstadoDelEsi(esiEjecutando->client_socket,
@@ -107,8 +112,7 @@ void ejecutarPlanificacion() {
 
 			switch (estado) {
 			case -1:
-				log_info(console_log,
-						"Error al pedir el estado del ESI. Abortando ESI");
+				log_info(console_log, "Error al pedir el estado del ESI. Abortando ESI");
 				terminarEsiActual();
 				break;
 			case ESI_IDLE:
@@ -126,7 +130,8 @@ void ejecutarPlanificacion() {
 			}
 		}
 
-		// TODO: Realizar incrementos de contadores
+		// Realizar incrementos de contadores
+		nuevoCicloDeCPU();
 
 		pthread_mutex_unlock(&mutexPlanificacion);
 	}
