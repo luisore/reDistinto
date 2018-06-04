@@ -250,8 +250,47 @@ t_instance_response* deserialize_instance_response(void *buffer){
 	int lastIndex = 0;
 
 	deserialize_data(&(response->status), 4, buffer, &lastIndex);
-	deserialize_data(&(response->payload_size), 41, buffer, &lastIndex);
+	deserialize_data(&(response->payload_size), 4, buffer, &lastIndex);
 
 	return response;
 }
+
+void* serialize_instance_init_values(t_instance_init_values *init_values){
+	void* buffer = malloc(INSTANCE_INIT_VALUES_SIZE);
+	int lastIndex = 0;
+
+	serialize_data(&(init_values->entry_size), 4, &buffer, &lastIndex);
+	serialize_data(&(init_values->number_of_entries), 4, &buffer, &lastIndex);
+
+	return buffer;
+}
+
+t_instance_init_values* deserialize_instance_init_values(void *buffer){
+	t_instance_init_values* init_values = malloc(sizeof(t_instance_response));
+	int lastIndex = 0;
+
+	deserialize_data(&(init_values->entry_size), 4, buffer, &lastIndex);
+	deserialize_data(&(init_values->number_of_entries), 4, buffer, &lastIndex);
+
+	return init_values;
+}
+
+void* serialize_coordinator_operation_header(t_coordinator_operation_header *header){
+	void* buffer = malloc(COORDINATOR_OPERATION_HEADER_SIZE);
+	int lastIndex = 0;
+
+	serialize_data(&(header->coordinator_operation_type), 4, &buffer, &lastIndex);
+
+	return buffer;
+}
+
+t_coordinator_operation_header* deserialize_coordinator_operation_header(void* buffer){
+	t_coordinator_operation_header* header = malloc(sizeof(t_coordinator_operation_header));
+	int lastIndex = 0;
+
+	deserialize_data(&(header->coordinator_operation_type), 4, buffer, &lastIndex);
+
+	return header;
+}
+
 

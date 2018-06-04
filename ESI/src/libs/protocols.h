@@ -17,6 +17,8 @@ typedef enum  { GET = 1, SET = 2, STORE = 3 } operation_type_e;
 
 typedef enum { ESI_IDLE = 1, ESI_BLOCKED = 2, ESI_FINISHED = 3 } esi_status_e;
 
+typedef enum { KEY_OPERATION = 1, COMPACT = 2 } coordinator_operation_type_e;
+
 /*
  * Result of the operation performed by the Coordinator. It can be:
  * OP_SUCCESS = The requested operation was performed.
@@ -116,6 +118,12 @@ typedef struct {
 
 static const int INSTANCE_INIT_VALUES_SIZE = 4 + 4;
 
+typedef struct {
+	coordinator_operation_type_e coordinator_operation_type;
+} t_coordinator_operation_header;
+
+static const int COORDINATOR_OPERATION_HEADER_SIZE = 4;
+
 // Connection Messages
 int connect_to_server(char *ip, int port, t_log *logger);
 bool perform_connection_handshake(int server_socket, char* instance_name,
@@ -149,6 +157,12 @@ t_coordinator_operation_request* deserialize_coordinator_operation_request(void 
 
 void* serialize_instance_response(t_instance_response *response);
 t_instance_response* deserialize_instance_response(void *buffer);
+
+void* serialize_instance_init_values(t_instance_init_values *response);
+t_instance_init_values* deserialize_instance_init_values(void *buffer);
+
+void* serialize_coordinator_operation_header(t_coordinator_operation_header *header);
+t_coordinator_operation_header* deserialize_coordinator_operation_header(void* buffer);
 
 
 #endif /* _PROTOCOLS_H_ */

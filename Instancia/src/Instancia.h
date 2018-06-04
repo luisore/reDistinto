@@ -8,6 +8,7 @@
 #include <commons/collections/list.h>
 #include "libs/protocols.h"
 #include "libs/serialize.h"
+#include <stdbool.h>
 
 #ifndef SRC_INSTANCIA_H_
 #define SRC_INSTANCIA_H_
@@ -18,45 +19,63 @@ t_config *config;
 int coordinator_socket;
 
 /*MACROS*/
-#define PATH_FILE_NAME "instancia.config"
+#define INSTANCE_CFG_FILE "instancia.config"
 
 /*ESTRUCTURAS*/
-enum AlgortimoReemplazo {
+typedef enum {
 	CIRC = 1, LRU = 2, BSU = 3
-};
+} replacement_algo_e;
 
-struct {
+typedef struct {
 	char* IP_COORDINADOR;
 	int PUERTO_COORDINADOR;
-	enum AlgortimoReemplazo ALGORITMO_REEMPLAZO;
+	replacement_algo_e ALGORITMO_REEMPLAZO;
 	char* PUNTO_MONTAJE;
 	char* NOMBRE_INSTANCIA;
 	int INTERVALO_DUMP_SEGs;
-} instancia_setup;
-
-// ESTRUCTURA PARA TABLA GENERAL
-
-struct{
-	int entradas_asociadas[100];
-	int tamanio_key;
-} estructura_key_tabla;
+} t_instance_setup;
 
 typedef struct {
-	unsigned int tamanio;
-	char *valor;
-	int siguiente_instruccion;
-} t_entrada;
+	unsigned int size;
+	int first_position;
+} t_entry_data;
 
+typedef struct {
+	bool used;
+	bool is_atomic;
+	char key[40]; // the key that occupies this position
+	int last_reference;
+} t_memory_position;
 
-int storage;
-int tamanio_entradas;
-int cantidad_entradas;
+typedef struct {
+	operation_type_e operation_type;
+	char key[40];
+	unsigned int value_size;
+	char *value;
+} t_operation;
 
-t_dictionary * tabla_entradas;
-t_dictionary * tabla_claves;
-t_list * lista_entradas;
+t_instance_setup instance_setup;
 
+// Porcion de memoria asignada a las entradas
+void* memory_region;
 
+// Mapa de bools indicando si la porcion de memoria esta disponible o no
+t_memory_position** occupied_memory_map;
+
+// Diccionario de claves:
+// key: Clave de la entrada
+// value: t_entry_data
+t_dictionary* key_dictionary;
+
+// Configuracion recibida del Coordinador
+int storage_size;
+int entry_size;
+int number_of_entries;
+
+/*
+ * Algoritmo actual de reemplazo de claves
+ */
+int (*perform_replacement_and_return_first_position)(unsigned int);
 /*FUNCIONES GENERALES*/
 
 void print_header();
@@ -64,38 +83,32 @@ void create_log();
 void loadConfig();
 void log_inicial_consola();
 
-void init_structs();
+void initialize_instance();
 void load_dump_files();
 
 void connect_with_coordinator();
-
-
-
-void send_example();
-
-void build_tabla_entradas();
-void show_structs();
 
 void print_goodbye();
 void exit_program(int);
 
 /*FUNCIONES MEMORIA*/
 void lectura_archivo();
-void liberar_memoria();
-
 
 /*ALGORITMOS DE REEMPLAZO*/
-void reemplazoCircular();
-void reemplazoLeastRecentlyUsed();
-void reemplazoBiggestSpaceUsed();
+int current_slot;
+
+int replace_circular(unsigned int value_size);
+//int lru_get_next_slot(); TODO
+//int bsu_get_next_slot(); TODO
 
 /*COMPACTACION Y DUMP*/
 
-void compactar();
+void compact();
 
 void dump();
 
-
+void entry_data_destroy(t_entry_data* entry_data);
+void instance_setup_destroy(t_instance_setup* instance_setup);
 
 
 #endif /* SRC_INSTANCIA_H_ */
