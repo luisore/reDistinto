@@ -140,7 +140,6 @@ void on_server_accept(tcp_server_t* server, int client_socket, int socket_id){
 
 	t_connection_header *connection_header = deserialize_connection_header(header_buffer);
 	log_info(coordinador_log, "Received handshake from TCP Client: %s", connection_header->instance_name);
-	free(header_buffer);
 
 	t_ack_message ack_message;
 	strcpy(ack_message.instance_name, coordinador_setup.NOMBRE_INSTANCIA);
@@ -154,6 +153,20 @@ void on_server_accept(tcp_server_t* server, int client_socket, int socket_id){
 		log_info(coordinador_log, "Successfully connected to TCP Client: %s", connection_header->instance_name);
 	}
 
+	if(connection_header->instance_type == PLANNER)
+	{
+		printf("Se conecto el planificador CHE\n");
+		t_coordinator_operation_request e;
+		strcpy(e.key, "materias:K3002");
+		e.operation_type = GET;
+
+		void *buffer = serialize_coordinator_operation_request(&e);
+
+		int r = send(client_socket, buffer, COORDINATOR_OPERATION_REQUEST_SIZE, 0);
+
+		free(buffer);
+	}
+
 	//TODO: Modularizar
 
 	t_connected_client* connected_client = malloc(sizeof(t_connected_client));
@@ -162,6 +175,7 @@ void on_server_accept(tcp_server_t* server, int client_socket, int socket_id){
 	connected_client->socket_id = socket_id;
 	list_add(connected_clients, (void*)connected_client);
 
+	free(header_buffer);
 	free(connection_header);
 	free(ack_buffer);
 }

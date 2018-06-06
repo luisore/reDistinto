@@ -83,6 +83,9 @@ void desbloquearEsi(ESI_STRUCT * esi) {
 }
 
 bool sonIguales(ESI_STRUCT * esi1, ESI_STRUCT * esi2){
+	if(esi1 == NULL || esi2 == NULL)
+		return false;
+
 	return esi1->id == esi2->id &&
 			esi1->socket_id == esi2->socket_id &&
 			esi1->client_socket == esi2->client_socket;
