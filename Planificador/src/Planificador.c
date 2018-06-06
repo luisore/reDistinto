@@ -278,7 +278,7 @@ void on_server_command(tcp_server_t* server) {
 
 void escucharCoordinador(){
 	int bytesReceived = 0;
-	void *res_buffer = malloc(ESI_STATUS_RESPONSE_SIZE);
+	void *res_buffer = malloc(COORDINATOR_OPERATION_REQUEST_SIZE);
 
 	bytesReceived = recv(coordinator_socket, res_buffer, COORDINATOR_OPERATION_REQUEST_SIZE,
 	MSG_WAITALL);
