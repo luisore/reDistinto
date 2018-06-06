@@ -27,6 +27,7 @@ void bloquearEsi(int id_esi, char* clave);
 //Funciones para la administracion de los ESI
 void bloquearEsiActual(char * recursoEsperado);
 void desbloquearEsi();
+int estaBloqueadoPor(ESI_STRUCT * esi, char * recurso);
 bool sonIguales(ESI_STRUCT * esi1, ESI_STRUCT * esi2);
 
 void liberarRecursosEsi();

@@ -88,6 +88,34 @@ bool sonIguales(ESI_STRUCT * esi1, ESI_STRUCT * esi2){
 			esi1->client_socket == esi2->client_socket;
 }
 
+/**
+ * Retorna:
+ * 0  = Esta bloqueado por otro esi
+ * 1  = Esta bloqueado por el esi parametro
+ * 2  = No esta bloqueado
+ * -1 = No existe el recurso en la lista
+ */
+int estaBloqueadoPor(ESI_STRUCT * esi, char * recurso){
+	int i;
+	for(i = 0; i < list_size(listaRecursos); i++){
+		RECURSO* r = list_get(listaRecursos, i);
+
+		if(string_equals_ignore_case(r->nombre_recurso, recurso))
+		{
+			if(r->estado == RECURSO_LIBRE)
+				return 2;
+
+
+			if(sonIguales(r->esi_bloqueante, esi))
+				return 1;
+
+			return 0;
+		}
+	}
+
+	return -1;
+}
+
 int bloquearRecurso(char * p_recurso){
 	int i = 0, tamanioLista = 0, encontrado = 0;
 
@@ -117,10 +145,9 @@ int bloquearRecurso(char * p_recurso){
 		r->estado = RECURSO_BLOQUEADO;
 
 		list_add(listaRecursos, r);
-
-		return 0;
 	}
-	return -1;
+
+	return encontrado;
 }
 
 int liberarRecurso(char * p_recurso){

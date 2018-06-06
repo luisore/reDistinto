@@ -51,5 +51,8 @@ void before_tpc_server_cycle(tcp_server_t* server);
 
 int esperarEstadoDelEsi(int esi_socket, int socket_id);
 void ejecutarSiguienteESI(int esi_socket, int socket_id);
+void escucharCoordinador();
+
+void responderCoordinador(int socket, operation_result_e result);
 
 #endif /* PLANIFICADOR_SRC_PLANIFICADOR_H_ */
