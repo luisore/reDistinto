@@ -127,6 +127,39 @@ void remove_client(server, socket_id){
 	list_remove_and_destroy_by_condition(connected_clients, is_linked_to_socket, destroy_connected_client);
 }
 
+void mandarAlPlanificador(char * recurso, int client_socket, operation_type_e t)
+{
+	t_coordinator_operation_request e;
+	strcpy(e.key, recurso);
+	e.operation_type = t;
+
+	void *buffer = serialize_coordinator_operation_request(&e);
+
+	int r = send(client_socket, buffer, COORDINATOR_OPERATION_REQUEST_SIZE, 0);
+
+	free(buffer);
+
+	int bytesReceived = 0;
+	void *res_buffer = malloc(COORDINATOR_OPERATION_REQUEST_SIZE);
+
+	bytesReceived = recv(client_socket, res_buffer, OPERATION_RESPONSE_SIZE, MSG_WAITALL);
+
+	if (bytesReceived < OPERATION_RESPONSE_SIZE) {
+		log_error(coordinador_log, "Error!");
+
+		log_error(coordinador_log, "Bytes leidos: %d | Esperados: %d",
+				bytesReceived, OPERATION_RESPONSE_SIZE);
+
+		free(res_buffer);
+		return;
+	}
+
+	t_operation_response *response =
+			deserialize_operation_response(res_buffer);
+
+	log_info(coordinador_log, "Respuesta: %d", response->operation_result);
+}
+
 void on_server_accept(tcp_server_t* server, int client_socket, int socket_id){
 	void *header_buffer = malloc(CONNECTION_HEADER_SIZE);
 
@@ -156,15 +189,13 @@ void on_server_accept(tcp_server_t* server, int client_socket, int socket_id){
 	if(connection_header->instance_type == PLANNER)
 	{
 		printf("Se conecto el planificador CHE\n");
-		t_coordinator_operation_request e;
-		strcpy(e.key, "materias:K3002");
-		e.operation_type = GET;
 
-		void *buffer = serialize_coordinator_operation_request(&e);
-
-		int r = send(client_socket, buffer, COORDINATOR_OPERATION_REQUEST_SIZE, 0);
-
-		free(buffer);
+		mandarAlPlanificador("materias:K3002", client_socket, GET);
+		mandarAlPlanificador("LALALA1", client_socket, GET);
+		mandarAlPlanificador("materias:K3002", client_socket, SET);
+		mandarAlPlanificador("LALALA2", client_socket, SET);
+		mandarAlPlanificador("materias:K3002", client_socket, STORE);
+		mandarAlPlanificador("LALALA3", client_socket, STORE);
 	}
 
 	//TODO: Modularizar
