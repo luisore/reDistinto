@@ -266,12 +266,6 @@ void bloquearEsi(int id_esi, char* clave)
 			return;
 		}
 	}
-/*
- *
- * 1- Fijarme si el que esto ejecutando es el que necesito
- * 2- si no es el que necesito -> lo busco en la lista  la de bloqueados (no lo bloqueo) -> sino en la de nuevos (sino en al de listos )
- *
- * */
 }
 
 void liberarEsi(ESI_STRUCT * esi) {

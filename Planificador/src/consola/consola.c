@@ -226,12 +226,14 @@ void comando_pausar()
 {
 	log_info(console_log, "Consola: Pausar\n");
 	pthread_mutex_lock(&mutexPrincipal);
+	printf("Planificador pausado!\n");
 }
 
 void comando_continuar()
 {
 	log_info(console_log, "Consola: Continuar\n");
 	pthread_mutex_unlock(&mutexPrincipal);
+	printf("Planificador reanudado!\n");
 }
 
 void comando_bloquear_esi_por_id_y_recurso_de_clave(char* id_esi, char* clave)
@@ -352,8 +354,8 @@ void comando_status_instancias_por_clave(char* clave)
 
 void comando_exit()
 {
-	printf("¡ADIOS!\n");
 	log_info(console_log, "Consola: Exit\n");
+	printf("¡ADIOS!\n");
 	retorno = TERMINAR_CONSOLA;
 }
 
@@ -365,7 +367,12 @@ void comando_show_esis()
 	printf("-------------------------------------------\n");
 
 	_obtener_todos_los_esis();
-	list_iterate(listaEsis, (void*) _list_esis);
+	if(!list_is_empty(listaEsis))
+	{
+		list_iterate(listaEsis, (void*) _list_esis);
+	} else {
+		printf("No se encontraron esis para mostrar!\n");
+	}
 
 	printf("-------------------------------------------\n");
 	printf("\n");
@@ -396,7 +403,12 @@ void _list_esis(ESI_STRUCT *e)
 void comando_listar_recursos()
 {
 	log_info(console_log, "Consola: Listar Recursos\n");
-	list_iterate(listaRecursos, (void*) _list_recursos);
+	if(!list_is_empty(listaRecursos))
+	{
+		list_iterate(listaRecursos, (void*) _list_recursos);
+	} else {
+		printf("No se encontraron recursos para mostrar!\n");
+	}
 }
 
 void _list_recursos(RECURSO *r)
@@ -428,7 +440,8 @@ void _obtener_esis_listos()
 
 void _obtener_esis_ejecutando()
 {
-	list_add(listaEsis, esiEjecutando);
+	if(esiEjecutando != NULL)
+		list_add(listaEsis, esiEjecutando);
 }
 
 void _obtener_esis_bloqueados()
