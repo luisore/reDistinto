@@ -186,7 +186,7 @@ void on_server_accept(tcp_server_t* server, int client_socket, int socket_id){
 		log_info(coordinador_log, "Successfully connected to TCP Client: %s", connection_header->instance_name);
 	}
 
-	if(connection_header->instance_type == PLANNER)
+	/*if(connection_header->instance_type == PLANNER)
 	{
 		printf("Se conecto el planificador CHE\n");
 
@@ -196,7 +196,7 @@ void on_server_accept(tcp_server_t* server, int client_socket, int socket_id){
 		mandarAlPlanificador("LALALA2", client_socket, SET);
 		mandarAlPlanificador("materias:K3002", client_socket, STORE);
 		mandarAlPlanificador("LALALA3", client_socket, STORE);
-	}
+	}*/
 
 	//TODO: Modularizar
 
