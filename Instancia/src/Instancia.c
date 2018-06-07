@@ -55,11 +55,12 @@ void loadConfig() {
 	t_config *config = config_create(INSTANCE_CFG_FILE);
 
 	if (config != NULL) {
-		strcpy(instance_setup.IP_COORDINADOR, config_get_string_value(config, "IP_COORDINADOR"));
+
+		instance_setup.IP_COORDINADOR = string_duplicate(config_get_string_value(config,"IP_COORDINADOR"));
 		instance_setup.PUERTO_COORDINADOR = config_get_int_value(config,"PUERTO_COORDINADOR");
 		instance_setup.ALGORITMO_REEMPLAZO = config_get_int_value(config,"ALGORITMO_REEMPLAZO");
-		strcpy(instance_setup.PUNTO_MONTAJE, config_get_string_value(config,"PUNTO_MONTAJE"));
-		strcpy(instance_setup.NOMBRE_INSTANCIA, config_get_string_value(config,"NOMBRE_INSTANCIA"));
+		instance_setup.PUNTO_MONTAJE = config_get_string_value(config,"PUNTO_MONTAJE");
+		instance_setup.NOMBRE_INSTANCIA = string_duplicate(config_get_string_value(config,"NOMBRE_INSTANCIA"));
 		instance_setup.INTERVALO_DUMP_SEGs = config_get_int_value(config, "INTERVALO_DUMP_SEGs");
 
 		log_info(console_log, "COORDINADOR: IP: %s, PUERTO: %d",
