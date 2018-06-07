@@ -376,6 +376,8 @@ void comando_show_esis()
 
 	printf("-------------------------------------------\n");
 	printf("\n");
+
+	list_clean(listaEsis);
 }
 
 void _list_esis(ESI_STRUCT *e)
@@ -384,16 +386,16 @@ void _list_esis(ESI_STRUCT *e)
 	switch (e->estado)
 	{
 	case ESI_LISTO:
-		estado = "LISTO";
+		strcpy(estado, "LISTO\0");
 		break;
 	case ESI_EJECUTANDO:
-		estado = "EJECUTANDO";
+		strcpy(estado, "EJECUTANDO\0");
 		break;
 	case ESI_BLOQUEADO:
-		estado = "BLOQUEADO";
+		strcpy(estado, "BLOQUEADO\0");
 		break;
 	case ESI_TERMINADO:
-		estado = "TERMINADO";
+		strcpy(estado, "TERMINADO\0");
 		break;
 	}
 	printf("%d\t| %s\n", e->id, estado);

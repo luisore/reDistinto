@@ -63,7 +63,7 @@ void escucharConsola() {
 }
 
 void iniciarPlanificador() {
-	conectarseConCoordinador();
+	//conectarseConCoordinador();
 
 	create_tcp_server();
 

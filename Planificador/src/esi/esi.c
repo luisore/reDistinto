@@ -28,17 +28,13 @@ ESI_STRUCT * clonarEsi(ESI_STRUCT *esi) {
 
 
 void agregarNuevoEsi(ESI_STRUCT * esi){
-	pthread_mutex_lock(&mutexPrincipal);
 	list_add(listaEsiNuevos, esi);
-	pthread_mutex_unlock(&mutexPrincipal);
 }
 
 void terminarEsiActual(){
-	pthread_mutex_lock(&mutexPrincipal);
 	esiEjecutando->estado = ESI_TERMINADO;
 	list_add(listaEsiTerminados, clonarEsi(esiEjecutando));
 	esiEjecutando = NULL;
-	pthread_mutex_unlock(&mutexPrincipal);
 }
 
 /**
