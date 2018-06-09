@@ -1,4 +1,5 @@
 #include "Instancia.h"
+#include "redis.h"
 #include <unistd.h> // Para close
 
 void print_header() {
@@ -22,17 +23,7 @@ void exit_program(int retVal) {
 	if (coordinator_socket != 0)
 		close(coordinator_socket);
 
-	if(memory_region != NULL)
-		free(memory_region);
-
-	if(occupied_memory_map != NULL){
-		for(int i=0; i<number_of_entries; i++){
-			if(occupied_memory_map[i] != NULL) free(occupied_memory_map[i]);
-		}
-		free(occupied_memory_map);
-	}
-
-	dictionary_destroy_and_destroy_elements(key_dictionary, entry_data_destroy);
+	redis_destroy(redis);
 
 	print_goodbye();
 	exit(retVal);
@@ -66,21 +57,6 @@ void loadConfig() {
 		log_info(console_log, "COORDINADOR: IP: %s, PUERTO: %d",
 					instance_setup.IP_COORDINADOR, instance_setup.PUERTO_COORDINADOR);
 
-		switch (instance_setup.ALGORITMO_REEMPLAZO) {
-		case CIRC:
-			log_info(console_log, "Algoritmo de reemplazo: CIRC");
-			perform_replacement_and_return_first_position = replace_circular;
-			break;
-		case LRU:
-			log_info(console_log, "Algoritmo de reemplazo: LRU");
-			perform_replacement_and_return_first_position = replace_circular; // TODO CAMBIAR!
-			break;
-		case BSU:
-			log_info(console_log, "Algoritmo de planificacion: BSU");
-			perform_replacement_and_return_first_position = replace_circular; // TODO CAMBIAR!
-			break;
-		}
-
 		log_info(console_log, "Punto de montaje: %s",
 				instance_setup.PUNTO_MONTAJE);
 		log_info(console_log, "Nombre de la instancia: %s",
@@ -97,88 +73,8 @@ void loadConfig() {
 	}
 }
 
-
-/*
-void build_tabla_entradas(){
-
-	log_info(console_log, "Se arma la estructura de entradas");
-	log_info(console_log, "\t Cantidad total: %d" , storage);
-	log_info(console_log, "\t Tamanio entradas: %d" , tamanio_entradas);
-	log_info(console_log, "\t Cantidad de entradas: %d" , cantidad_entradas);
-
-	for(int i=0 ; i < cantidad_entradas ; i++){
-
-		log_info(console_log, "Se carga entrada:  %d" , i);
-
-		t_entrada* entrada = malloc(sizeof(t_entrada));
-		entrada->siguiente_instruccion = 0;
-		entrada->tamanio = tamanio_entradas;
-		entrada->valor = malloc(tamanio_entradas);
-		strcpy(entrada->valor , "PRUEBA VALOR");
-
-		// SE CARGAN LAS ESTRUCTURAS
-
-		list_add(lista_entradas, entrada);
-
-		char clave[cantidad_entradas];
-		sprintf(clave, "%d", i);
-
-		// @param i  ->  identificador entrada
-		// @param 0  ->  valor de uso de la entrada ( 0 o 1 ) por si o por no
-		dictionary_put(tabla_entradas ,clave , 0);
-
-		// nota -> Deberia poder obtener el valor directamente de la posicion del dictionario
-
-	}
-
-	log_info(console_log, "TERMINA LA CARGA DE ESTRUCTURAS");
-
-
-}
-
-void show_structs(){
-
-	int a = 0;
-
-	while(list_size(lista_entradas) > 0){
-
-		t_entrada * entrada = list_get(lista_entradas , 1);
-
-		log_info(console_log, "ENTRADA %d" , a);
-		log_info(console_log, "ENTRADA %d" ,entrada->tamanio  );
-		log_info(console_log, "ENTRADA %s", entrada->valor);
-
-		list_remove(lista_entradas , 1);
-		a++;
-	}
-
-}
-
-void init_structs(){
-
-	tabla_entradas = dictionary_create();
-	tabla_claves = dictionary_create();
-	lista_entradas = list_create();
-
-	// EJEMPLO CARGA
-
-	storage = 500;
-	tamanio_entradas = 50;
-	cantidad_entradas = rint(storage / tamanio_entradas);
-
-	build_tabla_entradas();
-
-	// EJEMPLO DE VISUALIZACION
-
-	show_structs();
-}
-*/
-
-
 void load_dump_files (){
-
-	// TODO - 1. Se debe verificar que exista algun archivo y cargarlo a la tabla de entradas
-
+	redis_load_dump_files(redis);
 }
 
 bool wait_for_init_data(){
@@ -237,26 +133,6 @@ void connect_with_coordinator() {
 
 }
 
-t_memory_position* create_empty_memory_position(){
-	t_memory_position* memory_pos = malloc(sizeof(t_memory_position));
-	memory_pos->is_atomic = true;
-	memory_pos->used = false;
-	memory_pos->last_reference = 0;
-	memory_pos->key[0] = '\0';
-
-	return memory_pos;
-}
-
-void initialize_instance(){
-	memory_region = malloc(storage_size);
-	occupied_memory_map = malloc(number_of_entries * sizeof(t_memory_position*));
-	for(int i = 0; i < number_of_entries; i++){
-		occupied_memory_map[i] = create_empty_memory_position();
-	}
-
-	key_dictionary = dictionary_create();
-}
-
 void instance_setup_destroy(t_instance_setup* instance_setup){
 	if(instance_setup->NOMBRE_INSTANCIA != NULL)
 		free(instance_setup->NOMBRE_INSTANCIA);
@@ -266,11 +142,6 @@ void instance_setup_destroy(t_instance_setup* instance_setup){
 
 	if(instance_setup->PUNTO_MONTAJE != NULL)
 		free(instance_setup->PUNTO_MONTAJE);
-}
-
-void entry_data_destroy(t_entry_data* entry_data){
-	if(entry_data != NULL)
-		free(entry_data);
 }
 
 coordinator_operation_type_e wait_for_signal_from_coordinator(){
@@ -355,26 +226,8 @@ void send_stored_value_to_coordinator(char* stored_value, int value_length){
 	}
 }
 
-char* get_stored_value(char* operation_key){
-	if(!dictionary_has_key(key_dictionary, operation_key)){
-		return NULL;
-	}
-
-	t_entry_data* entry_data = (t_entry_data*)dictionary_get(key_dictionary, operation_key);
-	char* stored_value = malloc(entry_data->size);
-
-	int offset = entry_size * entry_data->first_position;
-
-	log_debug(console_log, "Key: %s is stored at: %i. Size: %i. Calculated offset: %i",
-			operation_key, entry_data->first_position, entry_data->size, offset);
-
-	memcpy(stored_value, memory_region + offset, entry_data->size);
-
-	return stored_value;
-}
-
 void handle_get(t_operation* operation){
-	char* stored_value = get_stored_value(operation->key);
+	char* stored_value = redis_get(redis, operation->key);
 	if(stored_value == NULL){
 		log_error(console_log, "Attempted GET on inexistent Key: %s.", operation->key);
 
@@ -391,174 +244,29 @@ void handle_get(t_operation* operation){
 	free(stored_value);
 }
 
-int slots_occupied_by(int value_size){
-	int slots = value_size / entry_size;
-	if(value_size % entry_size > 0) slots++;
-
-	return slots;
-}
-
-void free_slot(int slot_index){
-	t_memory_position* mem_pos = occupied_memory_map[slot_index];
-	mem_pos->is_atomic = true;
-	mem_pos->key[0] = '\0';
-	mem_pos->last_reference = 0;
-	mem_pos->used = false;
-}
-
-void set_in_same_place(t_entry_data* entry_data, t_operation* operation, int needed_slots, int used_slots){
-	int offset = entry_data->first_position * entry_size;
-	memcpy(memory_region + offset, operation->value, operation->value_size);
-	entry_data->size = operation->value_size;
-
-	int slots_to_free = used_slots - needed_slots;
-
-	int slot_index = entry_data->first_position + needed_slots;
-	while(slots_to_free > 0){
-		free_slot(slot_index);
-		slot_index++;
-		slots_to_free--;
-	}
-
-}
-
-// TODO: Repite codigo con set_in_same_place. Refactor!
-void remove_key(char* key, t_entry_data* entry_data, int used_slots){
-	int slot_index = entry_data->first_position;
-	int slots_to_free = used_slots;
-	while(slots_to_free > 0){
-		free_slot(slot_index);
-		slot_index++;
-		slots_to_free--;
-	}
-
-	dictionary_remove_and_destroy(key_dictionary, key, entry_data_destroy);
-}
-
-/*
- * Checks the memory slots for available space to fit the required size.
- * Returns True if there is space enough to fit, either contiguous or not.
- * If threre is contiguous space available, first_slot will be set with the first
- * slot of that contiguous space. Otherwise, it will be set to -1.
- */
-bool check_if_free_slots_available(int required_slots, int* first_slot){
-	int total_free_slots = 0;
-	int contiguous_free_slots = 0;
-	int current_first = -1;
-	int cursor;
-	t_memory_position* mem_pos;
-
-	for(cursor = 0; cursor < number_of_entries && contiguous_free_slots < required_slots; cursor++){
-		mem_pos = occupied_memory_map[cursor];
-		if(mem_pos->used){
-			current_first = -1;
-			contiguous_free_slots = 0;
-		} else{
-			total_free_slots++;
-			if(current_first > 0){
-				contiguous_free_slots++;
-			} else {
-				current_first = cursor;
-				contiguous_free_slots = 1;
-			}
-		}
-	}
-
-	if(contiguous_free_slots == required_slots){
-		*first_slot = current_first;
-	}
-
-	return total_free_slots >= required_slots;
-}
-
 void handle_set(t_operation* operation){
-	int need_slots = slots_occupied_by(operation->value_size);
+	bool success = redis_set(redis, operation->key, operation->value, operation->value_size);
 
-	// Check if key is already present
-	if(dictionary_has_key(key_dictionary, operation->key)){
-		t_entry_data* entry_data = (t_entry_data*)dictionary_get(key_dictionary, operation->key);
-		int used_slots = slots_occupied_by(entry_data->size);
-
-		if(need_slots <= used_slots){
-			// If the new value fits in the previously reserved slots, use those slots
-			set_in_same_place(entry_data, operation, need_slots, used_slots);
-			send_response_to_coordinator(INSTANCE_SUCCESS, 0);
-			return;
-		} else{
-			// If it does not fit, remove the key, free the slots and check if it fits somewhere else.
-			remove_key(operation->key, entry_data, used_slots);
-		}
-	}
-
-	// At this point the key is either new or it was removed because the new value did not fit.
-
-	// verificar si hay espacio contiguo disponible
-	// si hay espacio contiguo disponible, usarlo.
-	// si no hay espacio contiguo, pero si espacio, hay que compactar.
-	// sino, llamar al algoritmo de reemplazo.
-
-	int first_slot; // This value is filled by the next call to check_if_free_slots_available.
-	bool space_available = check_if_free_slots_available(need_slots, &first_slot);
-
-	if(space_available) {
-		if(first_slot < 0){
-			// Need to compact because there is space available but it is not contiguous
-			log_info(console_log, "There is space available but not contiguous to SET the value with size: %s. Need to compact.",
-					operation->value_size);
-			send_response_to_coordinator(INSTANCE_COMPACT, 0);
-			return;
-		}
+	if(success){
+		send_response_to_coordinator(INSTANCE_SUCCESS, 0);
 	} else {
-		first_slot = perform_replacement_and_return_first_position(operation->value_size);
+		log_info(console_log, "Need to compact!");
+		send_response_to_coordinator(INSTANCE_COMPACT, 0);
 	}
-
-	// create the new key for the dictionary
-	t_entry_data* entry_data = malloc(sizeof(t_entry_data));
-	entry_data->first_position = first_slot;
-	entry_data->size = operation->value_size;
-
-	// mark the slots as used by this key
-	t_memory_position* mem_pos;
-	bool isAtomic = need_slots == 1;
-
-	for(int pos = first_slot; pos < first_slot + need_slots; pos++){
-		mem_pos = occupied_memory_map[pos];
-		mem_pos->is_atomic = isAtomic;
-		strcpy(mem_pos->key, operation->key);
-		mem_pos->last_reference = 0; // TODO: FALTA SETEAR UNA VARIABLE CON EL NRO DE ITERACION
-		mem_pos->used = true;
-	}
-
-	// memcpy the new value
-	int offset = first_slot * entry_size;
-	memcpy(memory_region + offset, operation->value, operation->value_size);
-
-	// save the new key in the dictionaty
-	dictionary_put(key_dictionary, operation->key, entry_data);
-
-	send_response_to_coordinator(INSTANCE_SUCCESS, 0);
-}
-
-bool do_store(char* key, char* value){
-	// TODO!
-	return true;
 }
 
 void handle_store(t_operation* operation){
-	char* stored_value = get_stored_value(operation->key);
-	if(stored_value == NULL){
+	int success = redis_store(redis, operation->key);
+
+	if(success == 0){
+		send_response_to_coordinator(INSTANCE_SUCCESS, 0);
+	} else if (success == 1){
 		log_error(console_log, "Attempted STORE on inexistent Key: %s.", operation->key);
 
 		send_response_to_coordinator(INSTANCE_ERROR, 0);
 		return;
-	}
-
-	log_info(console_log, "Retrieved value for key: %s. Value: %s", operation->key, stored_value);
-
-	if(do_store(operation->key, stored_value)){
-		send_response_to_coordinator(INSTANCE_SUCCESS, 0);
 	} else {
-		log_error(console_log, "Could not store key: %s, value: %s. Aborting execution.", operation->key, stored_value);
+		log_error(console_log, "Could not store key: %s. Aborting execution.", operation->key);
 		exit_program(EXIT_FAILURE);
 	}
 }
@@ -593,12 +301,28 @@ void handle_operation(){
 }
 
 void compact() {
-	// TODO!
+	redis_compact(redis);
 }
 
-int replace_circular(unsigned int value_size){
-	// TODO!
-	return -1;
+void initialize_instance(){
+	int (*replacement_fn)(struct Redis*, unsigned int);
+	switch (instance_setup.ALGORITMO_REEMPLAZO) {
+	case CIRC:
+		log_info(console_log, "Algoritmo de reemplazo: CIRC");
+		replacement_fn = redis_replace_circular;
+		break;
+	case LRU:
+		log_info(console_log, "Algoritmo de reemplazo: LRU");
+		replacement_fn = redis_replace_circular; // TODO CAMBIAR!
+		break;
+	case BSU:
+		log_info(console_log, "Algoritmo de planificacion: BSU");
+		replacement_fn = redis_replace_circular; // TODO CAMBIAR!
+		break;
+	}
+
+	redis = redis_init(entry_size, number_of_entries, console_log,
+			instance_setup.PUNTO_MONTAJE, replacement_fn);
 }
 
 int main(void) {
@@ -635,8 +359,6 @@ int main(void) {
 			break;
 		}
 	}
-
-
 
 	return 0;
 }
