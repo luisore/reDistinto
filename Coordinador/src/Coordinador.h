@@ -65,5 +65,6 @@ t_connected_client* find_connected_client(int socket_id);
 void send_response_to_esi(int esi_socket, t_connected_client* client, operation_result_e op_result);
 void send_message_instance(t_connection_header *connection_header, int client_socket, int socket_id);
 void send_message_clients(t_connection_header *connection_header, int client_socket, int socket_id);
+t_connected_client* find_connected_client_by_type(instance_type_e instance_type);
 
 #endif /* SRC_COORDINADOR_H_ */

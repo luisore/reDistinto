@@ -127,7 +127,7 @@ void remove_client(server, socket_id){
 	list_remove_and_destroy_by_condition(connected_clients, is_linked_to_socket, destroy_connected_client);
 }
 
-void mandarAlPlanificador(char * recurso, int client_socket, operation_type_e t)
+void mandarAlPlanificador(char * recurso, int client_socket, operation_type_e t, t_operation_response **cod_result)
 {
 	t_coordinator_operation_request e;
 	strcpy(e.key, recurso);
@@ -153,12 +153,13 @@ void mandarAlPlanificador(char * recurso, int client_socket, operation_type_e t)
 		free(res_buffer);
 		return;
 	}
-
 	t_operation_response *response =
-			deserialize_operation_response(res_buffer);
+				deserialize_operation_response(res_buffer);
 
-	log_info(coordinador_log, "Respuesta: %d", response->operation_result);
-}
+		log_info(coordinador_log, "Respuesta: %d", response->operation_result);
+		**cod_result = *response;
+	}
+
 
 void on_server_accept(tcp_server_t* server, int client_socket, int socket_id){
 	void *header_buffer = malloc(CONNECTION_HEADER_SIZE);
@@ -190,7 +191,6 @@ void on_server_accept(tcp_server_t* server, int client_socket, int socket_id){
 	connected_client->socket_id = socket_id;
 	list_add(connected_clients, (void*)connected_client);
 
-	free(connection_header);
 //	free(ack_buffer);
 }
 
@@ -255,6 +255,16 @@ t_connected_client* find_connected_client(int socket_id){
 	return list_find(connected_clients, is_linked_to_socket);
 }
 
+t_connected_client* find_connected_client_by_type(instance_type_e instance_type){
+	bool is_linked_to_socket(void* conn_client){
+		t_connected_client* connected_client = (t_connected_client*)conn_client;
+		return connected_client->instance_type == instance_type;
+	};
+
+	return list_find(connected_clients, is_linked_to_socket);
+}
+
+
 void send_response_to_esi(int esi_socket, t_connected_client* client, operation_result_e op_result){
 	t_operation_response op_response;
 	op_response.operation_result = op_result;
@@ -272,18 +282,23 @@ void send_response_to_esi(int esi_socket, t_connected_client* client, operation_
 
 
 void handle_esi_request(t_operation_request* esi_request, t_connected_client* client, int socket){
+	t_connected_client* planner = find_connected_client_by_type(client->instance_type);
+		t_operation_response *cod_result;
 	switch(esi_request->operation_type){
 	case GET:
 		log_info(coordinador_log, "Handling GET from ESI: %s. Key: %s.", client->instance_name, esi_request->key);
 		// TODO: HACER EL GET
+		mandarAlPlanificador(esi_request->key, planner->socket_id, GET, &cod_result);
 		send_response_to_esi(socket, client, OP_SUCCESS);
 		break;
 	case STORE:
 		log_info(coordinador_log, "Handling STORE from ESI: %s. Key: %s.", client->instance_name, esi_request->key);
 		// TODO: HACER EL STORE
+		mandarAlPlanificador("LALALA2", planner->socket_id, STORE, &cod_result);
 		send_response_to_esi(socket, client, OP_SUCCESS);
 		break;
 	case SET:
+		mandarAlPlanificador("LALALA2", planner->socket_id, SET, &cod_result);
 		// leer del buffer el contenido y procesar
 		//TODO: HANDLE!
 		break;

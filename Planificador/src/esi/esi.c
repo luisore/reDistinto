@@ -28,17 +28,13 @@ ESI_STRUCT * clonarEsi(ESI_STRUCT *esi) {
 
 
 void agregarNuevoEsi(ESI_STRUCT * esi){
-	pthread_mutex_lock(&mutexPrincipal);
 	list_add(listaEsiNuevos, esi);
-	pthread_mutex_unlock(&mutexPrincipal);
 }
 
 void terminarEsiActual(){
-	pthread_mutex_lock(&mutexPrincipal);
 	esiEjecutando->estado = ESI_TERMINADO;
 	list_add(listaEsiTerminados, clonarEsi(esiEjecutando));
 	esiEjecutando = NULL;
-	pthread_mutex_unlock(&mutexPrincipal);
 }
 
 /**
@@ -266,12 +262,6 @@ void bloquearEsi(int id_esi, char* clave)
 			return;
 		}
 	}
-/*
- *
- * 1- Fijarme si el que esto ejecutando es el que necesito
- * 2- si no es el que necesito -> lo busco en la lista  la de bloqueados (no lo bloqueo) -> sino en la de nuevos (sino en al de listos )
- *
- * */
 }
 
 void liberarEsi(ESI_STRUCT * esi) {

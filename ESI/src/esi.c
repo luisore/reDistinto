@@ -301,7 +301,7 @@ void execute_program(char *program_filename){
 		next_instruction = (t_program_instruction* ) queue_peek(instructions);
 		log_instruction(next_instruction);
 
-		operation_result = OP_SUCCESS; //coordinate_operation(next_instruction);
+		operation_result =  coordinate_operation(next_instruction);
 
 		if(operation_result == OP_ERROR){
 			log_error(esi_log, "There was an error performing the current operation. Type:%d. Key: %s.",
@@ -345,13 +345,15 @@ int main(int argc, char **argv) {
 
 	program_filename = argv[1];
 
+
 	create_log();
 
 	load_config();
 
-	//connect_with_coordinator();
 
 	connect_with_planner();
+
+	connect_with_coordinator();
 
 	execute_program(program_filename);
 
