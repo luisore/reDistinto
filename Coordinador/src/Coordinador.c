@@ -127,13 +127,15 @@ void remove_client(server, socket_id){
 	list_remove_and_destroy_by_condition(connected_clients, is_linked_to_socket, destroy_connected_client);
 }
 
-t_operation_response * mandarAlPlanificador(char * recurso, int client_socket, operation_type_e t)
-{
+t_operation_response * mandarAlPlanificador(char * recurso, int client_socket, operation_type_e t){
+
 	t_coordinator_operation_request e;
 	strcpy(e.key, recurso);
 	e.operation_type = t;
 
 	void *buffer = serialize_coordinator_operation_request(&e);
+
+	log_info(coordinador_log, "Sending operation request from ESI to PLANNER");
 
 	int r = send(client_socket, buffer, COORDINATOR_OPERATION_REQUEST_SIZE, 0);
 
@@ -156,9 +158,10 @@ t_operation_response * mandarAlPlanificador(char * recurso, int client_socket, o
 	t_operation_response *response =
 				deserialize_operation_response(res_buffer);
 
-		log_info(coordinador_log, "Respuesta: %d", response->operation_result);
-		return response;
-	}
+	log_info(coordinador_log, "Operation status well received from PLANNER");
+	log_info(coordinador_log, "Respuesta: %d", response->operation_result);
+	return response;
+}
 
 
 void on_server_accept(tcp_server_t* server, int client_socket, int socket_id){
@@ -192,7 +195,6 @@ void on_server_accept(tcp_server_t* server, int client_socket, int socket_id){
 	connected_client->socket_reference = client_socket;
 	list_add(connected_clients, (void*)connected_client);
 
-//	free(ack_buffer);
 }
 
 void send_message_instance(t_connection_header *connection_header, int client_socket, int socket_id){
@@ -282,19 +284,51 @@ void handle_esi_request(t_operation_request* esi_request, t_connected_client* cl
 	switch(esi_request->operation_type){
 	case GET:
 		log_info(coordinador_log, "Handling GET from ESI: %s. Key: %s.", client->instance_name, esi_request->key);
-		// TODO: HACER EL GET
+
 		cod_result = mandarAlPlanificador(esi_request->key, planner->socket_reference, GET);
+
+		// TODO: INSTANCE CASE - It depends on operation result.
+
 		send_response_to_esi(socket, client, cod_result->operation_result);
 		break;
 	case STORE:
 		log_info(coordinador_log, "Handling STORE from ESI: %s. Key: %s.", client->instance_name, esi_request->key);
-		// TODO: HACER EL STORE
-		mandarAlPlanificador(esi_request->key, planner->socket_reference, STORE);
+
+		cod_result =  mandarAlPlanificador(esi_request->key, planner->socket_reference, STORE);
+
+		// TODO: INSTANCE CASE - It depends on operation result.
+
 		send_response_to_esi(socket, client, cod_result->operation_result);
+
 		break;
 	case SET:
-		mandarAlPlanificador(esi_request->key, planner->socket_reference, SET);
+		log_info(coordinador_log, "Handling SET from ESI: %s. Key: %s.", client->instance_name, esi_request->key);
+		log_info(coordinador_log, "Waiting for payload from ESI");
+
+		int payload_size = esi_request->payload_size + 1;
+
+		char * payload_for_intance  = malloc(payload_size);
+		int result = recv( socket, payload_for_intance, payload_size, MSG_WAITALL);
+
+		if (result < payload_size) {
+			log_error(coordinador_log, "Error!");
+			log_error(coordinador_log, "Bytes leidos: %d | Esperados: %d",
+					result, payload_size);
+			exit_program(EXIT_FAILURE);
+		}
+
+		log_info(coordinador_log, "Retrieving value from SET : %s ",payload_for_intance);
+
+		cod_result = mandarAlPlanificador(esi_request->key, planner->socket_reference, SET);
+
+		// TODO: INSTANCE CASE -  It depends on operation result.
+		// 		 Use - payload_for_intance  as value
+
+
+		send_response_to_esi(socket, client, cod_result->operation_result);
+
 		// leer del buffer el contenido y procesar
+
 		//TODO: HANDLE!
 		break;
 	}
