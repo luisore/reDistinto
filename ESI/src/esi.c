@@ -43,7 +43,7 @@ void print_goodbye(){
 
 
 void create_log(){
-	esi_log = log_create("esi.log", "ReDistinto-ESI", false, LOG_LEVEL_TRACE);
+	esi_log = log_create("esi.log", "ReDistinto-ESI", true, LOG_LEVEL_TRACE);
 
 	if(esi_log == NULL){
 		printf("Could not create log. Execution aborted.");
