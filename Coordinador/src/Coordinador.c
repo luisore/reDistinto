@@ -305,7 +305,7 @@ void handle_esi_request(t_operation_request* esi_request, t_connected_client* cl
 		log_info(coordinador_log, "Handling SET from ESI: %s. Key: %s.", client->instance_name, esi_request->key);
 		log_info(coordinador_log, "Waiting for payload from ESI");
 
-		int payload_size = esi_request->payload_size + 1;
+		int payload_size = esi_request->payload_size;
 
 		char * payload_for_intance  = malloc(payload_size);
 		int result = recv( socket, payload_for_intance, payload_size, MSG_WAITALL);
