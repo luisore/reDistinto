@@ -46,6 +46,7 @@ typedef struct {
 	char instance_name[30];
 	instance_type_e instance_type;
 	int socket_id;
+	int socket_reference;
 } t_connected_client;
 
 

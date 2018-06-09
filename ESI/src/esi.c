@@ -343,7 +343,7 @@ int main(int argc, char **argv) {
 		exit_gracefully(EXIT_SUCCESS);
 	}
 
-	program_filename = argv[1];
+	program_filename =  argv[1];
 
 
 	create_log();
@@ -351,9 +351,10 @@ int main(int argc, char **argv) {
 	load_config();
 
 
+	connect_with_coordinator();
+
 	connect_with_planner();
 
-	connect_with_coordinator();
 
 	execute_program(program_filename);
 
