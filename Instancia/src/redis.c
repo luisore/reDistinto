@@ -173,7 +173,7 @@ bool check_if_free_slots_available(t_redis* redis, int required_slots, int* firs
 			contiguous_free_slots = 0;
 		} else{
 			total_free_slots++;
-			if(current_first > 0){
+			if(current_first >= 0){
 				contiguous_free_slots++;
 			} else {
 				current_first = cursor;

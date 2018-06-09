@@ -325,7 +325,12 @@ void initialize_instance(){
 			instance_setup.PUNTO_MONTAJE, replacement_fn);
 }
 
-int main(void) {
+int main(int argc, char **argv) {
+	if (argc > 1 && strcmp(argv[1], "-runTests") == 0){
+		run_tests();
+		return 0;
+	}
+
 	print_header();
 	create_log();
 	loadConfig();
