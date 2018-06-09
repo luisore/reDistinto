@@ -4,67 +4,73 @@
 void bloquearClavesIniciales() {
 	int i = 0;
 
+	log_info(console_log, "Cargando claves inicialmente bloqueadas");
+
 	while (planificador_setup.CLAVES_INICIALMENTE_BLOQUEADAS[i] != NULL) {
 		bloquearRecurso(planificador_setup.CLAVES_INICIALMENTE_BLOQUEADAS[i]);
 		i++;
 	}
 }
 
-int leerArchivoConfiguracion(t_log *console_log, char* archivoConfiguracion) {
+int leerArchivoConfiguracion(char* archivoConfiguracion) {
 
 	if (archivoConfiguracion == NULL) {
 		return -1;
 	}
 
+	log_info(console_log, "Cargando archivo de configuracion");
+
 	t_config *configFile = config_create(archivoConfiguracion);
+
+	if (configFile == NULL) {
+		log_error(console_log, "No se pudo crear el archivo de configuracion");
+		return -1;
+	}
 
 	log_info(console_log, " .:: Cargando settings ::.");
 
 	planificador_setup.NOMBRE_INSTANCIA = malloc(30);
 	planificador_setup.IP_COORDINADOR = malloc(30);
 
-	if (configFile != NULL) {
-		// SI NO LO COPIO, CUANDO DESTRUYO EL CONFIG SE CORROMPEN
-		strcpy(planificador_setup.NOMBRE_INSTANCIA,
-				config_get_string_value(configFile, "NOMBRE_INSTANCIA"));
-		strcpy(planificador_setup.IP_COORDINADOR,
-				config_get_string_value(configFile, "IP_COORDINADOR"));
-		planificador_setup.PUERTO_COORDINADOR = config_get_int_value(configFile,
-				"PUERTO_COORDINADOR");
-		planificador_setup.ESTIMACION_INICIAL = config_get_int_value(configFile,
-				"ESTIMACION_INICIAL");
-		planificador_setup.ALGORITMO_PLANIFICACION = config_get_int_value(
-				configFile, "ALGORITMO_PLANIFICACION");
-		planificador_setup.PUERTO_ESCUCHA_CONEXIONES = config_get_int_value(
-				configFile, "PUERTO_ESCUCHA_CONEXIONES");
-		planificador_setup.CLAVES_INICIALMENTE_BLOQUEADAS =
-				config_get_array_value(configFile,
-						"CLAVES_INICIALMENTE_BLOQUEADAS");
-		planificador_setup.CANTIDAD_MAXIMA_CLIENTES = config_get_int_value(
-				configFile, "CANTIDAD_MAXIMA_CLIENTES");
-		planificador_setup.TAMANIO_COLA_CONEXIONES = config_get_int_value(
-				configFile, "TAMANIO_COLA_CONEXIONES");
-		planificador_setup.ALPHA = config_get_int_value(configFile, "ALPHA");
-	}
+	// SI NO LO COPIO, CUANDO DESTRUYO EL CONFIG SE CORROMPEN
+	strcpy(planificador_setup.NOMBRE_INSTANCIA,
+			config_get_string_value(configFile, "NOMBRE_INSTANCIA"));
+	strcpy(planificador_setup.IP_COORDINADOR,
+			config_get_string_value(configFile, "IP_COORDINADOR"));
+	planificador_setup.PUERTO_COORDINADOR = config_get_int_value(configFile,
+			"PUERTO_COORDINADOR");
+	planificador_setup.ESTIMACION_INICIAL = config_get_int_value(configFile,
+			"ESTIMACION_INICIAL");
+	planificador_setup.ALGORITMO_PLANIFICACION = config_get_int_value(
+			configFile, "ALGORITMO_PLANIFICACION");
+	planificador_setup.PUERTO_ESCUCHA_CONEXIONES = config_get_int_value(
+			configFile, "PUERTO_ESCUCHA_CONEXIONES");
+	planificador_setup.CLAVES_INICIALMENTE_BLOQUEADAS = config_get_array_value(
+			configFile, "CLAVES_INICIALMENTE_BLOQUEADAS");
+	planificador_setup.CANTIDAD_MAXIMA_CLIENTES = config_get_int_value(
+			configFile, "CANTIDAD_MAXIMA_CLIENTES");
+	planificador_setup.TAMANIO_COLA_CONEXIONES = config_get_int_value(
+			configFile, "TAMANIO_COLA_CONEXIONES");
+	planificador_setup.ALPHA = config_get_int_value(configFile, "ALPHA");
 
 	config_destroy(configFile);
 
 	return 0;
 }
 
-int cargarConfiguracion(t_log *console_log, char* archivoConfiguracion) {
+int cargarConfiguracion(char* archivoConfiguracion) {
 
-	if (leerArchivoConfiguracion(console_log, archivoConfiguracion) > 0)
+	if (leerArchivoConfiguracion(archivoConfiguracion) > 0)
 		return -1;
 
-	mostrarConfiguracionPorConsola(console_log);
+	mostrarConfiguracionPorConsola();
 
 	bloquearClavesIniciales();
 
 	return 0;
 }
 
-void mostrarConfiguracionPorConsola(t_log * console_log) {
+void mostrarConfiguracionPorConsola() {
 
 	int i = 0;
 
@@ -109,7 +115,7 @@ void mostrarConfiguracionPorConsola(t_log * console_log) {
 	log_info(console_log, "\tAlpha: %d", planificador_setup.ALPHA);
 }
 
-void liberarRecursosConfiguracion(){
+void liberarRecursosConfiguracion() {
 	free(planificador_setup.IP_COORDINADOR);
 	free(planificador_setup.NOMBRE_INSTANCIA);
 }

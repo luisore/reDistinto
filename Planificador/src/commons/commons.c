@@ -5,9 +5,11 @@ int create_log() {
 	false, LOG_LEVEL_TRACE);
 
 	if (console_log == NULL) {
-		log_info(console_log, "No se pudo crear el log. Abortando ejecución");
+		printf("No se pudo crear el log. Abortando ejecución\n");
 		return EXIT_FAILURE;
 	}
+
+	log_info(console_log, "Log creado correctamente");
 
 	return 0;
 }
