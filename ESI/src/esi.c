@@ -338,12 +338,12 @@ int main(int argc, char **argv) {
 
 	print_header();
 
-	if(argc != 2){
-		printf("\t\e[31;1m ERROR:\e[0m Debe proveer como único parámetro el path del archivo con el programa a correr.");
-		exit_gracefully(EXIT_SUCCESS);
-	}
+//	if(argc != 2){
+//		printf("\t\e[31;1m ERROR:\e[0m Debe proveer como único parámetro el path del archivo con el programa a correr.");
+//		exit_gracefully(EXIT_SUCCESS);
+//	}
 
-	program_filename = argv[1];
+	program_filename = "program.txt";
 
 
 	create_log();
@@ -351,9 +351,10 @@ int main(int argc, char **argv) {
 	load_config();
 
 
+	connect_with_coordinator();
+
 	connect_with_planner();
 
-	connect_with_coordinator();
 
 	execute_program(program_filename);
 

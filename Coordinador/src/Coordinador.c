@@ -127,7 +127,7 @@ void remove_client(server, socket_id){
 	list_remove_and_destroy_by_condition(connected_clients, is_linked_to_socket, destroy_connected_client);
 }
 
-void mandarAlPlanificador(char * recurso, int client_socket, operation_type_e t, t_operation_response **cod_result)
+t_operation_response * mandarAlPlanificador(char * recurso, int client_socket, operation_type_e t)
 {
 	t_coordinator_operation_request e;
 	strcpy(e.key, recurso);
@@ -151,13 +151,13 @@ void mandarAlPlanificador(char * recurso, int client_socket, operation_type_e t,
 				bytesReceived, OPERATION_RESPONSE_SIZE);
 
 		free(res_buffer);
-		return;
+		exit_program(EXIT_FAILURE);
 	}
 	t_operation_response *response =
 				deserialize_operation_response(res_buffer);
 
 		log_info(coordinador_log, "Respuesta: %d", response->operation_result);
-		**cod_result = *response;
+		return response;
 	}
 
 
@@ -189,6 +189,7 @@ void on_server_accept(tcp_server_t* server, int client_socket, int socket_id){
 	strcpy(&(connected_client->instance_name), connection_header->instance_name);
 	connected_client->instance_type = connection_header->instance_type;
 	connected_client->socket_id = socket_id;
+	connected_client->socket_reference = client_socket;
 	list_add(connected_clients, (void*)connected_client);
 
 //	free(ack_buffer);
@@ -235,14 +236,6 @@ void send_message_clients(t_connection_header *connection_header, int client_soc
 		mandarAlPlanificador("LALALA3", client_socket, STORE);
 	}*/
 
-	//TODO: Modularizar
-
-	t_connected_client* connected_client = malloc(sizeof(t_connected_client));
-	strcpy(&(connected_client->instance_name), connection_header->instance_name);
-	connected_client->instance_type = connection_header->instance_type;
-	connected_client->socket_id = socket_id;
-	list_add(connected_clients, (void*)connected_client);
-	free(connection_header);
 }
 
 
@@ -282,23 +275,25 @@ void send_response_to_esi(int esi_socket, t_connected_client* client, operation_
 
 
 void handle_esi_request(t_operation_request* esi_request, t_connected_client* client, int socket){
-	t_connected_client* planner = find_connected_client_by_type(client->instance_type);
-		t_operation_response *cod_result;
+
+	t_connected_client* planner = find_connected_client_by_type(PLANNER);
+	t_operation_response *cod_result;
+
 	switch(esi_request->operation_type){
 	case GET:
 		log_info(coordinador_log, "Handling GET from ESI: %s. Key: %s.", client->instance_name, esi_request->key);
 		// TODO: HACER EL GET
-		mandarAlPlanificador(esi_request->key, planner->socket_id, GET, &cod_result);
-		send_response_to_esi(socket, client, OP_SUCCESS);
+		cod_result = mandarAlPlanificador(esi_request->key, planner->socket_reference, GET);
+		send_response_to_esi(socket, client, cod_result->operation_result);
 		break;
 	case STORE:
 		log_info(coordinador_log, "Handling STORE from ESI: %s. Key: %s.", client->instance_name, esi_request->key);
 		// TODO: HACER EL STORE
-		mandarAlPlanificador("LALALA2", planner->socket_id, STORE, &cod_result);
-		send_response_to_esi(socket, client, OP_SUCCESS);
+		mandarAlPlanificador(esi_request->key, planner->socket_reference, STORE);
+		send_response_to_esi(socket, client, cod_result->operation_result);
 		break;
 	case SET:
-		mandarAlPlanificador("LALALA2", planner->socket_id, SET, &cod_result);
+		mandarAlPlanificador(esi_request->key, planner->socket_reference, SET);
 		// leer del buffer el contenido y procesar
 		//TODO: HANDLE!
 		break;
