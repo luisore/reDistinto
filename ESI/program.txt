@@ -3,3 +3,4 @@ SET deportes:futbol:messi Lionel Messi
 GET deportes:basquet:ginobili
 SET deportes:basquet:ginobili Emanuel Ginobili
 STORE deportes:basquet:ginobili
+STORE deportes:basquet:ginobili

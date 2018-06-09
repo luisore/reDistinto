@@ -351,9 +351,9 @@ int main(int argc, char **argv) {
 	load_config();
 
 
-	connect_with_coordinator();
+	//connect_with_coordinator();
 
-	connect_with_planner();
+	//connect_with_planner();
 
 
 	execute_program(program_filename);

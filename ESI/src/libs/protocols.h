@@ -41,14 +41,14 @@ typedef enum { INSTANCE_SUCCESS = 1, INSTANCE_ERROR = 2, INSTANCE_COMPACT = 3 } 
  * Either when connecting for the first time or before sending any message.
  */
 typedef struct {
-	char instance_name[30];
+	char instance_name[31];
 	instance_type_e instance_type;
 } t_connection_header;
 
 static const int CONNECTION_HEADER_SIZE = 31 + 4;
 
 typedef struct {
-	char instance_name[30];
+	char instance_name[31];
 } t_ack_message;
 
 static const int ACK_MESSAGE_SIZE = 31;
@@ -61,7 +61,7 @@ static const int ESI_INSTRUCTION_REQUEST_SIZE = 31 + 4;
  */
 typedef struct {
 	operation_type_e operation_type;
-	char key[40];
+	char key[41];
 	unsigned int payload_size;
 } t_operation_request;
 
@@ -81,7 +81,7 @@ static const int OPERATION_RESPONSE_SIZE = 4;
  * Planner request to execute next instruction
  */
 typedef struct {
-	char planner_name[30]; // En realidad no importa lo que mandes!
+	char planner_name[31]; // En realidad no importa lo que mandes!
 } t_planner_execute_request;
 
 static const int PLANNER_REQUEST_SIZE = 31;
@@ -90,7 +90,7 @@ static const int PLANNER_REQUEST_SIZE = 31;
  * ESI response with the current status
  */
 typedef struct {
-	char instance_name[30];
+	char instance_name[31];
 	esi_status_e status;
 } t_esi_status_response;
 
@@ -99,7 +99,7 @@ static const int ESI_STATUS_RESPONSE_SIZE = 31 + 4;
 
 typedef struct {
 	operation_type_e operation_type;
-	char key[40];
+	char key[41];
 } t_coordinator_operation_request;
 
 static const int COORDINATOR_OPERATION_REQUEST_SIZE = 4 + 41;
