@@ -134,7 +134,7 @@ int bloquearRecurso(char * p_recurso){
 	{
 		RECURSO * r = malloc(sizeof(RECURSO));
 		r->esi_bloqueante = esiEjecutando;
-		r->nombre_recurso = p_recurso;
+		strcpy(r->nombre_recurso, p_recurso);
 		r->estado = RECURSO_BLOQUEADO;
 
 		list_add(listaRecursos, r);
