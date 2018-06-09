@@ -17,22 +17,29 @@ int redis_replace_circular(struct Redis* redis, unsigned int value_size){
 	unsigned int freed_memory = 0;
 	t_memory_position* mem_pos;
 	t_entry_data* entry_data;
-	int entry_slots;
+	int entry_slots = slots_occupied_by(redis->entry_size, value_size);
 
 	// try to free memory from the slot till the end.
 	// if there is not enough memory from this position until the end, then start from zero.
-	if(slot_cursor + value_size - 1 > redis->number_of_entries)
+	if(slot_cursor + entry_slots > redis->number_of_entries)
 		slot_cursor = 0;
 
 	int first_slot = slot_cursor;
 
 	while(freed_memory < value_size && slot_cursor < redis->number_of_entries){
 		mem_pos = redis->occupied_memory_map[slot_cursor];
-		entry_data = dictionary_get(redis->key_dictionary, mem_pos->key);
-		entry_slots = slots_occupied_by(redis->entry_size, entry_data->size);
-		freed_memory += entry_slots * redis->entry_size;
-		slot_cursor += entry_slots;
-		redis_remove_key(redis, mem_pos->key, entry_data, entry_slots);
+		if(mem_pos->used){
+			entry_data = dictionary_get(redis->key_dictionary, mem_pos->key);
+			entry_slots = slots_occupied_by(redis->entry_size, entry_data->size);
+			freed_memory += entry_slots * redis->entry_size;
+			slot_cursor += entry_slots;
+			redis_remove_key(redis, mem_pos->key, entry_data, entry_slots);
+		} else {
+			// there might be some empty slots in the middle that are not enough to
+			// put the key. Just skip the slots and increment counters
+			freed_memory += redis->entry_size;
+			slot_cursor++;
+		}
 	}
 
 	return first_slot;
@@ -188,6 +195,8 @@ bool check_if_free_slots_available(t_redis* redis, int required_slots, int* firs
 
 	if(contiguous_free_slots == required_slots){
 		*first_slot = current_first;
+	} else {
+		*first_slot = -1;
 	}
 
 	return total_free_slots >= required_slots;
@@ -224,7 +233,7 @@ bool redis_set(t_redis* redis, char* key, char* value, unsigned int value_size){
 	if(space_available) {
 		if(first_slot < 0){
 			// Need to compact because there is space available but it is not contiguous
-			log_info(redis->log, "There is space available but not contiguous to SET the value with size: %s. Need to compact.",
+			log_info(redis->log, "There is space available but not contiguous to SET the value with size: %i. Need to compact.",
 					value_size);
 			return false;
 		}

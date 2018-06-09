@@ -83,5 +83,7 @@ t_memory_position* redis_create_empty_memory_position();
 
 int slots_occupied_by(int entry_size, int value_size);
 
+void redis_remove_key(t_redis* redis, char* key, t_entry_data* entry_data, int used_slots);
+
 
 #endif /* SRC_REDIS_H_ */

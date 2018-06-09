@@ -232,7 +232,61 @@ void test_add_may_keys_not_enough_space_replace_circular_should_replace(){
 	// and key4 only requires 1 slot.
 	mem_pos = redis->occupied_memory_map[1];
 	assert_memory_position_empty(mem_pos);
+}
 
+void test_add_many_with_replaces_has_space_fragmented_should_signal_compaction(){
+
+	char* key1 = "KEY1";
+	char* value1 = "THREESLOTS"; // 3 slots
+	unsigned int value_size1 = strlen(value1)+1;
+	char* key2 = "KEY2";
+	char* value2 = "THISSPANSOVER4"; // 4 slots
+	unsigned int value_size2 = strlen(value2)+1;
+	char* key3 = "KEY3";
+	char* value3 = "2SLOTS"; // 2 slots
+	unsigned int value_size3 = strlen(value3)+1;
+	char* key4 = "KEY4";
+	char* value4 = "DOSDOS"; // 2 slot
+	unsigned int value_size4 = strlen(value4)+1;
+	char* key5 = "KEY5";
+	char* value5 = "OTROS2"; // 2 slot
+	unsigned int value_size5 = strlen(value4)+1;
+
+	bool result = redis_set(redis, key1, value1, value_size1);
+	CU_ASSERT_TRUE(result);
+	result = redis_set(redis, key2, value2, value_size2);
+	CU_ASSERT_TRUE(result);
+	result = redis_set(redis, key3, value3, value_size3);
+	CU_ASSERT_TRUE(result);
+	result = redis_set(redis, key4, value4, value_size4);
+	CU_ASSERT_TRUE(result);
+
+	// Assert status before adding key6. Current slot should be 2
+	// key 4 is in slot 0
+	assert_key_in_position(2, 0, 3, key4, value4, value_size4);
+
+	// slot 2 is empty
+	t_memory_position* mem_pos = redis->occupied_memory_map[2];
+	assert_memory_position_empty(mem_pos);
+
+	// key 2 is in slots 3 to 6
+	assert_key_in_position(2, 3, 3, key2, value2, value_size2);
+
+	// key 3 is in slots 7 and 8
+	assert_key_in_position(2, 7, 3, key3, value3, value_size3);
+
+	// slots 9 is empty
+	mem_pos = redis->occupied_memory_map[9];
+	assert_memory_position_empty(mem_pos);
+
+	// Now add key 5 of 2 positions should return false, signaling
+	// the need for compaction
+	result = redis_set(redis, key5, value5, value_size5);
+	CU_ASSERT_FALSE(result);
+
+	// Key 5 should not be present
+	char* retrieved = redis_get(redis, key5);
+	CU_ASSERT_PTR_NULL(retrieved);
 }
 
 void add_tests() {
@@ -243,6 +297,7 @@ void add_tests() {
 	CU_add_test(redis_test, "test_set_not_atomic_in_empty_redis_should_add_key", test_set_not_atomic_in_empty_redis_should_add_key);
 	CU_add_test(redis_test, "test_set_two_keys_with_space_should_keep_both", test_set_two_keys_with_space_should_keep_both);
 	CU_add_test(redis_test, "test_add_may_keys_not_enough_space_replace_circular_should_replace", test_add_may_keys_not_enough_space_replace_circular_should_replace);
+	CU_add_test(redis_test, "test_add_many_with_replaces_has_space_fragmented_should_signal_compaction", test_add_many_with_replaces_has_space_fragmented_should_signal_compaction);
 }
 
 
