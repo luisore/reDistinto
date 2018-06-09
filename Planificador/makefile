@@ -14,6 +14,7 @@ RM := rm -rf
 -include src/configuracion/subdir.mk
 -include src/esi/subdir.mk
 -include src/consola/subdir.mk
+-include src/coordinador/subdir.mk
 -include src/subdir.mk
 -include subdir.mk
 -include objects.mk
