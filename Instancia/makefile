@@ -8,6 +8,7 @@ RM := rm -rf
 
 # All of the sources participating in the build are defined here
 -include sources.mk
+-include test/subdir.mk
 -include src/libs/subdir.mk
 -include src/subdir.mk
 -include subdir.mk
@@ -37,7 +38,7 @@ endif
 -include ../makefile.defs
 
 # Add inputs and outputs from these tool invocations to the build variables 
-LIBS = -lcommons -lreadline -lcrypto
+LIBS = -lcommons -lreadline -lcrypto -lcunit
 # All Target
 all: Instancia
 
@@ -45,7 +46,7 @@ all: Instancia
 Instancia: $(OBJS) $(USER_OBJS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: GCC C++ Linker'
-	g++ -o "Instancia" $(OBJS) $(USER_OBJS) $(LIBS)
+	g++  -o "Instancia" $(OBJS) $(USER_OBJS) $(LIBS)
 	@echo 'Finished building target: $@'
 	@echo ' '
 

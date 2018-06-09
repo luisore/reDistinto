@@ -37,7 +37,7 @@ void tear_down(){
 }
 
 void assert_memory_position(t_memory_position* mem_pos, int last_ref, bool used, bool atomic, char* key){
-	CU_ASSERT_PTR_NOT_NULL(mem_pos);
+	CU_ASSERT_PTR_NOT_NULL_FATAL(mem_pos);
 	CU_ASSERT_EQUAL(mem_pos->last_reference, last_ref);
 	CU_ASSERT_EQUAL(mem_pos->used, used);
 	CU_ASSERT_EQUAL(mem_pos->is_atomic, atomic);
@@ -63,7 +63,7 @@ void assert_key_in_position(int current_slot, int first_pos, int expected_keys, 
 	CU_ASSERT_EQUAL(dictionary_size(redis->key_dictionary), expected_keys);
 	CU_ASSERT_TRUE(dictionary_has_key(redis->key_dictionary, key));
 	t_entry_data* entry_data = (t_entry_data*)dictionary_get(redis->key_dictionary, key);
-	CU_ASSERT_PTR_NOT_NULL(entry_data);
+	CU_ASSERT_PTR_NOT_NULL_FATAL(entry_data);
 	CU_ASSERT_EQUAL(entry_data->first_position, first_pos);
 	CU_ASSERT_EQUAL(entry_data->size, value_size);
 
@@ -72,8 +72,19 @@ void assert_key_in_position(int current_slot, int first_pos, int expected_keys, 
 	CU_ASSERT_STRING_EQUAL(redis->memory_region + offset , value);
 }
 
+void assert_get_key(char* key, char* expected_value){
+	char* retrieved = redis_get(redis, key);
+	if(expected_value != NULL){
+		CU_ASSERT_PTR_NOT_NULL_FATAL(retrieved);
+		CU_ASSERT_STRING_EQUAL(retrieved, expected_value);
+		free(retrieved);
+	} else {
+		CU_ASSERT_PTR_NULL(retrieved);
+	}
+}
+
 void test_init_should_create_correctly(){
-	CU_ASSERT_PTR_NOT_NULL(redis);
+	CU_ASSERT_PTR_NOT_NULL_FATAL(redis);
 	CU_ASSERT_EQUAL(redis->current_slot, 0);
 	CU_ASSERT_EQUAL(redis->entry_size, ENTRY_SIZE);
 	CU_ASSERT_EQUAL(redis->number_of_entries, NUMBER_OF_ENTRIES);
@@ -125,7 +136,7 @@ void test_set_and_get_atomic_in_empty_redis_should_add_and_get_key(){
 
 	char *retrieved = redis_get(redis, key);
 
-	CU_ASSERT_PTR_NOT_NULL(retrieved);
+	CU_ASSERT_PTR_NOT_NULL_FATAL(retrieved);
 	CU_ASSERT_STRING_EQUAL(retrieved, value);
 
 	free(retrieved);
@@ -161,7 +172,7 @@ void test_set_and_get_not_atomic_in_empty_redis_should_add_and_get_key(){
 
 	char *retrieved = redis_get(redis, key);
 
-	CU_ASSERT_PTR_NOT_NULL(retrieved);
+	CU_ASSERT_PTR_NOT_NULL_FATAL(retrieved);
 	CU_ASSERT_STRING_EQUAL(retrieved, value);
 
 	free(retrieved);
@@ -318,9 +329,13 @@ void test_add_many_with_replaces_has_space_fragmented_should_signal_compaction()
 	result = redis_set(redis, key5, value5, value_size5);
 	CU_ASSERT_FALSE(result);
 
+	// Test get of all keys present
+	assert_get_key(key2, value2);
+	assert_get_key(key3, value3);
+	assert_get_key(key4, value4);
+
 	// Key 5 should not be present
-	char* retrieved = redis_get(redis, key5);
-	CU_ASSERT_PTR_NULL(retrieved);
+	assert_get_key(key5, NULL);
 }
 
 void add_tests() {
