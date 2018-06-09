@@ -45,7 +45,11 @@ int redis_replace_circular(struct Redis* redis, unsigned int value_size){
 	return first_slot;
 }
 
+
+
 void redis_destroy(t_redis* redis){
+	if(redis == NULL) return;
+
 	if(redis->memory_region != NULL)
 		free(redis->memory_region);
 
@@ -57,6 +61,11 @@ void redis_destroy(t_redis* redis){
 	}
 
 	dictionary_destroy_and_destroy_elements(redis->key_dictionary, redis_entry_data_destroy);
+
+	if(redis->mount_dir != NULL)
+		free(redis->mount_dir);
+
+	free(redis);
 }
 
 t_memory_position* redis_create_empty_memory_position(){
@@ -69,7 +78,7 @@ t_memory_position* redis_create_empty_memory_position(){
 	return memory_pos;
 }
 
-t_redis* redis_init(int entry_size, int number_of_entries, t_log* log, char* mount_dir,
+t_redis* redis_init(int entry_size, int number_of_entries, t_log* log, const char* mount_dir,
 		int (*perform_replacement_and_return_first_position)(struct Redis*, unsigned int)){
 	t_redis* redis = malloc(sizeof(t_redis));
 	redis->entry_size = entry_size;
@@ -151,17 +160,18 @@ void set_in_same_place(t_redis* redis, t_entry_data* entry_data, char* key, char
 
 // TODO: Repite codigo con set_in_same_place. Refactor!
 void redis_remove_key(t_redis* redis, char* key, t_entry_data* entry_data, int used_slots){
-	dictionary_remove_and_destroy(redis->key_dictionary, key, redis_entry_data_destroy);
-
+	char * copied_key = string_duplicate(key);
 	int slot_index = entry_data->first_position;
 	int slots_to_free = used_slots;
 
 	while(slots_to_free > 0){
-		// WARNING: This destroys the key received as parameter!
 		redis_free_slot(redis, slot_index);
 		slot_index++;
 		slots_to_free--;
 	}
+
+	dictionary_remove_and_destroy(redis->key_dictionary, copied_key, redis_entry_data_destroy);
+	free(copied_key);
 }
 
 /*

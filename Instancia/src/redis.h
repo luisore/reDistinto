@@ -54,9 +54,12 @@ typedef struct Redis {
 	char* mount_dir;
 } t_redis;
 
-t_redis* redis_init(int entry_size, int number_of_entries, t_log* log, char* mount_dir,
+t_redis* redis_init(int entry_size, int number_of_entries, t_log* log, const char* mount_dir,
 		int (*perform_replacement_and_return_first_position)(struct Redis*, unsigned int));
 
+
+// NOTE: redis_destroy will not free the log. If you created a specific log for redis,
+// you should free it yourself.
 void redis_destroy(t_redis* redis);
 
 bool redis_set(t_redis* redis, char* key, char* value, unsigned int value_size);

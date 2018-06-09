@@ -19,20 +19,20 @@ static t_log* test_log;
 static t_redis* redis;
 
 int init_suite(){
+	test_log = log_create("redis-test.log", "redis-test", false, LOG_LEVEL_DEBUG);
 	return 0;
 }
 
 int clean_suite(){
+	log_destroy(test_log);
 	return 0;
 }
 
 void setup(){
-	test_log = log_create("redis-test.log", "redis-test", false, LOG_LEVEL_DEBUG);
 	redis = redis_init(ENTRY_SIZE, NUMBER_OF_ENTRIES, test_log, MOUNT_DIR, redis_replace_circular);
 }
 
 void tear_down(){
-	log_destroy(test_log);
 	redis_destroy(redis);
 }
 
