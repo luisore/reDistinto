@@ -148,8 +148,9 @@ t_program_instruction* parse_instruction(char *line){
 	instruction->operation_type = operation_type;
 	strcpy(instruction->key, parts[1]);
 	if(operation_type == SET){
-		instruction->value = string_duplicate(parts[2]);
-		instruction->value_size = strlen(instruction->value)+1;
+		instruction->value = malloc(strlen(parts[2])+1);
+		strcpy(instruction->value, parts[2]);
+		instruction->value_size = strlen(parts[2])+1;
 	} else {
 		instruction->value = NULL;
 		instruction->value_size = 0;
@@ -300,6 +301,7 @@ void execute_program(char *program_filename){
 
 		next_instruction = (t_program_instruction* ) queue_peek(instructions);
 		log_instruction(next_instruction);
+
 
 		operation_result =  coordinate_operation(next_instruction);
 
