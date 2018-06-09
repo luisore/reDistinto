@@ -81,5 +81,7 @@ void redis_entry_data_destroy(t_entry_data* entry_data);
 
 t_memory_position* redis_create_empty_memory_position();
 
+int slots_occupied_by(int entry_size, int value_size);
+
 
 #endif /* SRC_REDIS_H_ */

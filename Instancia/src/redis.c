@@ -24,16 +24,18 @@ int redis_replace_circular(struct Redis* redis, unsigned int value_size){
 	if(slot_cursor + value_size - 1 > redis->number_of_entries)
 		slot_cursor = 0;
 
+	int first_slot = slot_cursor;
+
 	while(freed_memory < value_size && slot_cursor < redis->number_of_entries){
 		mem_pos = redis->occupied_memory_map[slot_cursor];
 		entry_data = dictionary_get(redis->key_dictionary, mem_pos->key);
-		entry_slots = slots_occupied_by(entry_data->size);
-		freed_memory += entry_slots;
+		entry_slots = slots_occupied_by(redis->entry_size, entry_data->size);
+		freed_memory += entry_slots * redis->entry_size;
 		slot_cursor += entry_slots;
 		redis_remove_key(redis, mem_pos->key, entry_data, entry_slots);
 	}
 
-	return slot_cursor;
+	return first_slot;
 }
 
 void redis_destroy(t_redis* redis){
@@ -142,15 +144,17 @@ void set_in_same_place(t_redis* redis, t_entry_data* entry_data, char* key, char
 
 // TODO: Repite codigo con set_in_same_place. Refactor!
 void redis_remove_key(t_redis* redis, char* key, t_entry_data* entry_data, int used_slots){
+	dictionary_remove_and_destroy(redis->key_dictionary, key, redis_entry_data_destroy);
+
 	int slot_index = entry_data->first_position;
 	int slots_to_free = used_slots;
+
 	while(slots_to_free > 0){
+		// WARNING: This destroys the key received as parameter!
 		redis_free_slot(redis, slot_index);
 		slot_index++;
 		slots_to_free--;
 	}
-
-	dictionary_remove_and_destroy(redis->key_dictionary, key, redis_entry_data_destroy);
 }
 
 /*

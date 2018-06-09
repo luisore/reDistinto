@@ -47,6 +47,30 @@ void assert_memory_position_empty(t_memory_position* mem_pos){
 	assert_memory_position(mem_pos, 0, false, true, "");
 }
 
+void assert_key_in_position(int current_slot, int first_pos, int expected_keys, char* key,
+		char* value, int value_size){
+
+	int slots_occupied = slots_occupied_by(ENTRY_SIZE, value_size);
+
+	CU_ASSERT_EQUAL(redis->current_slot, current_slot);
+
+	for(int i = 0; i < slots_occupied; i++){
+		t_memory_position* mem_pos = redis->occupied_memory_map[first_pos + i];
+		assert_memory_position(mem_pos, 0, true, slots_occupied == 1, key);
+	}
+
+	CU_ASSERT_EQUAL(dictionary_size(redis->key_dictionary), expected_keys);
+	CU_ASSERT_TRUE(dictionary_has_key(redis->key_dictionary, key));
+	t_entry_data* entry_data = (t_entry_data*)dictionary_get(redis->key_dictionary, key);
+	CU_ASSERT_PTR_NOT_NULL(entry_data);
+	CU_ASSERT_EQUAL(entry_data->first_position, first_pos);
+	CU_ASSERT_EQUAL(entry_data->size, value_size);
+
+	int offset = first_pos * ENTRY_SIZE;
+
+	CU_ASSERT_STRING_EQUAL(redis->memory_region + offset , value);
+}
+
 void test_init_should_create_correctly(){
 	CU_ASSERT_PTR_NOT_NULL(redis);
 	CU_ASSERT_EQUAL(redis->current_slot, 0);
@@ -71,60 +95,145 @@ void test_get_on_empty_redis_should_return_null(){
 void test_set_atomic_in_empty_redis_should_add_key(){
 	char* key = "KEY";
 	char* value = "VAL";
+	unsigned int value_size = strlen(value) + 1;
+	int expected_slot = 1;
+	int expected_first = 0;
+	int expected_keys = 1;
 
 	bool result = redis_set(redis, key, value, strlen(value)+1);
 
 	CU_ASSERT_TRUE(result);
-	CU_ASSERT_EQUAL(redis->current_slot, 1);
-	CU_ASSERT_EQUAL(dictionary_size(redis->key_dictionary), 1);
-	CU_ASSERT_TRUE(dictionary_has_key(redis->key_dictionary, key));
 
-	t_memory_position* mem_pos = redis->occupied_memory_map[0];
-	assert_memory_position(mem_pos, 0, true, true, key);
+	assert_key_in_position(expected_slot, expected_first, expected_keys, key, value, value_size);
+
+	t_memory_position* mem_pos;
 
 	for(int i =1; i < NUMBER_OF_ENTRIES; i++){
 		mem_pos = redis->occupied_memory_map[i];
 		assert_memory_position_empty(mem_pos);
 	}
-
-	t_entry_data* entry_data = (t_entry_data*)dictionary_get(redis->key_dictionary, key);
-	CU_ASSERT_PTR_NOT_NULL(entry_data);
-	CU_ASSERT_EQUAL(entry_data->first_position, 0);
-	CU_ASSERT_EQUAL(entry_data->size, strlen(value)+1);
-
-	CU_ASSERT_STRING_EQUAL(redis->memory_region, value);
 }
 
 void test_set_not_atomic_in_empty_redis_should_add_key(){
 	char* key = "KEY2";
 	char* value = "VAL123";
+	unsigned int value_size = strlen(value)+1;
+	int expected_slot = 2;
+	int expected_first = 0;
+	int expected_keys = 1;
 
-	bool result = redis_set(redis, key, value, strlen(value)+1);
+	bool result = redis_set(redis, key, value, value_size);
 
 	CU_ASSERT_TRUE(result);
-	CU_ASSERT_EQUAL(redis->current_slot, 2);
-	CU_ASSERT_EQUAL(dictionary_size(redis->key_dictionary), 1);
-	CU_ASSERT_TRUE(dictionary_has_key(redis->key_dictionary, key));
+	assert_key_in_position(expected_slot, expected_first, expected_keys, key, value, value_size);
 
-	t_memory_position* mem_pos = redis->occupied_memory_map[0];
-	assert_memory_position(mem_pos, 0, true, false, key);
+	t_memory_position* mem_pos;
+	for(int i =2; i < NUMBER_OF_ENTRIES; i++){
+		mem_pos = redis->occupied_memory_map[i];
+		assert_memory_position_empty(mem_pos);
+	}
+}
 
-	mem_pos = redis->occupied_memory_map[1];
-	assert_memory_position(mem_pos, 0, true, false, key);
+void test_set_two_keys_with_space_should_keep_both(){
+	char* key1 = "KEY1";
+	char* value1 = "ATO";
+	unsigned int value_size1 = strlen(value1)+1;
+	char* key2 = "KEY2";
+	char* value2 = "LONGVALUE";
+	unsigned int value_size2 = strlen(value2)+1;
 
+	// add first key
+	bool result = redis_set(redis, key1, value1, value_size1);
+	CU_ASSERT_TRUE(result);
+	assert_key_in_position(1, 0, 1, key1, value1, value_size1);
+
+	// rest of memory not used
+	t_memory_position* mem_pos;
+	for(int i =1; i < NUMBER_OF_ENTRIES; i++){
+		mem_pos = redis->occupied_memory_map[i];
+		assert_memory_position_empty(mem_pos);
+	}
+
+	// add second key
+	result = redis_set(redis, key2, value2, value_size2);
+	CU_ASSERT_TRUE(result);
+
+	// check that both keys are present
+	assert_key_in_position(4, 0, 2, key1, value1, value_size1);
+	assert_key_in_position(4, 1, 2, key2, value2, value_size2);
+
+	// rest of memory not used
+	for(int i =4; i < NUMBER_OF_ENTRIES; i++){
+		mem_pos = redis->occupied_memory_map[i];
+		assert_memory_position_empty(mem_pos);
+	}
+}
+
+void test_add_may_keys_not_enough_space_replace_circular_should_replace(){
+	char* key1 = "KEY1";
+	char* value1 = "TWOSLOT"; // 2 slots
+	unsigned int value_size1 = strlen(value1)+1;
+	char* key2 = "KEY2";
+	char* value2 = "THISSPANSOVERFIVE"; // 5 slots
+	unsigned int value_size2 = strlen(value2)+1;
+	char* key3 = "KEY3";
+	char* value3 = "THREESLOTS"; // 3 slots
+	unsigned int value_size3 = strlen(value3)+1;
+	char* key4 = "KEY4";
+	char* value4 = "ATO"; // 1 slot
+	unsigned int value_size4 = strlen(value4)+1;
+
+
+	// add first key
+	bool result = redis_set(redis, key1, value1, value_size1);
+	CU_ASSERT_TRUE(result);
+	assert_key_in_position(2, 0, 1, key1, value1, value_size1);
+
+	// rest of memory not used
+	t_memory_position* mem_pos;
 	for(int i =2; i < NUMBER_OF_ENTRIES; i++){
 		mem_pos = redis->occupied_memory_map[i];
 		assert_memory_position_empty(mem_pos);
 	}
 
-	t_entry_data* entry_data = (t_entry_data*)dictionary_get(redis->key_dictionary, key);
-	CU_ASSERT_PTR_NOT_NULL(entry_data);
-	CU_ASSERT_EQUAL(entry_data->first_position, 0);
-	CU_ASSERT_EQUAL(entry_data->size, strlen(value)+1);
+	// add second key
+	result = redis_set(redis, key2, value2, value_size2);
+	CU_ASSERT_TRUE(result);
 
-	CU_ASSERT_STRING_EQUAL(redis->memory_region, value);
+	// check that both keys are present
+	assert_key_in_position(7, 0, 2, key1, value1, value_size1);
+	assert_key_in_position(7, 2, 2, key2, value2, value_size2);
+
+	// rest of memory not used
+	for(int i =7; i < NUMBER_OF_ENTRIES; i++){
+		mem_pos = redis->occupied_memory_map[i];
+		assert_memory_position_empty(mem_pos);
+	}
+
+	// add third key
+	result = redis_set(redis, key3, value3, value_size3);
+	CU_ASSERT_TRUE(result);
+
+	// check that keys are present
+	assert_key_in_position(0, 0, 3, key1, value1, value_size1);
+	assert_key_in_position(0, 2, 3, key2, value2, value_size2);
+	assert_key_in_position(0, 7, 3, key3, value3, value_size3);
+
+	// add fourth key. should evict key1
+	result = redis_set(redis, key4, value4, value_size4);
+	CU_ASSERT_TRUE(result);
+
+	// check that keys are present
+	assert_key_in_position(1, 0, 3, key4, value4, value_size4);
+	assert_key_in_position(1, 2, 3, key2, value2, value_size2);
+	assert_key_in_position(1, 7, 3, key3, value3, value_size3);
+
+	// position 1 of memory should be empty because key1 used 2 slots
+	// and key4 only requires 1 slot.
+	mem_pos = redis->occupied_memory_map[1];
+	assert_memory_position_empty(mem_pos);
+
 }
-
 
 void add_tests() {
 	CU_pSuite redis_test = CU_add_suite_with_setup_and_teardown("Redis", init_suite, clean_suite, setup, tear_down);
@@ -132,6 +241,8 @@ void add_tests() {
 	CU_add_test(redis_test, "test_get_on_empty_redis_should_return_null", test_get_on_empty_redis_should_return_null);
 	CU_add_test(redis_test, "test_set_atomic_in_empty_redis_should_add_key", test_set_atomic_in_empty_redis_should_add_key);
 	CU_add_test(redis_test, "test_set_not_atomic_in_empty_redis_should_add_key", test_set_not_atomic_in_empty_redis_should_add_key);
+	CU_add_test(redis_test, "test_set_two_keys_with_space_should_keep_both", test_set_two_keys_with_space_should_keep_both);
+	CU_add_test(redis_test, "test_add_may_keys_not_enough_space_replace_circular_should_replace", test_add_may_keys_not_enough_space_replace_circular_should_replace);
 }
 
 
