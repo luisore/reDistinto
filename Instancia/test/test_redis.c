@@ -6,6 +6,7 @@
  */
 
 #include "CUnit/Basic.h"
+#include <stdlib.h>
 #include <unistd.h>
 #include "../src/redis.h"
 #include <commons/log.h>
@@ -100,7 +101,7 @@ void test_set_atomic_in_empty_redis_should_add_key(){
 	int expected_first = 0;
 	int expected_keys = 1;
 
-	bool result = redis_set(redis, key, value, strlen(value)+1);
+	bool result = redis_set(redis, key, value, value_size);
 
 	CU_ASSERT_TRUE(result);
 
@@ -112,6 +113,22 @@ void test_set_atomic_in_empty_redis_should_add_key(){
 		mem_pos = redis->occupied_memory_map[i];
 		assert_memory_position_empty(mem_pos);
 	}
+}
+
+void test_set_and_get_atomic_in_empty_redis_should_add_and_get_key(){
+	char* key = "KEY";
+	char* value = "VAL";
+	unsigned int value_size = strlen(value) + 1;
+
+	bool result = redis_set(redis, key, value, value_size);
+	CU_ASSERT_TRUE(result);
+
+	char *retrieved = redis_get(redis, key);
+
+	CU_ASSERT_PTR_NOT_NULL(retrieved);
+	CU_ASSERT_STRING_EQUAL(retrieved, value);
+
+	free(retrieved);
 }
 
 void test_set_not_atomic_in_empty_redis_should_add_key(){
@@ -133,6 +150,23 @@ void test_set_not_atomic_in_empty_redis_should_add_key(){
 		assert_memory_position_empty(mem_pos);
 	}
 }
+
+void test_set_and_get_not_atomic_in_empty_redis_should_add_and_get_key(){
+	char* key = "KEY2";
+	char* value = "VAL123";
+	unsigned int value_size = strlen(value)+1;
+
+	bool result = redis_set(redis, key, value, value_size);
+	CU_ASSERT_TRUE(result);
+
+	char *retrieved = redis_get(redis, key);
+
+	CU_ASSERT_PTR_NOT_NULL(retrieved);
+	CU_ASSERT_STRING_EQUAL(retrieved, value);
+
+	free(retrieved);
+}
+
 
 void test_set_two_keys_with_space_should_keep_both(){
 	char* key1 = "KEY1";
@@ -294,7 +328,9 @@ void add_tests() {
 	CU_add_test(redis_test, "test_init_should_create_correctly", test_init_should_create_correctly);
 	CU_add_test(redis_test, "test_get_on_empty_redis_should_return_null", test_get_on_empty_redis_should_return_null);
 	CU_add_test(redis_test, "test_set_atomic_in_empty_redis_should_add_key", test_set_atomic_in_empty_redis_should_add_key);
+	CU_add_test(redis_test, "test_set_and_get_atomic_in_empty_redis_should_add_and_get_key", test_set_and_get_atomic_in_empty_redis_should_add_and_get_key);
 	CU_add_test(redis_test, "test_set_not_atomic_in_empty_redis_should_add_key", test_set_not_atomic_in_empty_redis_should_add_key);
+	CU_add_test(redis_test, "test_set_and_get_not_atomic_in_empty_redis_should_add_and_get_key", test_set_and_get_not_atomic_in_empty_redis_should_add_and_get_key);
 	CU_add_test(redis_test, "test_set_two_keys_with_space_should_keep_both", test_set_two_keys_with_space_should_keep_both);
 	CU_add_test(redis_test, "test_add_may_keys_not_enough_space_replace_circular_should_replace", test_add_may_keys_not_enough_space_replace_circular_should_replace);
 	CU_add_test(redis_test, "test_add_many_with_replaces_has_space_fragmented_should_signal_compaction", test_add_many_with_replaces_has_space_fragmented_should_signal_compaction);
