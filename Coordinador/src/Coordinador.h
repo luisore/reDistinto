@@ -40,6 +40,7 @@ struct {
 	int CANTIDAD_ENTRADAS;
 	int TAMANIO_ENTRADA_BYTES;
 	int RETARDO_MS;
+	int PUERTO_ESCUCHA_CONEXION_CONSOLA;
 } coordinador_setup;
 
 typedef struct {

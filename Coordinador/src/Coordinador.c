@@ -59,6 +59,7 @@ void loadConfig() {
 		coordinador_setup.CANTIDAD_ENTRADAS = config_get_int_value(config,"CANTIDAD_ENTRADAS");
 		coordinador_setup.TAMANIO_ENTRADA_BYTES = config_get_int_value(config,"TAMANIO_ENTRADA_BYTES");
 		coordinador_setup.RETARDO_MS = config_get_int_value(config,	"RETARDO_MS");
+		coordinador_setup.PUERTO_ESCUCHA_CONEXION_CONSOLA = config_get_int_value(	config, "PUERTO_ESCUCHA_CONEXION_CONSOLA");
 	}
 	config_destroy(config);
 }
@@ -93,6 +94,7 @@ void log_inicial_consola() {
 	log_info(coordinador_log, "\tCantidad de entradas: %d",	coordinador_setup.CANTIDAD_ENTRADAS);
 	log_info(coordinador_log, "\tTamanio de entrada en bytes: %d", coordinador_setup.TAMANIO_ENTRADA_BYTES);
 	log_info(coordinador_log, "\tRetardo en milis: %d", coordinador_setup.RETARDO_MS);
+	log_info(coordinador_log, "\tPuerto de escucha conexion con consola de planificador : %d",	coordinador_setup.PUERTO_ESCUCHA_CONEXION_CONSOLA);
 
 }
 
@@ -225,18 +227,6 @@ void send_message_clients(t_connection_header *connection_header, int client_soc
 	} else {
 		log_info(coordinador_log, "Successfully connected to TCP Client: %s", connection_header->instance_name);
 	}
-
-	/*if(connection_header->instance_type == PLANNER)
-	{
-		printf("Se conecto el planificador CHE\n");
-
-		mandarAlPlanificador("materias:K3002", client_socket, GET);
-		mandarAlPlanificador("LALALA1", client_socket, GET);
-		mandarAlPlanificador("materias:K3002", client_socket, SET);
-		mandarAlPlanificador("LALALA2", client_socket, SET);
-		mandarAlPlanificador("materias:K3002", client_socket, STORE);
-		mandarAlPlanificador("LALALA3", client_socket, STORE);
-	}*/
 
 }
 
@@ -373,52 +363,7 @@ void on_server_read(tcp_server_t* server, int client_socket, int socket_id){
 		break;
 	}
 
-	/*
-	// 1. Verifica que lo que haya llegado este completo y de acuerdo al protocolo.
-	void *package_buffer = malloc(CONNECTION_PACKAGE_SIZE);
-
-	if (recv(client_socket, package_buffer, CONNECTION_PACKAGE_SIZE, MSG_WAITALL) < CONNECTION_PACKAGE_SIZE) {
-		log_error(coordinador_log, "Error receiving status from ESI!");
-		free(package_buffer);
-		tcpserver_remove_client(server, socket_id);
-		return;
-	}
-
-	t_response_process* abstract_response = deserialize_abstract_response(package_buffer);
-	switch(abstract_response->instance_type){
-		case ESI:
-			log_info(coordinador_log, "EL proceso que envia informacion fue un ESI");
-			enviar_respuesta_esi(client_socket, socket_id);
-			break;
-		case PLANNER:
-			log_info(coordinador_log, "EL proceso que envia informacion fue el PLANIFICADOR");
-			break;
-		case REDIS_INSTANCE:
-			log_info(coordinador_log, "EL proceso que envia informacion fue una INSTANCIA");
-
-			//void* estado=tratar_instancia(abstract_response);
-			//Agregar a lista de instancias en estado status (inicializacion de instancia)
-			//enviar_respuesta_instancia(client_socket, socket_id, estado);
-			break;
-	}
-
-	free(package_buffer);
-	free(abstract_response);
-*/
-
-
 }
-
-
-/*
-void* tratar_instancia(t_response_process* abstract_response){
-	void* buffer = malloc(4);
-	int lastIndex = 0;
-
-	serialize_data_instancia(&(abstract_response->response),4, &buffer, &lastIndex);
-
-	return buffer;
-}*/
 
 int serialize_data_instancia(void *object, int nBytes, void **buffer, int *lastIndex){
     void * auxiliar = NULL;
@@ -440,32 +385,6 @@ void on_server_command(tcp_server_t* server){
 }
 
 
-void enviar_respuesta_instancia(int instancia_socket, int socket_id, void *estado){
-	/*switch(estado){
-	case STATUS:
-		lista_instancias = list_create();
-		t_coordinador_request_instancia coordinador_request;
-		t_instancia instancia;
-		instancia->id_socket=socket_id;
-		instancia->tamanio_entrada_bytes=coordinador_request->TAMANIO_ENTRADA_BYTES;
-		instancia->vantidad_entradas=coordinador_request->CANTIDAD_ENTRADAS;
-		list_add(lista_instancias, instancia);
-		strcpy(coordinador_request.coordinador_name, coordinador_setup.NOMBRE_INSTANCIA);
-		strcpy(coordinador_request.TAMANIO_ENTRADA_BYTES, coordinador_setup.TAMANIO_ENTRADA_BYTES);
-		strcpy(coordinador_request.CANTIDAD_ENTRADAS, coordinador_setup.CANTIDAD_ENTRADAS);
-		void *buffer = serialize_coordinador_request_instancia(&coordinador_request);
-		int result = send(instancia_socket, buffer, PLANNER_REQUEST_SIZE, 0);
-		if (result <= 0) {
-			log_error(coordinador_log, "Signal execute next to ESI failed for ID: %d");
-			tcpserver_remove_client(server, socket_id);
-		}
-		free(buffer);
-		break;
-	}
-
-	free(estado); */
-}
-
 void destroy_connected_client(t_connected_client* connected_client){
 	free(connected_client);
 }
@@ -479,10 +398,14 @@ int main(void) {
 	loadConfig();
 	log_inicial_consola();
 
+	// HILO CONSOLA PLANIFICADOR
+	// TODO
 
+
+	// HILO PRINCIPAL
+	// TODO
 	create_tcp_server();
 	tcpserver_run(server, before_tpc_server_cycle, on_server_accept, on_server_read, on_server_command);
-
 
 
 	print_goodbye();
