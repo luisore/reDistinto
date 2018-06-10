@@ -145,6 +145,10 @@ t_program_instruction* parse_instruction(char *line){
 	}
 
 	t_program_instruction *instruction = malloc(sizeof(t_program_instruction));
+	for(int i=0; i<41; i++){
+		instruction->key[i] = '\0';
+	}
+
 	instruction->operation_type = operation_type;
 	strcpy(instruction->key, parts[1]);
 	if(operation_type == SET){
@@ -223,14 +227,13 @@ void destroy_program_instruction(void* instruction){
 
 operation_result_e coordinate_operation(t_program_instruction *instruction){
 	t_operation_request esi_operation_request;
-	strcpy(esi_operation_request.key, instruction->key);
+	memcpy(esi_operation_request.key, instruction->key, 41);
 	esi_operation_request.operation_type = instruction->operation_type;
 	esi_operation_request.payload_size = instruction->value_size;
 
 	log_trace(esi_log, "Sending operation request to Coordinator ...");
 
-	void *req_buffer = malloc(OPERATION_REQUEST_SIZE);
-	req_buffer = serialize_operation_request(&esi_operation_request);
+	void *req_buffer = serialize_operation_request(&esi_operation_request);
 
 	int result = send(coordinator_socket, req_buffer, OPERATION_REQUEST_SIZE, 0);
 	if (result < OPERATION_REQUEST_SIZE) {
@@ -353,9 +356,9 @@ int main(int argc, char **argv) {
 	load_config();
 
 
-	//connect_with_coordinator();
+	connect_with_coordinator();
 
-	//connect_with_planner();
+	connect_with_planner();
 
 
 	execute_program(program_filename);

@@ -33,7 +33,7 @@ int planner_socket;
 
 typedef struct {
 	operation_type_e operation_type;
-	char key[40];
+	char key[41];
 	unsigned int value_size;
 	char *value;
 } t_program_instruction;
