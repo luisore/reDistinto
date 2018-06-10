@@ -129,7 +129,7 @@ void remove_client(server, socket_id){
 	list_remove_and_destroy_by_condition(connected_clients, is_linked_to_socket, destroy_connected_client);
 }
 
-t_operation_response * send_operation_to_planner(char * recurso, int client_socket, operation_type_e t){
+t_operation_response * send_operation_to_planner(char * recurso, t_connected_client * planner, operation_type_e t){
 
 	t_coordinator_operation_request e;
 	strcpy(e.key, recurso);
@@ -139,12 +139,12 @@ t_operation_response * send_operation_to_planner(char * recurso, int client_sock
 
 	log_info(coordinador_log, "Sending operation request from ESI to PLANNER");
 
-	int send_data = send(client_socket, buffer, COORDINATOR_OPERATION_REQUEST_SIZE, 0);
+	int send_data = send(planner->socket_reference, buffer, COORDINATOR_OPERATION_REQUEST_SIZE, 0);
 
 	if(send_data < COORDINATOR_OPERATION_REQUEST_SIZE){
 		log_error(coordinador_log, "It was an Error trying to send instruction to Planner. Aborting conection");
 
-		remove_client(server, client_socket);
+		remove_client(server, planner->socket_id);
 		free(buffer);
 		t_operation_response *response = malloc(OPERATION_RESPONSE_SIZE);
 		response->operation_result = OP_ERROR;
@@ -157,7 +157,7 @@ t_operation_response * send_operation_to_planner(char * recurso, int client_sock
 	int bytesReceived = 0;
 	void *res_buffer = malloc(COORDINATOR_OPERATION_REQUEST_SIZE);
 
-	bytesReceived = recv(client_socket, res_buffer, OPERATION_RESPONSE_SIZE, MSG_WAITALL);
+	bytesReceived = recv(planner->socket_reference, res_buffer, OPERATION_RESPONSE_SIZE, MSG_WAITALL);
 
 	if (bytesReceived < OPERATION_RESPONSE_SIZE) {
 
@@ -167,7 +167,7 @@ t_operation_response * send_operation_to_planner(char * recurso, int client_sock
 
 		free(res_buffer);
 
-		remove_client(server, client_socket);
+		remove_client(server, planner->socket_id);
 
 		t_operation_response *response = malloc(OPERATION_RESPONSE_SIZE);
 		response->operation_result = OP_ERROR;
@@ -288,7 +288,7 @@ void handle_esi_request(t_operation_request* esi_request, t_connected_client* cl
 	case GET:
 		log_info(coordinador_log, "Handling GET from ESI: %s. Key: %s.", client->instance_name, esi_request->key);
 
-		cod_result = send_operation_to_planner(esi_request->key, planner->socket_reference, GET);
+		cod_result = send_operation_to_planner(esi_request->key, planner, GET);
 
 		// TODO: INSTANCE CASE - It depends on operation result.
 
@@ -297,7 +297,7 @@ void handle_esi_request(t_operation_request* esi_request, t_connected_client* cl
 	case STORE:
 		log_info(coordinador_log, "Handling STORE from ESI: %s. Key: %s.", client->instance_name, esi_request->key);
 
-		cod_result =  send_operation_to_planner(esi_request->key, planner->socket_reference, STORE);
+		cod_result =  send_operation_to_planner(esi_request->key, planner, STORE);
 
 		// TODO: INSTANCE CASE - It depends on operation result.
 
@@ -319,7 +319,7 @@ void handle_esi_request(t_operation_request* esi_request, t_connected_client* cl
 			log_error(coordinador_log, "Bytes leidos: %d | Esperados: %d",
 					result, esi_request->payload_size);
 
-			remove_client(server, socket);
+			remove_client(server, client->socket_id);
 
 			// TODO: Figure out how to send planner that ESI has stop working;
 
@@ -327,7 +327,7 @@ void handle_esi_request(t_operation_request* esi_request, t_connected_client* cl
 
 			log_info(coordinador_log, "Retrieving value from SET : %s ",payload_for_intance);
 
-			cod_result = send_operation_to_planner(esi_request->key, planner->socket_reference, SET);
+			cod_result = send_operation_to_planner(esi_request->key, planner, SET);
 
 			// TODO: INSTANCE CASE -  It depends on operation result.
 			// 		 Use - payload_for_intance  as value
@@ -359,13 +359,13 @@ void handle_esi_read(t_connected_client* client, int socket){
 	free(buffer);
 }
 
-void planner_disconected(int socket){
+void planner_disconected(int socket_id){
 
 	char* buffer = malloc(OPERATION_RESPONSE_SIZE);
 
 	if (recv(socket, buffer, OPERATION_RESPONSE_SIZE, MSG_WAITALL) < OPERATION_RESPONSE_SIZE) {
 		log_warning(coordinador_log , "PLANNER has disconnected");
-		remove_client(server,socket );
+		remove_client(server,socket_id );
 		free(buffer);
 		return;
 	}
@@ -388,7 +388,7 @@ void on_server_read(tcp_server_t* server, int client_socket, int socket_id){
 	case REDIS_INSTANCE:
 		break;
 	case PLANNER:
-		planner_disconected(client->socket_reference);
+		planner_disconected(client->socket_id);
 		break;
 	case COORDINATOR:
 		break;
