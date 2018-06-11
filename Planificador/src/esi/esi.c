@@ -44,7 +44,7 @@ void bloquearEsiActual(char * recursoEsperado) {
 
 	// Creo la informacion de bloqueo
 	ESI_BLOCKED_INFO* infoBloqueo = malloc(sizeof(ESI_BLOCKED_INFO));
-	infoBloqueo->recursoNecesitado = "";
+	infoBloqueo->recursoNecesitado = malloc(41);
 	strcpy(infoBloqueo->recursoNecesitado,recursoEsperado);
 	infoBloqueo->unidadesDeTiempoBloqueado = 0;
 
