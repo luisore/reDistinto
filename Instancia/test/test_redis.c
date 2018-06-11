@@ -327,8 +327,51 @@ void test_add_non_atomic_to_redis_full_first_key_not_atomic_replace_circular_sho
 }
 
 void test_set_non_atomic_with_space_available_not_contiguous_should_signal_compact(){
-	// TODO: Compaction signal tests
-	CU_ASSERT_FALSE(true);
+	char* keys[10] = {"KEY1", "KEY2", "KEY3", "KEY4", "KEY5", "KEY6", "KEY7", "KEY8", "KEY9", "KEY10"};
+	char* vals[10] = {  "V" ,  "VA" ,  "VA3", "VA4" , "VA5" , "VA6" , "VA7" ,  "8"  , "VA9" ,  "10"  };
+	int  sizes[10] = {   2  ,   3   ,    4  ,   4   ,   4   ,   4   ,   4   ,   2   ,   4   ,   3    };
+
+	char* key1 = "KEY";
+	char* value1 = "2SLOTS";
+	char* value2 = "ATO";
+	int size1 = strlen(value1) + 1;
+	int size2 = strlen(value2) + 1;
+
+	bool res = redis_set(redis, key1, value1, size1);
+	CU_ASSERT_TRUE(res);
+
+	for(int i=2; i<9; i++){
+		res = redis_set(redis, keys[i], vals[i], sizes[i]);
+		CU_ASSERT_TRUE(res);
+	}
+
+	res = redis_set(redis, key1, value2, size2);
+	CU_ASSERT_TRUE(res);
+
+	assert_key_in_position(9, 0, 8, key1, value2, size2);
+
+	for(int i=2; i<9; i++){
+		assert_key_in_position(9, i, 8, keys[i], vals[i], sizes[i]);
+	}
+
+	CU_ASSERT_EQUAL(redis->slots_available, 2);
+
+	char* newkey = "NEWKEY";
+	char* newval = "NEWVAL";
+	int newsize = strlen(newval) + 1;
+
+	res = redis_set(redis, newkey, newval, newsize);
+
+	CU_ASSERT_FALSE(res); // false signals compaction
+
+	// stored values remain unchanged
+	assert_key_in_position(9, 0, 8, key1, value2, size2);
+
+	for(int i=2; i<9; i++){
+		assert_key_in_position(9, i, 8, keys[i], vals[i], sizes[i]);
+	}
+
+	CU_ASSERT_EQUAL(redis->slots_available, 2);
 }
 
 void set_atomic_value_twice_should_replace_in_same_position(){
@@ -518,8 +561,65 @@ void set_not_atomic_value_twice_new_value_is_bigger_with_contiguous_space_should
 }
 
 void set_not_atomic_value_twice_new_value_is_bigger_with_non_contiguous_space_should_remove_key_and_signal_compact(){
-	// TODO: Compaction signal tests
-	CU_ASSERT_FALSE(true);
+	char* key1 = "KEY1";
+	char* value1 = "VALUEOFTHRE"; // 3 slots
+
+	char* key2 = "KEY2";
+	char* value2 = "ATO";
+
+	char* key3 = "KEY3";
+	char* value3 = "B";
+
+	char* new_value_1 = "THISTAKESSIXSLOTS12345"; // 6 slots
+
+	unsigned int value_size1 = strlen(value1) + 1;
+	unsigned int value_size2 = strlen(value2) + 1;
+	unsigned int value_size3 = strlen(value3) + 1;
+	unsigned int new_value_size = strlen(new_value_1) + 1;
+
+	bool result = redis_set(redis, key1, value1, value_size1);
+	CU_ASSERT_TRUE(result);
+
+	result = redis_set(redis, key2, value2, value_size2);
+	CU_ASSERT_TRUE(result);
+
+	result = redis_set(redis, key3, value3, value_size3);
+	CU_ASSERT_TRUE(result);
+
+	assert_key_in_position(5, 0, 3, key1, value1, value_size1);
+	assert_key_in_position(5, 3, 3, key2, value2, value_size2);
+	assert_key_in_position(5, 4, 3, key3, value3, value_size3);
+
+	t_memory_position* mem_pos;
+
+	for(int i=5; i < NUMBER_OF_ENTRIES; i++){
+		mem_pos = redis->occupied_memory_map[i];
+		assert_memory_position_empty(mem_pos);
+	}
+
+	result = redis_set(redis, key1, new_value_1, new_value_size);
+	CU_ASSERT_FALSE(result); // false signals compaction
+
+	// positions of first key have been freed
+	for(int i =0; i < 3; i++){
+		mem_pos = redis->occupied_memory_map[i];
+		assert_memory_position_empty(mem_pos);
+	}
+
+	// keys 2 and 3 are left in place. cursor is at the same place (5)
+	// thre are now 2 keys present, since key1 was evicted
+	assert_key_in_position(5, 3, 2, key2, value2, value_size2);
+	assert_key_in_position(5, 4, 2, key3, value3, value_size3);
+
+	// last 5 positions are empty
+	for(int i=5; i < NUMBER_OF_ENTRIES; i++){
+		mem_pos = redis->occupied_memory_map[i];
+		assert_memory_position_empty(mem_pos);
+	}
+
+	// key1 is no longer present
+	char* retrieved = redis_get(redis, key1);
+	CU_ASSERT_PTR_NULL(retrieved);
 }
 
 void set_not_atomic_value_twice_new_value_is_bigger_without_space_then_contiguous_should_remove_key_replace_and_set_value(){
