@@ -371,6 +371,40 @@ void handle_esi_request(t_operation_request* esi_request, t_connected_client* cl
 	}
 }
 
+void send_operation_instance(t_operation_request* esi_request, operation_type_e t){
+	t_coordinator_operation_header header;
+	header.coordinator_operation_type = KEY_OPERATION;
+
+	void *init_value_instance_buffer = serialize_coordinator_operation_header(&header);
+	for(int i=0;i<list_size(connected_instances);i++){
+		t_connected_client *instance = list_get(connected_instances, i);
+		if( send(instance->socket_reference, init_value_instance_buffer, COORDINATOR_OPERATION_HEADER_SIZE, 0) != COORDINATOR_OPERATION_HEADER_SIZE){
+			exit_program(EXIT_FAILURE);
+		}else{
+			send_set_operation(esi_request, t, instance);
+		}
+	}
+	free(init_value_instance_buffer);
+}
+
+void send_set_operation(t_operation_request* esi_request, operation_type_e t, t_connected_client *instance){
+	t_operation_request *operacion;
+	strcpy(operacion->key, esi_request->key);
+	operacion->operation_type = t;
+	if(t == SET){
+		operacion->payload_size = esi_request->payload_size;
+		void *buffer = serialize_operation_request(&operacion);
+		if(send(instance->socket_reference, buffer, OPERATION_REQUEST_SIZE, 0) != OPERATION_REQUEST_SIZE){
+
+		}else{
+			if(send(instance->socket_reference, buffer, OPERATION_REQUEST_SIZE, 0) != OPERATION_REQUEST_SIZE){
+				printf("Se envio bien");
+			}
+		}
+		free(buffer);
+	}
+}
+
 void handle_esi_read(t_connected_client* client, int socket){
 	char* buffer = malloc(OPERATION_REQUEST_SIZE);
 

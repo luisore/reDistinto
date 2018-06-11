@@ -16,6 +16,7 @@
 t_log * coordinador_log;
 t_config *config;
 t_list* connected_clients;
+t_list* connected_instances;
 
 tcp_server_t* server;
 tcp_server_t* server_planner_console;
@@ -84,5 +85,7 @@ void send_response_to_esi(int esi_socket, t_connected_client* client, operation_
 void send_message_instance(t_connection_header *connection_header, int client_socket, int socket_id);
 void send_message_clients(t_connection_header *connection_header, int client_socket, int socket_id);
 t_connected_client* find_connected_client_by_type(instance_type_e instance_type);
+void send_operation_instance(t_operation_request* esi_request, operation_type_e t);
+void send_set_operation(t_operation_request* esi_request, operation_type_e t, t_connected_client *instance);
 
 #endif /* SRC_COORDINADOR_H_ */
