@@ -23,7 +23,11 @@ void exit_program(int entero) {
 
 	liberar_memoria();
 
-	printf("\n\t\e[31;1m FINALIZA COORDINAOR \e[0m\n");
+	pthread_mutex_destroy(&mutex_planner_console);
+	pthread_mutex_destroy(&mutex_principal);
+	pthread_mutex_destroy(&mutex_all);
+
+	printf("\n\t\e[31;1m FINALIZA COORDINADOR \e[0m\n");
 	exit(entero);
 }
 
@@ -100,6 +104,9 @@ void log_inicial_consola() {
 
 
 void create_tcp_server(){
+
+	pthread_mutex_lock(&mutex_all);
+
 	connected_clients = list_create();
 
 	server = tcpserver_create(coordinador_setup.NOMBRE_INSTANCIA, coordinador_log,
@@ -111,7 +118,30 @@ void create_tcp_server(){
 		log_error(coordinador_log, "Could not create TCP server. Aborting execution.");
 		exit_program(EXIT_FAILURE);
 	}
+
+	pthread_mutex_unlock(&mutex_all);
+
 }
+
+void create_tcp_server_console(){
+
+	pthread_mutex_lock(&mutex_all);
+
+	server_planner_console = tcpserver_create("CONSOLE PLANNER", coordinador_log,
+							1,
+							1,
+							coordinador_setup.PUERTO_ESCUCHA_CONEXION_CONSOLA, true);
+
+	if(server_planner_console == NULL){
+		log_error(coordinador_log, "Could not create TCP server for PLANNER CONSOLE. Aborting execution.");
+		pthread_exit(0);
+		exit_program(EXIT_FAILURE);
+	}
+
+	pthread_mutex_unlock(&mutex_all);
+}
+
+
 
 void before_tpc_server_cycle(tcp_server_t* server){
 	// ACÁ DEBERÍA IR LA LÓGICA DE DISTRIBUCION
@@ -386,6 +416,11 @@ void on_server_read(tcp_server_t* server, int client_socket, int socket_id){
 		handle_esi_read(client, client_socket);
 		break;
 	case REDIS_INSTANCE:
+		// TODO : Verificar desconexion. Ojo , puede pasar que se desconecte en el
+		//		  medio de una escucha de otro proceso. Se deberia contemplar.
+		//		  Ademas las instancias me devuelven un valor en el GET , por lo que
+		// 		  no podria hacerlo tan parecido a la desconexion del planificador.
+		// 		  Se me ocurre un flag de utilizacion al esperar el SET.
 		break;
 	case PLANNER:
 		planner_disconected(client->socket_id);
@@ -412,7 +447,6 @@ int serialize_data_instancia(void *object, int nBytes, void **buffer, int *lastI
 
 void on_server_command(tcp_server_t* server){
 	// TODO: FALTA HACER!
-
 }
 
 
@@ -421,6 +455,62 @@ void destroy_connected_client(t_connected_client* connected_client){
 }
 
 
+
+void server_planner_console_accept(tcp_server_t* server, int client_socket, int socket_id){
+
+	void *header_buffer = malloc(CONNECTION_HEADER_SIZE);
+
+	int res = recv(client_socket, header_buffer, CONNECTION_HEADER_SIZE, MSG_WAITALL);
+	if (res <= 0) {
+		log_error(coordinador_log, "Error receiving handshake request from PLANNER CONSOLE");
+		tcpserver_remove_client(server, socket_id);
+		free(header_buffer);
+		return;
+	}
+
+	t_connection_header *connection_header = deserialize_connection_header(header_buffer);
+
+	send_message_clients(connection_header, client_socket, socket_id);
+
+}
+
+void server_planner_console_read(tcp_server_t* server, int client_socket, int socket_id){
+
+	// Handle PLANNER CONSOLE REQUEST
+
+	// DEFINE PROTOCOL WITH PLANNER CONSOLE.
+
+//	char* buffer = malloc(OPERATION_REQUEST_SIZE);
+//
+//	if (recv(socket, buffer, OPERATION_REQUEST_SIZE, MSG_WAITALL) < OPERATION_REQUEST_SIZE) {
+//		log_warning(coordinador_log, "ESI Disconnected: %s", client->instance_name);
+//		free(buffer);
+//		remove_client(server, client->socket_id); //TODO: NO HACE FALTA EL FIND PORQUE YA LO TENGO. SE PUEDE MEJORAR
+//		return;
+//	}
+//
+//	t_operation_request* esi_request = deserialize_operation_request(buffer);
+//
+//	handle_esi_request(esi_request, client, socket);
+//
+//	free(esi_request);
+//	free(buffer);
+}
+
+
+void coordinate_planner_console(){
+	create_tcp_server_console();
+	tcpserver_run(server_planner_console, before_tpc_server_cycle, server_planner_console_accept, server_planner_console_read, on_server_command);
+	pthread_exit(0);
+}
+
+void coordinate_principal_process(){
+	create_tcp_server();
+	tcpserver_run(server, before_tpc_server_cycle, on_server_accept, on_server_read, on_server_command);
+	pthread_exit(0);
+
+}
+
 int main(void) {
 
 	print_header();
@@ -428,15 +518,18 @@ int main(void) {
 	loadConfig();
 	log_inicial_consola();
 
-	// HILO CONSOLA PLANIFICADOR
-	// TODO
+	pthread_mutex_init(&mutex_all, NULL);
 
+	// HILO CONSOLA PLANIFICADOR
+	pthread_mutex_init(&mutex_planner_console, NULL);
+	pthread_create(&thread_planner_console, NULL, (void*) coordinate_planner_console, NULL);
 
 	// HILO PRINCIPAL
-	// TODO
-	create_tcp_server();
-	tcpserver_run(server, before_tpc_server_cycle, on_server_accept, on_server_read, on_server_command);
+	pthread_mutex_init(&mutex_principal, NULL);
+	pthread_create(&thread_principal, NULL, (void*) coordinate_principal_process, NULL);
 
+	pthread_join(thread_planner_console, NULL);
+	pthread_join(thread_principal, NULL);
 
 	print_goodbye();
 	exit_program(EXIT_SUCCESS);

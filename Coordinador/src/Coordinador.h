@@ -4,6 +4,7 @@
 #include <commons/collections/list.h>
 #include "libs/tcpserver.h"
 #include "libs/protocols.h"
+#include <pthread.h>
 
 #ifndef SRC_COORDINADOR_H_
 #define SRC_COORDINADOR_H_
@@ -17,15 +18,26 @@ t_config *config;
 t_list* connected_clients;
 
 tcp_server_t* server;
+tcp_server_t* server_planner_console;
+
 char* instance_name = NULL;
 char *planificador_ip = NULL;
 int planificador_port = 0;
 int planificador_socket = 0;
 char** initial_blocked_keys = NULL;
+
 t_list * lista_instancias;
+
 /*ESTRUCTURAS*/
 
+/*SEMAFOROS - SINCRONIZACION*/
 
+pthread_t thread_planner_console;
+pthread_t thread_principal;
+
+pthread_mutex_t mutex_planner_console;
+pthread_mutex_t mutex_principal;
+pthread_mutex_t mutex_all;
 
 enum AlgortimoDistribucion {
 	LSU = 1, EL = 2, KE = 3
@@ -50,6 +62,10 @@ typedef struct {
 	int socket_reference;
 } t_connected_client;
 
+
+/* PRINCIPAL FUNCTIONS*/
+void coordinate_planner_console();
+void coordinate_principal_process();
 
 /*FUNCIONES GENERALES*/
 
