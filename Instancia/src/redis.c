@@ -155,6 +155,11 @@ void set_in_same_place(t_redis* redis, t_entry_data* entry_data, char* key, char
 		slots_to_free--;
 		redis->slots_available++;
 	}
+
+	// set atomic if necessary
+	if(needed_slots == 1){
+		redis->occupied_memory_map[entry_data->first_position]->is_atomic = true;
+	}
 }
 
 // TODO: Repite codigo con set_in_same_place. Refactor!

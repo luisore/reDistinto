@@ -326,6 +326,211 @@ void test_add_non_atomic_to_redis_full_first_key_not_atomic_replace_circular_sho
 	}
 }
 
+void test_set_non_atomic_with_space_available_not_contiguous_should_signal_compact(){
+	// TODO: Compaction signal tests
+	CU_ASSERT_FALSE(true);
+}
+
+void set_atomic_value_twice_should_replace_in_same_position(){
+	char* key = "KEY";
+	char* value1 = "ABC";
+	char* value2 = "DE";
+	unsigned int value_size1 = strlen(value1) + 1;
+	unsigned int value_size2 = strlen(value2) + 1;
+	int expected_slot = 1;
+	int expected_first = 0;
+	int expected_keys = 1;
+
+	bool result = redis_set(redis, key, value1, value_size1);
+
+	CU_ASSERT_TRUE(result);
+
+	assert_key_in_position(expected_slot, expected_first, expected_keys, key, value1, value_size1);
+
+	t_memory_position* mem_pos;
+
+	for(int i =1; i < NUMBER_OF_ENTRIES; i++){
+		mem_pos = redis->occupied_memory_map[i];
+		assert_memory_position_empty(mem_pos);
+	}
+
+	result = redis_set(redis, key, value2, value_size2);
+
+	assert_key_in_position(expected_slot, expected_first, expected_keys, key, value2, value_size2);
+
+	for(int i =1; i < NUMBER_OF_ENTRIES; i++){
+		mem_pos = redis->occupied_memory_map[i];
+		assert_memory_position_empty(mem_pos);
+	}
+}
+
+void set_not_atomic_value_twice_new_value_same_size_should_replace_in_same_position(){
+	char* key = "KEY";
+	char* value1 = "ABCDEFGHI";
+	char* value2 = "NOTTHESAME";
+	unsigned int value_size1 = strlen(value1) + 1;
+	unsigned int value_size2 = strlen(value2) + 1;
+	int expected_slot = 3;
+	int expected_first = 0;
+	int expected_keys = 1;
+
+	bool result = redis_set(redis, key, value1, value_size1);
+
+	CU_ASSERT_TRUE(result);
+
+	assert_key_in_position(expected_slot, expected_first, expected_keys, key, value1, value_size1);
+
+	t_memory_position* mem_pos;
+
+	for(int i =3; i < NUMBER_OF_ENTRIES; i++){
+		mem_pos = redis->occupied_memory_map[i];
+		assert_memory_position_empty(mem_pos);
+	}
+
+	result = redis_set(redis, key, value2, value_size2);
+
+	assert_key_in_position(expected_slot, expected_first, expected_keys, key, value2, value_size2);
+
+	for(int i =3; i < NUMBER_OF_ENTRIES; i++){
+		mem_pos = redis->occupied_memory_map[i];
+		assert_memory_position_empty(mem_pos);
+	}
+}
+
+void set_not_atomic_value_twice_new_value_is_atomic_should_replace_in_same_position_and_free_slots(){
+	char* key = "KEY";
+	char* value1 = "ABCDEFGHI";
+	char* value2 = "SML";
+	unsigned int value_size1 = strlen(value1) + 1;
+	unsigned int value_size2 = strlen(value2) + 1;
+	int expected_slot = 3;
+	int expected_first = 0;
+	int expected_keys = 1;
+
+	bool result = redis_set(redis, key, value1, value_size1);
+
+	CU_ASSERT_TRUE(result);
+
+	assert_key_in_position(expected_slot, expected_first, expected_keys, key, value1, value_size1);
+
+	t_memory_position* mem_pos;
+
+	for(int i =3; i < NUMBER_OF_ENTRIES; i++){
+		mem_pos = redis->occupied_memory_map[i];
+		assert_memory_position_empty(mem_pos);
+	}
+
+	result = redis_set(redis, key, value2, value_size2);
+
+	assert_key_in_position(expected_slot, expected_first, expected_keys, key, value2, value_size2);
+
+	for(int i =1; i < NUMBER_OF_ENTRIES; i++){
+		mem_pos = redis->occupied_memory_map[i];
+		assert_memory_position_empty(mem_pos);
+	}
+}
+
+void set_not_atomic_value_twice_new_value_is_smaller_not_atomic_should_replace_in_same_position_and_free_slots(){
+	char* key = "KEY";
+	char* value1 = "ABCDEFGHI";
+	char* value2 = "SMALL";
+	unsigned int value_size1 = strlen(value1) + 1;
+	unsigned int value_size2 = strlen(value2) + 1;
+	int expected_slot = 3;
+	int expected_first = 0;
+	int expected_keys = 1;
+
+	bool result = redis_set(redis, key, value1, value_size1);
+
+	CU_ASSERT_TRUE(result);
+
+	assert_key_in_position(expected_slot, expected_first, expected_keys, key, value1, value_size1);
+
+	t_memory_position* mem_pos;
+
+	for(int i =3; i < NUMBER_OF_ENTRIES; i++){
+		mem_pos = redis->occupied_memory_map[i];
+		assert_memory_position_empty(mem_pos);
+	}
+
+	result = redis_set(redis, key, value2, value_size2);
+
+	assert_key_in_position(expected_slot, expected_first, expected_keys, key, value2, value_size2);
+
+	for(int i =2; i < NUMBER_OF_ENTRIES; i++){
+		mem_pos = redis->occupied_memory_map[i];
+		assert_memory_position_empty(mem_pos);
+	}
+}
+
+void set_not_atomic_value_twice_new_value_is_bigger_with_contiguous_space_should_remove_key_and_add_elsewhere(){
+	char* key1 = "KEY1";
+	char* value1 = "VALUEOFTHRE"; // 3 slots
+
+	char* key2 = "KEY2";
+	char* value2 = "ATO";
+
+	char* key3 = "KEY3";
+	char* value3 = "B";
+
+	char* new_value_1 = "THISTAKESFIVESLOTS"; // 5 slots
+
+	unsigned int value_size1 = strlen(value1) + 1;
+	unsigned int value_size2 = strlen(value2) + 1;
+	unsigned int value_size3 = strlen(value3) + 1;
+	unsigned int new_value_size = strlen(new_value_1) + 1;
+
+	bool result = redis_set(redis, key1, value1, value_size1);
+	CU_ASSERT_TRUE(result);
+
+	result = redis_set(redis, key2, value2, value_size2);
+	CU_ASSERT_TRUE(result);
+
+	result = redis_set(redis, key3, value3, value_size3);
+	CU_ASSERT_TRUE(result);
+
+	assert_key_in_position(5, 0, 3, key1, value1, value_size1);
+	assert_key_in_position(5, 3, 3, key2, value2, value_size2);
+	assert_key_in_position(5, 4, 3, key3, value3, value_size3);
+
+	t_memory_position* mem_pos;
+
+	for(int i =5; i < NUMBER_OF_ENTRIES; i++){
+		mem_pos = redis->occupied_memory_map[i];
+		assert_memory_position_empty(mem_pos);
+	}
+
+	result = redis_set(redis, key1, new_value_1, new_value_size);
+	CU_ASSERT_TRUE(result);
+
+	// positions of first key have been freed
+	for(int i =0; i < 3; i++){
+		mem_pos = redis->occupied_memory_map[i];
+		assert_memory_position_empty(mem_pos);
+	}
+
+	// keys 2 and 3 are left in place. cursor is at 0
+	assert_key_in_position(0, 3, 3, key2, value2, value_size2);
+	assert_key_in_position(0, 4, 3, key3, value3, value_size3);
+
+	// key 1 is now placed where the cursor was
+	assert_key_in_position(0, 5, 3, key1, new_value_1, new_value_size);
+}
+
+void set_not_atomic_value_twice_new_value_is_bigger_with_non_contiguous_space_should_remove_key_and_signal_compact(){
+	// TODO: Compaction signal tests
+	CU_ASSERT_FALSE(true);
+}
+
+void set_not_atomic_value_twice_new_value_is_bigger_without_space_then_contiguous_should_remove_key_replace_and_set_value(){
+	// TODO: Compaction signal tests
+	CU_ASSERT_FALSE(true);
+}
+
+void set_not_atomic_value_twice_new_value_is_bigger_without_space_then_non_contiguous_should_remove_key_replace_and_signal_compact(){
+	// TODO: Compaction signal tests
+	CU_ASSERT_FALSE(true);
+}
 
 void add_tests() {
 	CU_pSuite redis_test = CU_add_suite_with_setup_and_teardown("Redis", init_suite, clean_suite, setup, tear_down);
@@ -340,8 +545,15 @@ void add_tests() {
 	CU_add_test(redis_test, "test_add_atomic_to_redis_full_of_atomic_keys_replace_circular_should_replace_first_key", test_add_atomic_to_redis_full_of_atomic_keys_replace_circular_should_replace_first_key);
 	CU_add_test(redis_test, "test_add_non_atomic_to_redis_full_of_atomic_keys_replace_circular_should_replace_first_keys", test_add_non_atomic_to_redis_full_of_atomic_keys_replace_circular_should_replace_first_keys);
 	CU_add_test(redis_test, "test_add_non_atomic_to_redis_full_first_key_not_atomic_replace_circular_should_replace_first_atomic_keys", test_add_non_atomic_to_redis_full_first_key_not_atomic_replace_circular_should_replace_first_atomic_keys);
-
-	// TODO: TEST SIGNAL COMPACTION
+	CU_add_test(redis_test, "set_atomic_value_twice_should_replace_in_same_position", set_atomic_value_twice_should_replace_in_same_position);
+	CU_add_test(redis_test, "test_set_non_atomic_with_space_available_not_contiguous_should_signal_compact", test_set_non_atomic_with_space_available_not_contiguous_should_signal_compact);
+	CU_add_test(redis_test, "set_not_atomic_value_twice_new_value_same_size_should_replace_in_same_position", set_not_atomic_value_twice_new_value_same_size_should_replace_in_same_position);
+	CU_add_test(redis_test, "set_not_atomic_value_twice_new_value_is_atomic_should_replace_in_same_position_and_free_slots", set_not_atomic_value_twice_new_value_is_atomic_should_replace_in_same_position_and_free_slots);
+	CU_add_test(redis_test, "set_not_atomic_value_twice_new_value_is_smaller_not_atomic_should_replace_in_same_position_and_free_slots", set_not_atomic_value_twice_new_value_is_smaller_not_atomic_should_replace_in_same_position_and_free_slots);
+	CU_add_test(redis_test, "set_not_atomic_value_twice_new_value_is_bigger_with_contiguous_space_should_remove_key_and_add_elsewhere" ,set_not_atomic_value_twice_new_value_is_bigger_with_contiguous_space_should_remove_key_and_add_elsewhere);
+	CU_add_test(redis_test, "set_not_atomic_value_twice_new_value_is_bigger_with_non_contiguous_space_should_remove_key_and_signal_compact", set_not_atomic_value_twice_new_value_is_bigger_with_non_contiguous_space_should_remove_key_and_signal_compact);
+	CU_add_test(redis_test, "set_not_atomic_value_twice_new_value_is_bigger_without_space_then_contiguous_should_remove_key_replace_and_set_value", set_not_atomic_value_twice_new_value_is_bigger_without_space_then_contiguous_should_remove_key_replace_and_set_value);
+	CU_add_test(redis_test, "set_not_atomic_value_twice_new_value_is_bigger_without_space_then_non_contiguous_should_remove_key_replace_and_signal_compact", set_not_atomic_value_twice_new_value_is_bigger_without_space_then_non_contiguous_should_remove_key_replace_and_signal_compact);
 }
 
 
