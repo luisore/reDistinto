@@ -45,10 +45,12 @@ typedef struct Redis {
 	 * Algoritmo actual de reemplazo de claves
 	 * Recorre la memoria y libera el espacio para colocar la clave del
 	 * tamanio suministrado.
-	 * Retorna la primera posicion donde ubicar el nuevo valor
 	 */
-	int (*perform_replacement_and_return_first_position)(struct Redis*, unsigned int);
+	void (*replace_necessary_positions)(struct Redis*, unsigned int);
 	int current_slot;
+
+	// stores the amount of free slots available at any given moment.
+	unsigned int slots_available;
 
 	t_log* log;
 	char* mount_dir;
@@ -62,6 +64,12 @@ t_redis* redis_init(int entry_size, int number_of_entries, t_log* log, const cha
 // you should free it yourself.
 void redis_destroy(t_redis* redis);
 
+/*
+ * PRE: Por aclaracion del enunciado, asumimos que el valor provisto siempre entrara
+ * en memoria, ya sea inmediatamente o luego de una compactacion. Si se proporciona
+ * un valor que no entre en memoria, el resultado es indefinido y el sistema podria
+ * no funcionar correctamente.
+ */
 bool redis_set(t_redis* redis, char* key, char* value, unsigned int value_size);
 char* redis_get(t_redis* redis, char* key);
 
@@ -78,7 +86,7 @@ void redis_dump(t_redis* redis);
 void redis_load_dump_files(t_redis* redis);
 
 // Algoritmos de reemplazo
-int redis_replace_circular(struct Redis* redis, unsigned int value_size);
+void redis_replace_circular(struct Redis* redis, unsigned int value_size);
 
 void redis_entry_data_destroy(t_entry_data* entry_data);
 
@@ -88,5 +96,6 @@ int slots_occupied_by(int entry_size, int value_size);
 
 void redis_remove_key(t_redis* redis, char* key, t_entry_data* entry_data, int used_slots);
 
+void redis_print_status(t_redis* redis);
 
 #endif /* SRC_REDIS_H_ */

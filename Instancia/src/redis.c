@@ -11,40 +11,37 @@
 #include <stdlib.h>
 #include <string.h>
 
-// precondition: the value_size must be less than the memory size.
-int redis_replace_circular(struct Redis* redis, unsigned int value_size){
-	int slot_cursor = redis->current_slot;
-	unsigned int freed_memory = 0;
-	t_memory_position* mem_pos;
-	t_entry_data* entry_data;
-	int entry_slots = slots_occupied_by(redis->entry_size, value_size);
-
-	// try to free memory from the slot till the end.
-	// if there is not enough memory from this position until the end, then start from zero.
-	if(slot_cursor + entry_slots > redis->number_of_entries)
-		slot_cursor = 0;
-
-	int first_slot = slot_cursor;
-
-	while(freed_memory < value_size && slot_cursor < redis->number_of_entries){
-		mem_pos = redis->occupied_memory_map[slot_cursor];
-		if(mem_pos->used){
-			entry_data = dictionary_get(redis->key_dictionary, mem_pos->key);
-			entry_slots = slots_occupied_by(redis->entry_size, entry_data->size);
-			freed_memory += entry_slots * redis->entry_size;
-			slot_cursor += entry_slots;
-			redis_remove_key(redis, mem_pos->key, entry_data, entry_slots);
-		} else {
-			// there might be some empty slots in the middle that are not enough to
-			// put the key. Just skip the slots and increment counters
-			freed_memory += redis->entry_size;
-			slot_cursor++;
-		}
-	}
-
-	return first_slot;
+int effective_position_for(t_redis* redis, int position){
+	return position % redis->number_of_entries;
 }
 
+/*
+ * Replaces all the atomic keys needed to fit the value_size.
+ * Compaction may be needed afterwards to ensure that memory is contiguous.
+ * PRE: the value_size must be less than the memory size.
+ */
+void redis_replace_circular(struct Redis* redis, unsigned int value_size){
+	int slot_cursor = redis->current_slot;
+	unsigned int freed_memory = 0;
+
+	t_memory_position* mem_pos;
+	t_entry_data* entry_data;
+
+	int required_slots = slots_occupied_by(redis->entry_size, value_size);
+
+	while(redis->slots_available < required_slots &&  slot_cursor < redis->number_of_entries + redis->current_slot){
+		int pos = effective_position_for(redis, slot_cursor);
+
+		mem_pos = redis->occupied_memory_map[pos];
+		if(mem_pos->used && mem_pos->is_atomic){
+			entry_data = dictionary_get(redis->key_dictionary, mem_pos->key);
+
+			freed_memory ++;
+			redis_remove_key(redis, mem_pos->key, entry_data, 1); // 1 because it is atomic
+		}
+		slot_cursor++;
+	}
+}
 
 
 void redis_destroy(t_redis* redis){
@@ -79,7 +76,7 @@ t_memory_position* redis_create_empty_memory_position(){
 }
 
 t_redis* redis_init(int entry_size, int number_of_entries, t_log* log, const char* mount_dir,
-		int (*perform_replacement_and_return_first_position)(struct Redis*, unsigned int)){
+		int (*replace_necessary_positions)(struct Redis*, unsigned int)){
 	t_redis* redis = malloc(sizeof(t_redis));
 	redis->entry_size = entry_size;
 	redis->number_of_entries = number_of_entries;
@@ -96,7 +93,9 @@ t_redis* redis_init(int entry_size, int number_of_entries, t_log* log, const cha
 	redis->log = log;
 
 	redis->mount_dir = string_duplicate(mount_dir);
-	redis->perform_replacement_and_return_first_position = perform_replacement_and_return_first_position;
+	redis->replace_necessary_positions = replace_necessary_positions;
+
+	redis->slots_available = number_of_entries;
 
 	return redis;
 }
@@ -154,8 +153,8 @@ void set_in_same_place(t_redis* redis, t_entry_data* entry_data, char* key, char
 		redis_free_slot(redis, slot_index);
 		slot_index++;
 		slots_to_free--;
+		redis->slots_available++;
 	}
-
 }
 
 // TODO: Repite codigo con set_in_same_place. Refactor!
@@ -168,6 +167,7 @@ void redis_remove_key(t_redis* redis, char* key, t_entry_data* entry_data, int u
 		redis_free_slot(redis, slot_index);
 		slot_index++;
 		slots_to_free--;
+		redis->slots_available++;
 	}
 
 	dictionary_remove_and_destroy(redis->key_dictionary, copied_key, redis_entry_data_destroy);
@@ -176,12 +176,9 @@ void redis_remove_key(t_redis* redis, char* key, t_entry_data* entry_data, int u
 
 /*
  * Checks the memory slots for available space to fit the required size.
- * Returns True if there is space enough to fit, either contiguous or not.
- * If threre is contiguous space available, first_slot will be set with the first
- * slot of that contiguous space. Otherwise, it will be set to -1.
+ * Returns the first slot of that available space, or -1 if ther is no space.
  */
-bool check_if_free_slots_available(t_redis* redis, int required_slots, int* first_slot){
-	int total_free_slots = 0;
+int get_first_contiguous_free_slots(t_redis* redis, int required_slots){
 	int contiguous_free_slots = 0;
 	int current_first = -1;
 	int cursor;
@@ -193,7 +190,6 @@ bool check_if_free_slots_available(t_redis* redis, int required_slots, int* firs
 			current_first = -1;
 			contiguous_free_slots = 0;
 		} else{
-			total_free_slots++;
 			if(current_first >= 0){
 				contiguous_free_slots++;
 			} else {
@@ -204,53 +200,13 @@ bool check_if_free_slots_available(t_redis* redis, int required_slots, int* firs
 	}
 
 	if(contiguous_free_slots == required_slots){
-		*first_slot = current_first;
+		return current_first;
 	} else {
-		*first_slot = -1;
+		return -1;
 	}
-
-	return total_free_slots >= required_slots;
 }
 
-bool redis_set(t_redis* redis, char* key, char* value, unsigned int value_size){
-	int need_slots = slots_occupied_by(redis->entry_size, value_size);
-
-	// Check if key is already present
-	if(dictionary_has_key(redis->key_dictionary, key)){
-		t_entry_data* entry_data = (t_entry_data*)dictionary_get(redis->key_dictionary, key);
-		int used_slots = slots_occupied_by(redis->entry_size, entry_data->size);
-
-		if(need_slots <= used_slots){
-			// If the new value fits in the previously reserved slots, use those slots
-			set_in_same_place(redis, entry_data, key, value, value_size, need_slots, used_slots);
-			return true;
-		} else{
-			// If it does not fit, remove the key, free the slots and check if it fits somewhere else.
-			redis_remove_key(redis, key, entry_data, used_slots);
-		}
-	}
-
-	// At this point the key is either new or it was removed because the new value did not fit.
-
-	// verificar si hay espacio contiguo disponible
-	// si hay espacio contiguo disponible, usarlo.
-	// si no hay espacio contiguo, pero si espacio, hay que compactar.
-	// sino, llamar al algoritmo de reemplazo.
-
-	int first_slot; // This value is filled by the next call to check_if_free_slots_available.
-	bool space_available = check_if_free_slots_available(redis, need_slots, &first_slot);
-
-	if(space_available) {
-		if(first_slot < 0){
-			// Need to compact because there is space available but it is not contiguous
-			log_info(redis->log, "There is space available but not contiguous to SET the value with size: %i. Need to compact.",
-					value_size);
-			return false;
-		}
-	} else {
-		first_slot = redis->perform_replacement_and_return_first_position(redis, value_size);
-	}
-
+void redis_set_in_position(t_redis* redis, char* key, char* value, unsigned int value_size, int first_slot, int need_slots){
 	// create the new key for the dictionary
 	t_entry_data* entry_data = malloc(sizeof(t_entry_data));
 	entry_data->first_position = first_slot;
@@ -272,7 +228,7 @@ bool redis_set(t_redis* redis, char* key, char* value, unsigned int value_size){
 	int offset = first_slot * redis->entry_size;
 	memcpy(redis->memory_region + offset, value, value_size);
 
-	// save the new key in the dictionaty
+	// save the new key in the dictionary
 	dictionary_put(redis->key_dictionary, key, entry_data);
 
 
@@ -280,11 +236,112 @@ bool redis_set(t_redis* redis, char* key, char* value, unsigned int value_size){
 	// if the size is exceeded, it returns to zero.
 	// NOTE: a value is always stored in contiguous memory. That means that it will never be
 	// split between the end of the memory region and the beginning of it. The first_position
-	// returned by the replacement algorithm must ensure that there is enough space after that
-	// position to store the value.
+	// must ensure that there is enough space after that position to store the value.
 	redis->current_slot = (first_slot + need_slots) % redis->number_of_entries;
+	redis->slots_available -= need_slots;
+}
 
+bool redis_set(t_redis* redis, char* key, char* value, unsigned int value_size){
+	int need_slots = slots_occupied_by(redis->entry_size, value_size);
+
+	// Check if key is already present
+	if(dictionary_has_key(redis->key_dictionary, key)){
+		t_entry_data* entry_data = (t_entry_data*)dictionary_get(redis->key_dictionary, key);
+		int used_slots = slots_occupied_by(redis->entry_size, entry_data->size);
+
+		if(need_slots <= used_slots){
+			// If the new value fits in the previously reserved slots, use those slots
+			set_in_same_place(redis, entry_data, key, value, value_size, need_slots, used_slots);
+			redis_print_status(redis);
+			return true;
+		} else{
+			// If it does not fit, remove the key, free the slots and check if it fits somewhere else.
+			redis_remove_key(redis, key, entry_data, used_slots);
+		}
+	}
+
+	// At this point the key is either new or it was removed because the new value did not fit.
+
+	bool space_available = need_slots <= redis->slots_available;
+
+	// if there is no space available, then free some with the replacement algorithm
+	if(!space_available){
+		log_info(redis->log, "There is not enough space. Executing replacement algorithm. Needed slots: %i. Available: %i",
+			need_slots, redis->slots_available);
+		redis->replace_necessary_positions(redis, value_size);
+	} else {
+		log_info(redis->log, "There is enough space. Checking if space is contiguous. Needed slots: %i. Available: %i",
+			need_slots, redis->slots_available);
+	}
+
+	// then check if there are contiguous slots
+	int first_slot = get_first_contiguous_free_slots(redis, need_slots);
+
+	if(first_slot < 0){
+		// Need to compact because there is space available but it is not contiguous
+		log_info(redis->log, "Space available is not contiguous to SET the value with size: %i. Need to compact.",
+			value_size);
+		redis_print_status(redis);
+		return false;
+	}
+
+	redis_set_in_position(redis, key, value, value_size, first_slot, need_slots);
+	redis_print_status(redis);
 	return true;
+}
+
+void print_dict_key(char* key, void* val){
+	printf("'%s',", key);
+}
+
+void redis_print_status(t_redis* redis){
+	printf("\n================================================================================================\n");
+	printf("   INSTANCE STATUS\n");
+	printf("================================================================================================\n");
+	printf("  Entry size: %i. Max entries: %i, Storage size (bytes): %i.\n", redis->entry_size,
+			redis->number_of_entries, redis->storage_size);
+	printf("  Total entries: %i.\n", dictionary_size(redis->key_dictionary));
+	printf("  Keys: ");
+	dictionary_iterator(redis->key_dictionary, print_dict_key);
+	printf("\n");
+
+	printf("  Memory Map:\n\n");
+
+	/*
+	 * +-------------------------------------------------+------------------------------------------+
+	 * | Pos  | Key                                      |  Value                                   |
+	 * +-------------------------------------------------+------------------------------------------+
+	 * | 0001 | 1234567890123456789012345678901234567890 | 1234567890123456789012345678901234567890 |
+	 * | 0002 | FREE                                     |                                          |
+	 * +------+------------------------------------------+------------------------------------------+
+	 */
+
+	printf("  +-------------------------------------------------+------------------------------------------+\n");
+	printf("  | Pos  | Key                                      | Value                                    |\n");
+	printf("  +-------------------------------------------------+------------------------------------------+\n");
+
+	int offset;
+	int value_size_to_copy = redis->entry_size > 40 ? 40 : redis->entry_size;
+	char val_buffer[41];
+
+	t_memory_position* mem_pos;
+
+	for(int i=0; i < redis->number_of_entries; i++){
+		mem_pos = redis->occupied_memory_map[i];
+
+		if(mem_pos->used){
+			offset = redis->entry_size * i;
+		    memcpy(&val_buffer, redis->memory_region + offset, value_size_to_copy);
+		    val_buffer[value_size_to_copy] = '\0';
+
+			printf("  | %04d | %-40s | %-40s |\n", i, mem_pos->key, val_buffer);
+		} else {
+			printf("  | %04d | FREE                                     |                                          |\n", i);
+		}
+	}
+
+	printf("  +-------------------------------------------------+------------------------------------------+\n\n");
+	printf("================================================================================================\n");
 }
 
 int redis_store(t_redis* redis, char* key){

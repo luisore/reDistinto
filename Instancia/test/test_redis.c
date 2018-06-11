@@ -19,7 +19,7 @@ static t_log* test_log;
 static t_redis* redis;
 
 int init_suite(){
-	test_log = log_create("redis-test.log", "redis-test", false, LOG_LEVEL_DEBUG);
+	test_log = log_create("redis-test.log", "redis-test", false, LOG_LEVEL_TRACE);
 	return 0;
 }
 
@@ -214,129 +214,118 @@ void test_set_two_keys_with_space_should_keep_both(){
 	}
 }
 
-void test_add_may_keys_not_enough_space_replace_circular_should_replace(){
-	char* key1 = "KEY1";
-	char* value1 = "TWOSLOT"; // 2 slots
-	unsigned int value_size1 = strlen(value1)+1;
-	char* key2 = "KEY2";
-	char* value2 = "THISSPANSOVERFIVE"; // 5 slots
-	unsigned int value_size2 = strlen(value2)+1;
-	char* key3 = "KEY3";
-	char* value3 = "THREESLOTS"; // 3 slots
-	unsigned int value_size3 = strlen(value3)+1;
-	char* key4 = "KEY4";
-	char* value4 = "ATO"; // 1 slot
-	unsigned int value_size4 = strlen(value4)+1;
+void test_add_atomic_keys_until_memory_full_should_keep_all_keys(){
+	char* keys[10] = {"KEY1", "KEY2", "KEY3", "KEY4", "KEY5", "KEY6", "KEY7", "KEY8", "KEY9", "KEY10"};
+	char* vals[10] = {  "V" ,  "VA" ,  "VA3", "VA4" , "VA5" , "VA6" , "VA7" ,  "8"  , "VA9" ,  "10"  };
+	int  sizes[10] = {   2  ,   3   ,    4  ,   4   ,   4   ,   4   ,   4   ,   2   ,   4   ,   3    };
 
-
-	// add first key
-	bool result = redis_set(redis, key1, value1, value_size1);
-	CU_ASSERT_TRUE(result);
-	assert_key_in_position(2, 0, 1, key1, value1, value_size1);
-
-	// rest of memory not used
-	t_memory_position* mem_pos;
-	for(int i =2; i < NUMBER_OF_ENTRIES; i++){
-		mem_pos = redis->occupied_memory_map[i];
-		assert_memory_position_empty(mem_pos);
+	for(int i=0; i<10; i++){
+		bool res = redis_set(redis, keys[i], vals[i], sizes[i]);
+		CU_ASSERT_TRUE(res);
 	}
 
-	// add second key
-	result = redis_set(redis, key2, value2, value_size2);
-	CU_ASSERT_TRUE(result);
+	for(int i=0; i<10; i++){
+		assert_key_in_position(0, i, 10, keys[i], vals[i], sizes[i]);
+	}
+}
 
-	// check that both keys are present
-	assert_key_in_position(7, 0, 2, key1, value1, value_size1);
-	assert_key_in_position(7, 2, 2, key2, value2, value_size2);
+void test_add_atomic_to_redis_full_of_atomic_keys_replace_circular_should_replace_first_key(){
+	char* keys[10] = {"KEY1", "KEY2", "KEY3", "KEY4", "KEY5", "KEY6", "KEY7", "KEY8", "KEY9", "KEY10"};
+	char* vals[10] = {  "V" ,  "VA" ,  "VA3", "VA4" , "VA5" , "VA6" , "VA7" ,  "8"  , "VA9" ,  "10"  };
+	int  sizes[10] = {   2  ,   3   ,    4  ,   4   ,   4   ,   4   ,   4   ,   2   ,   4   ,   3    };
 
-	// rest of memory not used
-	for(int i =7; i < NUMBER_OF_ENTRIES; i++){
-		mem_pos = redis->occupied_memory_map[i];
-		assert_memory_position_empty(mem_pos);
+	bool res;
+	for(int i=0; i<10; i++){
+		res = redis_set(redis, keys[i], vals[i], sizes[i]);
+		CU_ASSERT_TRUE(res);
 	}
 
-	// add third key
-	result = redis_set(redis, key3, value3, value_size3);
-	CU_ASSERT_TRUE(result);
+	for(int i=0; i<10; i++){
+		assert_key_in_position(0, i, 10, keys[i], vals[i], sizes[i]);
+	}
 
-	// check that keys are present
-	assert_key_in_position(0, 0, 3, key1, value1, value_size1);
-	assert_key_in_position(0, 2, 3, key2, value2, value_size2);
-	assert_key_in_position(0, 7, 3, key3, value3, value_size3);
+	char* new_key = "NEW";
+	char* new_val = "NVL";
+	int new_val_size = 4;
 
-	// add fourth key. should evict key1
-	result = redis_set(redis, key4, value4, value_size4);
-	CU_ASSERT_TRUE(result);
+	res = redis_set(redis, new_key, new_val, new_val_size);
+	CU_ASSERT_TRUE(res);
 
-	// check that keys are present
-	assert_key_in_position(1, 0, 3, key4, value4, value_size4);
-	assert_key_in_position(1, 2, 3, key2, value2, value_size2);
-	assert_key_in_position(1, 7, 3, key3, value3, value_size3);
+	assert_key_in_position(1, 0, 10, new_key, new_val, new_val_size);
 
-	// position 1 of memory should be empty because key1 used 2 slots
-	// and key4 only requires 1 slot.
-	mem_pos = redis->occupied_memory_map[1];
-	assert_memory_position_empty(mem_pos);
+	for(int i=1; i<10; i++){
+		assert_key_in_position(1, i, 10, keys[i], vals[i], sizes[i]);
+	}
 }
 
-void test_add_many_with_replaces_has_space_fragmented_should_signal_compaction(){
+void test_add_non_atomic_to_redis_full_of_atomic_keys_replace_circular_should_replace_first_keys(){
+	char* keys[10] = {"KEY1", "KEY2", "KEY3", "KEY4", "KEY5", "KEY6", "KEY7", "KEY8", "KEY9", "KEY10"};
+	char* vals[10] = {  "V" ,  "VA" ,  "VA3", "VA4" , "VA5" , "VA6" , "VA7" ,  "8"  , "VA9" ,  "10"  };
+	int  sizes[10] = {   2  ,   3   ,    4  ,   4   ,   4   ,   4   ,   4   ,   2   ,   4   ,   3    };
 
-	char* key1 = "KEY1";
-	char* value1 = "THREESLOTS"; // 3 slots
-	unsigned int value_size1 = strlen(value1)+1;
-	char* key2 = "KEY2";
-	char* value2 = "THISSPANSOVER4"; // 4 slots
-	unsigned int value_size2 = strlen(value2)+1;
-	char* key3 = "KEY3";
-	char* value3 = "2SLOTS"; // 2 slots
-	unsigned int value_size3 = strlen(value3)+1;
-	char* key4 = "KEY4";
-	char* value4 = "DOSDOS"; // 2 slot
-	unsigned int value_size4 = strlen(value4)+1;
-	char* key5 = "KEY5";
-	char* value5 = "OTROS2"; // 2 slot
-	unsigned int value_size5 = strlen(value4)+1;
+	bool res;
+	for(int i=0; i<10; i++){
+		res = redis_set(redis, keys[i], vals[i], sizes[i]);
+		CU_ASSERT_TRUE(res);
+	}
 
-	bool result = redis_set(redis, key1, value1, value_size1);
-	CU_ASSERT_TRUE(result);
-	result = redis_set(redis, key2, value2, value_size2);
-	CU_ASSERT_TRUE(result);
-	result = redis_set(redis, key3, value3, value_size3);
-	CU_ASSERT_TRUE(result);
-	result = redis_set(redis, key4, value4, value_size4);
-	CU_ASSERT_TRUE(result);
+	for(int i=0; i<10; i++){
+		assert_key_in_position(0, i, 10, keys[i], vals[i], sizes[i]);
+	}
 
-	// Assert status before adding key6. Current slot should be 2
-	// key 4 is in slot 0
-	assert_key_in_position(2, 0, 3, key4, value4, value_size4);
+	char* new_key = "NEW";
+	char* new_val = "NEWVALUE";
+	int new_val_size = 9;
 
-	// slot 2 is empty
-	t_memory_position* mem_pos = redis->occupied_memory_map[2];
-	assert_memory_position_empty(mem_pos);
+	res = redis_set(redis, new_key, new_val, new_val_size);
+	CU_ASSERT_TRUE(res);
 
-	// key 2 is in slots 3 to 6
-	assert_key_in_position(2, 3, 3, key2, value2, value_size2);
+	assert_key_in_position(3, 0, 8, new_key, new_val, new_val_size);
 
-	// key 3 is in slots 7 and 8
-	assert_key_in_position(2, 7, 3, key3, value3, value_size3);
-
-	// slots 9 is empty
-	mem_pos = redis->occupied_memory_map[9];
-	assert_memory_position_empty(mem_pos);
-
-	// Now add key 5 of 2 positions should return false, signaling
-	// the need for compaction
-	result = redis_set(redis, key5, value5, value_size5);
-	CU_ASSERT_FALSE(result);
-
-	// Test get of all keys present
-	assert_get_key(key2, value2);
-	assert_get_key(key3, value3);
-	assert_get_key(key4, value4);
-
-	// Key 5 should not be present
-	assert_get_key(key5, NULL);
+	for(int i=3; i<10; i++){
+		assert_key_in_position(3, i, 8, keys[i], vals[i], sizes[i]);
+	}
 }
+
+void test_add_non_atomic_to_redis_full_first_key_not_atomic_replace_circular_should_replace_first_atomic_keys(){
+	char* keys[10] = {"KEY1", "KEY2", "KEY3", "KEY4", "KEY5", "KEY6", "KEY7", "KEY8", "KEY9", "KEY10"};
+	char* vals[10] = {  "V" ,  "VA" ,  "VA3", "VA4" , "VA5" , "VA6" , "VA7" ,  "8"  , "VA9" ,  "10"  };
+	int  sizes[10] = {   2  ,   3   ,    4  ,   4   ,   4   ,   4   ,   4   ,   2   ,   4   ,   3    };
+
+	bool res;
+
+	char* first_key = "FST";
+	char* first_val = "FIRSTVL";
+	int first_size = 8;
+	res = redis_set(redis, first_key, first_val, first_size);
+	CU_ASSERT_TRUE(res);
+
+	for(int i=2; i<10; i++){
+		res = redis_set(redis, keys[i], vals[i], sizes[i]);
+		CU_ASSERT_TRUE(res);
+	}
+
+
+	assert_key_in_position(0, 0, 9, first_key, first_val, first_size);
+
+	for(int i=2; i<10; i++){
+		assert_key_in_position(0, i, 9, keys[i], vals[i], sizes[i]);
+	}
+
+	char* new_key = "NEW";
+	char* new_val = "NEWVAL";
+	int new_val_size = 7;
+
+	res = redis_set(redis, new_key, new_val, new_val_size);
+	CU_ASSERT_TRUE(res);
+
+	assert_key_in_position(4, 2, 8, new_key, new_val, new_val_size);
+
+	for(int i=4; i<10; i++){
+		assert_key_in_position(4, i, 8, keys[i], vals[i], sizes[i]);
+	}
+}
+
 
 void add_tests() {
 	CU_pSuite redis_test = CU_add_suite_with_setup_and_teardown("Redis", init_suite, clean_suite, setup, tear_down);
@@ -347,8 +336,12 @@ void add_tests() {
 	CU_add_test(redis_test, "test_set_not_atomic_in_empty_redis_should_add_key", test_set_not_atomic_in_empty_redis_should_add_key);
 	CU_add_test(redis_test, "test_set_and_get_not_atomic_in_empty_redis_should_add_and_get_key", test_set_and_get_not_atomic_in_empty_redis_should_add_and_get_key);
 	CU_add_test(redis_test, "test_set_two_keys_with_space_should_keep_both", test_set_two_keys_with_space_should_keep_both);
-	CU_add_test(redis_test, "test_add_may_keys_not_enough_space_replace_circular_should_replace", test_add_may_keys_not_enough_space_replace_circular_should_replace);
-	CU_add_test(redis_test, "test_add_many_with_replaces_has_space_fragmented_should_signal_compaction", test_add_many_with_replaces_has_space_fragmented_should_signal_compaction);
+	CU_add_test(redis_test, "test_add_atomic_keys_until_memory_full_should_keep_all_keys", test_add_atomic_keys_until_memory_full_should_keep_all_keys);
+	CU_add_test(redis_test, "test_add_atomic_to_redis_full_of_atomic_keys_replace_circular_should_replace_first_key", test_add_atomic_to_redis_full_of_atomic_keys_replace_circular_should_replace_first_key);
+	CU_add_test(redis_test, "test_add_non_atomic_to_redis_full_of_atomic_keys_replace_circular_should_replace_first_keys", test_add_non_atomic_to_redis_full_of_atomic_keys_replace_circular_should_replace_first_keys);
+	CU_add_test(redis_test, "test_add_non_atomic_to_redis_full_first_key_not_atomic_replace_circular_should_replace_first_atomic_keys", test_add_non_atomic_to_redis_full_first_key_not_atomic_replace_circular_should_replace_first_atomic_keys);
+
+	// TODO: TEST SIGNAL COMPACTION
 }
 
 
