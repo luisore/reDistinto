@@ -305,7 +305,7 @@ void redis_print_status(t_redis* redis){
 	printf("================================================================================================\n");
 	printf("  Entry size: %i. Max entries: %i, Storage size (bytes): %i.\n", redis->entry_size,
 			redis->number_of_entries, redis->storage_size);
-	printf("  Total entries: %i.\n", dictionary_size(redis->key_dictionary));
+	printf("  Total entries: %i. Current slot: %i.\n", dictionary_size(redis->key_dictionary), redis->current_slot);
 	printf("  Keys: ");
 	dictionary_iterator(redis->key_dictionary, print_dict_key);
 	printf("\n");
