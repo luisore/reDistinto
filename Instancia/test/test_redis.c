@@ -623,8 +623,86 @@ void set_not_atomic_value_twice_new_value_is_bigger_with_non_contiguous_space_sh
 }
 
 void set_not_atomic_value_twice_new_value_is_bigger_without_space_then_contiguous_should_remove_key_replace_and_set_value(){
-	// TODO: Compaction signal tests
-	CU_ASSERT_FALSE(true);
+	char* key1 = "KEY1";
+	char* value1 = "VALUEOFTHRE"; // 3 slots
+
+	char* key2 = "KEY2";
+	char* value2 = "ATO"; // 1 slot
+
+	char* key3 = "KEY3";
+	char* value3 = "B"; // 1 slot
+
+	char* key4 = "KEY4";
+	char* value4 = "TWOSLOT"; // 2 slots
+
+	char* key5 = "KEY5";
+	char* value5 = "ABC"; // 1 slot
+
+	char* new_value_1 = "THISTAKESSIXSLOTS12345"; // 6 slots
+
+	unsigned int value_size1 = strlen(value1) + 1;
+	unsigned int value_size2 = strlen(value2) + 1;
+	unsigned int value_size3 = strlen(value3) + 1;
+	unsigned int value_size4 = strlen(value4) + 1;
+	unsigned int value_size5 = strlen(value5) + 1;
+	unsigned int new_value_size = strlen(new_value_1) + 1;
+
+	bool result = redis_set(redis, key1, value1, value_size1);
+	CU_ASSERT_TRUE(result);
+
+	result = redis_set(redis, key2, value2, value_size2);
+	CU_ASSERT_TRUE(result);
+
+	result = redis_set(redis, key3, value3, value_size3);
+	CU_ASSERT_TRUE(result);
+
+	result = redis_set(redis, key4, value4, value_size4);
+	CU_ASSERT_TRUE(result);
+
+	result = redis_set(redis, key5, value5, value_size5);
+	CU_ASSERT_TRUE(result);
+
+	assert_key_in_position(8, 0, 5, key1, value1, value_size1);
+	assert_key_in_position(8, 3, 5, key2, value2, value_size2);
+	assert_key_in_position(8, 4, 5, key3, value3, value_size3);
+	assert_key_in_position(8, 5, 5, key4, value4, value_size4);
+	assert_key_in_position(8, 7, 5, key5, value5, value_size5);
+
+	t_memory_position* mem_pos;
+	for(int i=8; i < NUMBER_OF_ENTRIES; i++){
+		mem_pos = redis->occupied_memory_map[i];
+		assert_memory_position_empty(mem_pos);
+	}
+
+	result = redis_set(redis, key1, new_value_1, new_value_size);
+	CU_ASSERT_FALSE(result); // false signals compaction
+
+	// positions of first key have been freed
+	// key2 has been evicted
+	for(int i =0; i < 4; i++){
+		mem_pos = redis->occupied_memory_map[i];
+		assert_memory_position_empty(mem_pos);
+	}
+
+	// keys 3, 4 and 5 are left in place. cursor is at the same place (5)
+	// there are now 2 keys present, since key1 was evicted
+	assert_key_in_position(8, 4, 3, key3, value3, value_size3);
+	assert_key_in_position(8, 5, 3, key4, value4, value_size4);
+	assert_key_in_position(8, 7, 3, key5, value5, value_size5);
+
+	// last 2 positions are empty
+	for(int i=8; i < NUMBER_OF_ENTRIES; i++){
+		mem_pos = redis->occupied_memory_map[i];
+		assert_memory_position_empty(mem_pos);
+	}
+
+	// key1 is no longer present
+	char* retrieved = redis_get(redis, key1);
+	CU_ASSERT_PTR_NULL(retrieved);
+
+	// key 2 is no longer present
+	retrieved = redis_get(redis, key2);
+	CU_ASSERT_PTR_NULL(retrieved);
 }
 
 void set_not_atomic_value_twice_new_value_is_bigger_without_space_then_non_contiguous_should_remove_key_replace_and_signal_compact(){
