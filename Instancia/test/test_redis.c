@@ -782,7 +782,7 @@ void set_not_atomic_value_twice_new_value_is_bigger_without_space_then_non_conti
 
 void remove_this(){
 	char* key1 = "KEY1";
-	char* value1 = "HOLACANINI"; // 3 slots
+	char* value1 = "THREESLOTS"; // 3 slots
 
 	redis_set(redis, key1, value1, strlen(value1)+1);
 
