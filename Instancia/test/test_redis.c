@@ -9,7 +9,11 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include "../src/redis.h"
+#include <dirent.h>
+#include <stdio.h>
 #include <commons/log.h>
+#include <commons/string.h>
+#include <commons/collections/queue.h>
 
 const int ENTRY_SIZE = 4;
 const int NUMBER_OF_ENTRIES = 10;
@@ -18,21 +22,65 @@ const char* MOUNT_DIR = "/home/utnso/tmp/";
 static t_log* test_log;
 static t_redis* redis;
 
+t_queue* get_dir_files(){
+	t_queue* files_queue = queue_create();
+
+	DIR *d;
+	struct dirent *dir;
+	d = opendir(MOUNT_DIR);
+	char* file_path;
+	if (d) {
+		while ((dir = readdir(d)) != NULL) {
+			if (dir->d_type == DT_REG){
+				file_path = malloc(strlen(MOUNT_DIR)+strlen(dir->d_name)+1);
+				strcpy(file_path, MOUNT_DIR);
+				strcat(file_path, dir->d_name);
+
+				queue_push(files_queue, file_path);
+			}
+		}
+		closedir(d);
+	}
+
+	return files_queue;
+}
+
+void delete_all_redis_files(){
+	t_queue* files_queue = get_dir_files();
+
+	while(!queue_is_empty(files_queue)){
+		char* file_path = (char*)queue_pop(files_queue);
+
+		printf("\nDeleting file: %s\n", file_path);
+
+		remove(file_path);
+		free(file_path);
+	}
+
+	queue_destroy(files_queue);
+}
+
 int init_suite(){
+	printf("Initializing suite\n");
 	test_log = log_create("redis-test.log", "redis-test", false, LOG_LEVEL_TRACE);
 	return 0;
 }
 
 int clean_suite(){
+	printf("\nCleaning suite\n");
 	log_destroy(test_log);
+	delete_all_redis_files();
 	return 0;
 }
 
 void setup(){
+	printf("\nSetup test\n");
+	delete_all_redis_files();
 	redis = redis_init(ENTRY_SIZE, NUMBER_OF_ENTRIES, test_log, MOUNT_DIR, redis_replace_circular);
 }
 
 void tear_down(){
+	printf("\nTear down test\n");
 	redis_destroy(redis);
 }
 
@@ -81,6 +129,20 @@ void assert_get_key(char* key, char* expected_value){
 	} else {
 		CU_ASSERT_PTR_NULL(retrieved);
 	}
+}
+
+void assert_file_content(char* file_path, char* expected_value, unsigned int value_size){
+	FILE* file = fopen(file_path, "rb");
+	CU_ASSERT_PTR_NOT_NULL_FATAL(file);
+
+	char* value_read = malloc(value_size);
+	int bytes_read = fread(value_read, 1, value_size, file);
+	CU_ASSERT_EQUAL(bytes_read, value_size);
+
+	CU_ASSERT_STRING_EQUAL(value_read, expected_value);
+
+	free(value_read);
+	fclose(file);
 }
 
 void test_init_should_create_correctly(){
@@ -780,13 +842,33 @@ void set_not_atomic_value_twice_new_value_is_bigger_without_space_then_non_conti
 	CU_ASSERT_PTR_NULL(retrieved);
 }
 
-void remove_this(){
+void test_set_and_store_should_save_file(){
 	char* key1 = "KEY1";
-	char* value1 = "THREESLOTS"; // 3 slots
+	char* value1 = "VALUETOSTORE";
+	unsigned int value_size = strlen(value1)+1;
 
-	redis_set(redis, key1, value1, strlen(value1)+1);
+	bool res = redis_set(redis, key1, value1, value_size);
+	CU_ASSERT_TRUE_FATAL(res);
 
-	redis_store(redis, key1);
+	int store_res = redis_store(redis, key1);
+	CU_ASSERT_EQUAL_FATAL(store_res, 0);
+
+	// check that the file is present
+	t_queue* files_queue = get_dir_files();
+	CU_ASSERT_EQUAL_FATAL(1, queue_size(files_queue));
+
+	char* file_path = queue_pop(files_queue);
+
+	// file name is correct
+	CU_ASSERT_TRUE_FATAL(string_ends_with(file_path, key1));
+	CU_ASSERT_TRUE_FATAL(string_starts_with(file_path, MOUNT_DIR));
+	CU_ASSERT_EQUAL_FATAL(strlen(file_path), strlen(MOUNT_DIR)+strlen(key1));
+
+	// check file content
+	assert_file_content(file_path, value1, value_size);
+
+	free(file_path);
+	queue_destroy(files_queue);
 }
 
 void add_tests() {
@@ -811,8 +893,7 @@ void add_tests() {
 	CU_add_test(redis_test, "set_not_atomic_value_twice_new_value_is_bigger_with_non_contiguous_space_should_remove_key_and_signal_compact", set_not_atomic_value_twice_new_value_is_bigger_with_non_contiguous_space_should_remove_key_and_signal_compact);
 	CU_add_test(redis_test, "set_not_atomic_value_twice_new_value_is_bigger_without_space_then_contiguous_should_remove_key_replace_and_set_value", set_not_atomic_value_twice_new_value_is_bigger_without_space_then_contiguous_should_remove_key_replace_and_set_value);
 	CU_add_test(redis_test, "set_not_atomic_value_twice_new_value_is_bigger_without_space_then_non_contiguous_should_remove_key_replace_and_signal_compact", set_not_atomic_value_twice_new_value_is_bigger_without_space_then_non_contiguous_should_remove_key_replace_and_signal_compact);
-
-	//CU_add_test(redis_test, "remove_this", remove_this);
+	CU_add_test(redis_test, "test_set_and_store_should_save_file", test_set_and_store_should_save_file);
 }
 
 
