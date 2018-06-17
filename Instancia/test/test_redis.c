@@ -13,7 +13,7 @@
 
 const int ENTRY_SIZE = 4;
 const int NUMBER_OF_ENTRIES = 10;
-const char* MOUNT_DIR = "tmp";
+const char* MOUNT_DIR = "/home/utnso/tmp/";
 
 static t_log* test_log;
 static t_redis* redis;
@@ -780,6 +780,14 @@ void set_not_atomic_value_twice_new_value_is_bigger_without_space_then_non_conti
 	CU_ASSERT_PTR_NULL(retrieved);
 }
 
+void remove_this(){
+	char* key1 = "KEY1";
+	char* value1 = "HOLACANINI"; // 3 slots
+
+	redis_set(redis, key1, value1, strlen(value1)+1);
+
+	redis_store(redis, key1);
+}
 
 void add_tests() {
 	CU_pSuite redis_test = CU_add_suite_with_setup_and_teardown("Redis", init_suite, clean_suite, setup, tear_down);
@@ -803,6 +811,8 @@ void add_tests() {
 	CU_add_test(redis_test, "set_not_atomic_value_twice_new_value_is_bigger_with_non_contiguous_space_should_remove_key_and_signal_compact", set_not_atomic_value_twice_new_value_is_bigger_with_non_contiguous_space_should_remove_key_and_signal_compact);
 	CU_add_test(redis_test, "set_not_atomic_value_twice_new_value_is_bigger_without_space_then_contiguous_should_remove_key_replace_and_set_value", set_not_atomic_value_twice_new_value_is_bigger_without_space_then_contiguous_should_remove_key_replace_and_set_value);
 	CU_add_test(redis_test, "set_not_atomic_value_twice_new_value_is_bigger_without_space_then_non_contiguous_should_remove_key_replace_and_signal_compact", set_not_atomic_value_twice_new_value_is_bigger_without_space_then_non_contiguous_should_remove_key_replace_and_signal_compact);
+
+	//CU_add_test(redis_test, "remove_this", remove_this);
 }
 
 

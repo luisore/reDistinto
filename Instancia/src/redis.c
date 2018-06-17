@@ -4,12 +4,16 @@
  *  Created on: 8 jun. 2018
  *      Author: utnso
  */
-
+#define _GNU_SOURCE
 #include "redis.h"
 #include <commons/string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <linux/mman.h>
+#include <sys/types.h>
+#include <fcntl.h>
+
 
 int effective_position_for(t_redis* redis, int position){
 	return position % redis->number_of_entries;
@@ -76,7 +80,7 @@ t_memory_position* redis_create_empty_memory_position(){
 }
 
 t_redis* redis_init(int entry_size, int number_of_entries, t_log* log, const char* mount_dir,
-		int (*replace_necessary_positions)(struct Redis*, unsigned int)){
+		void (*replace_necessary_positions)(struct Redis*, unsigned int)){
 	t_redis* redis = malloc(sizeof(t_redis));
 	redis->entry_size = entry_size;
 	redis->number_of_entries = number_of_entries;
@@ -101,8 +105,19 @@ t_redis* redis_init(int entry_size, int number_of_entries, t_log* log, const cha
 }
 
 void redis_entry_data_destroy(t_entry_data* entry_data){
-	if(entry_data != NULL)
-		free(entry_data);
+	if(entry_data == NULL) return;
+
+	if(entry_data->mapped_value != NULL){
+		if (munmap(entry_data->mapped_value, entry_data->size) == -1){
+			perror("Error unmapping data file!");
+		}
+	}
+
+	if(entry_data->mapped_file != NULL){
+		fclose(entry_data->mapped_file);
+	}
+
+	free(entry_data);
 }
 
 char* redis_get(t_redis* redis, char* key){
@@ -142,10 +157,6 @@ void redis_free_slot(t_redis* redis, int slot_index){
 void set_in_same_place(t_redis* redis, t_entry_data* entry_data, char* key, char* value,
 		int value_size, int needed_slots, int used_slots){
 
-	int offset = entry_data->first_position * redis->entry_size;
-	memcpy(redis->memory_region + offset, value, value_size);
-	entry_data->size = value_size;
-
 	int slots_to_free = used_slots - needed_slots;
 
 	int slot_index = entry_data->first_position + needed_slots;
@@ -160,6 +171,27 @@ void set_in_same_place(t_redis* redis, t_entry_data* entry_data, char* key, char
 	if(needed_slots == 1){
 		redis->occupied_memory_map[entry_data->first_position]->is_atomic = true;
 	}
+
+	// remap memory file if needed
+	if(is_memory_mapped(entry_data)){
+		// resize the mapped region to the actual size
+		void *temp = mremap(entry_data->mapped_value, entry_data->size, value_size, MREMAP_MAYMOVE);
+		if(temp == (void*)-1)
+		{
+			log_error(redis->log, "FATAL ERROR: Could not remap memory for key: %s", key);
+			exit_program(EXIT_FAILURE);
+		}
+
+		entry_data->mapped_value = temp;
+
+		memcpy(entry_data->mapped_value, value, value_size);
+	}
+
+
+	// copy the new value
+	int offset = entry_data->first_position * redis->entry_size;
+	memcpy(redis->memory_region + offset, value, value_size);
+	entry_data->size = value_size;
 }
 
 // TODO: Repite codigo con set_in_same_place. Refactor!
@@ -216,6 +248,8 @@ void redis_set_in_position(t_redis* redis, char* key, char* value, unsigned int 
 	t_entry_data* entry_data = malloc(sizeof(t_entry_data));
 	entry_data->first_position = first_slot;
 	entry_data->size = value_size;
+	entry_data->mapped_file = NULL; // FD and mmapped file are created on STORE
+	entry_data->mapped_value = NULL;  // or at startup from an existing file.
 
 	// mark the slots as used by this key
 	t_memory_position* mem_pos;
@@ -349,13 +383,83 @@ void redis_print_status(t_redis* redis){
 	printf("================================================================================================\n");
 }
 
+bool is_memory_mapped(t_entry_data* entry){
+	return entry->mapped_file != NULL && entry->mapped_value != NULL;
+}
+
+bool create_and_map_file_for_entry(t_redis* redis, t_entry_data* entry, char* key){
+	int mode = 0x0777;
+
+	char* filename = malloc(strlen(redis->mount_dir) + strlen(key) + 1);
+	strcpy(filename, redis->mount_dir);
+	strcat(filename, key);
+
+	/* open/create the output file */
+
+	entry->mapped_file = fopen(filename, "ab+");
+
+	//if ((entry->file_descriptor = open(filename, O_RDWR | O_CREAT | O_TRUNC, mode )) < 0){
+	if(entry->mapped_file == NULL) {
+		log_error(redis->log, "Could not open file for key: %s, file: %s", key, filename);
+		free(filename);
+		return false;
+	}
+
+	ftruncate(fileno(entry->mapped_file), entry->size);
+
+	free(filename);
+
+	if ((entry->mapped_value = mmap(NULL, entry->size, PROT_READ | PROT_WRITE, MAP_SHARED,
+			fileno(entry->mapped_file), 0)) == (caddr_t) -1) {
+		log_error("FATAL ERROR: Could not perform mmap on file for key: %s", key);
+		return false;
+	}
+
+	return true;
+}
+
+/*
+ * Store the value in the file system.
+ * Result can be:
+ *  0: Store was successful.
+ *  1: The key was invalid.
+ * -1: The operation failed with an unexpected error.
+ */
 int redis_store(t_redis* redis, char* key){
-	return 0; // TODO! IMPLEMENTAR
+	// Get the entry
+	t_entry_data* entry = dictionary_get(redis->key_dictionary, key);
+
+	if(entry == NULL){
+		log_warning(redis->log, "Attempted STORE on inexistent key: %s.", key);
+		return 1; // key not valid
+	}
+
+	// If the file is not present yet, create it and map the value.
+	// If it's present, the value must already be copied.
+	if(!is_memory_mapped(entry)){
+		if(!create_and_map_file_for_entry(redis, entry, key)){
+			log_error(redis->log, "FATAL ERROR: Could not create memory mapped file for key: %s.", key);
+			return -1;
+		}
+
+		// copy the value to the memory mapped
+		int offset = redis->entry_size * entry->first_position;
+		memcpy(entry->mapped_value, redis->memory_region + offset, entry->size);
+	}
+
+	// flush to disk
+	if (msync((void *)entry->mapped_value, entry->size, MS_SYNC) < 0) {
+		log_error(redis->log, "FATAL ERROR: Could not sync memory mapped file for key: %s.", key);
+		return -1;
+	}
+
+	return 0;
 }
 
 
 void redis_compact(t_redis* redis){
-	// TODO! IMPLEMENTAR
+
+
 }
 
 void redis_load_dump_files(t_redis* redis){

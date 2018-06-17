@@ -1,6 +1,7 @@
 #include "Instancia.h"
 #include "redis.h"
 #include <unistd.h> // Para close
+#include <commons/string.h>
 
 void print_header() {
 	printf("\n\t\e[31;1m=========================================\e[0m\n");
@@ -305,7 +306,7 @@ void compact() {
 }
 
 void initialize_instance(){
-	int (*replacement_fn)(struct Redis*, unsigned int);
+	void (*replacement_fn)(struct Redis*, unsigned int);
 	switch (instance_setup.ALGORITMO_REEMPLAZO) {
 	case CIRC:
 		log_info(console_log, "Algoritmo de reemplazo: CIRC");

@@ -15,6 +15,8 @@
 typedef struct {
 	unsigned int size;
 	int first_position;
+	FILE* mapped_file;
+	char* mapped_value;
 } t_entry_data;
 
 typedef struct {
@@ -57,7 +59,7 @@ typedef struct Redis {
 } t_redis;
 
 t_redis* redis_init(int entry_size, int number_of_entries, t_log* log, const char* mount_dir,
-		int (*perform_replacement_and_return_first_position)(struct Redis*, unsigned int));
+		void (*perform_replacement_and_return_first_position)(struct Redis*, unsigned int));
 
 
 // NOTE: redis_destroy will not free the log. If you created a specific log for redis,
@@ -97,5 +99,7 @@ int slots_occupied_by(int entry_size, int value_size);
 void redis_remove_key(t_redis* redis, char* key, t_entry_data* entry_data, int used_slots);
 
 void redis_print_status(t_redis* redis);
+
+bool is_memory_mapped(t_entry_data* entry);
 
 #endif /* SRC_REDIS_H_ */
