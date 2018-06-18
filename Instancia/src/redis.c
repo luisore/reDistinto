@@ -291,7 +291,6 @@ bool redis_set(t_redis* redis, char* key, char* value, unsigned int value_size){
 		if(need_slots <= used_slots){
 			// If the new value fits in the previously reserved slots, use those slots
 			set_in_same_place(redis, entry_data, key, value, value_size, need_slots, used_slots);
-			redis_print_status(redis);
 			return true;
 		} else{
 			// If it does not fit, remove the key, free the slots and check if it fits somewhere else.
@@ -320,12 +319,10 @@ bool redis_set(t_redis* redis, char* key, char* value, unsigned int value_size){
 		// Need to compact because there is space available but it is not contiguous
 		log_info(redis->log, "Space available is not contiguous to SET the value with size: %i. Need to compact.",
 			value_size);
-		redis_print_status(redis);
 		return false;
 	}
 
 	redis_set_in_position(redis, key, value, value_size, first_slot, need_slots);
-	redis_print_status(redis);
 	return true;
 }
 
@@ -456,10 +453,71 @@ int redis_store(t_redis* redis, char* key){
 	return 0;
 }
 
+/*
+ * Relocates the key to the new_pos.
+ * Returns the value of the first position empty after it was moved
+ */
+int move_key_to_position(t_redis* redis, int current_pos, int new_pos, t_memory_position* mem_pos){
+	t_entry_data* entry = dictionary_get(redis->key_dictionary, mem_pos->key);
+	int slots_occupied = slots_occupied_by(redis->entry_size, entry->size);
+
+	int dest_offset = new_pos * redis->entry_size;
+	int from_offset = current_pos * redis->entry_size;
+
+	// copy memory one slot at a time
+	t_memory_position* aux_pos;
+	for(int i=0; i<slots_occupied; i++){
+		// copy the value to the new position
+		memcpy(redis->memory_region + dest_offset, redis->memory_region + from_offset, redis->entry_size);
+
+		// set the memory position data
+		aux_pos = redis->occupied_memory_map[new_pos + i];
+		memcpy(aux_pos->key, mem_pos->key, 40);
+		aux_pos->is_atomic = mem_pos->is_atomic;
+		aux_pos->used = true;
+		aux_pos->last_reference = mem_pos->last_reference;
+
+		dest_offset += redis->entry_size;
+		from_offset += redis->entry_size;
+	}
+
+	// mark the positions next to the moved key as empty
+	int positions_freed = current_pos - new_pos;
+	int first_free_slot = new_pos + slots_occupied;
+	for(int i = 0; i < positions_freed; i++){
+		aux_pos = redis->occupied_memory_map[first_free_slot + i];
+		aux_pos->key[0] = '\0';
+		aux_pos->is_atomic = true;
+		aux_pos->used = false;
+		aux_pos->last_reference = 0;
+	}
+
+	entry->first_position = new_pos;
+	return first_free_slot;
+}
+
 
 void redis_compact(t_redis* redis){
+	int first_empty = -1;
+	t_memory_position* mem_pos;
+	int slot_cursor = 0;
+	while(slot_cursor < redis->number_of_entries){
+		mem_pos = redis->occupied_memory_map[slot_cursor];
 
+		if(!mem_pos->used && first_empty == -1){
+			first_empty = slot_cursor;
+		} else if(mem_pos->used && first_empty >= 0){
+			// move the key to the first empty position
+			log_info(redis->log, "Moving key: %s from: %i to: %i", mem_pos->key, slot_cursor, first_empty);
+			first_empty = move_key_to_position(redis, slot_cursor, first_empty, mem_pos);
+			slot_cursor = first_empty;
+		}
 
+		slot_cursor++;
+	}
+
+	if(first_empty > 0)
+		redis->current_slot = first_empty;
 }
 
 void redis_load_dump_files(t_redis* redis){

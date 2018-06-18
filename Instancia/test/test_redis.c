@@ -871,6 +871,92 @@ void test_set_and_store_should_save_file(){
 	queue_destroy(files_queue);
 }
 
+void test_add_and_compact_all_atomic_should_compact(){
+	char* keys[10] = {"KEY1", "KEY2", "KEY3", "KEY4", "KEY5", "KEY6", "KEY7", "KEY8", "KEY9", "KEY10"};
+	char* vals[10] = {  "V" ,  "VA" ,  "VA3", "VA4" , "VA5" , "VA6" , "VA7" ,  "8"  , "VA9" ,  "10"  };
+	int  sizes[10] = {   2  ,   3   ,    4  ,   4   ,   4   ,   4   ,   4   ,   2   ,   4   ,   3    };
+
+	char* key1 = "KEY";
+	char* value1 = "2SLOTS";
+	char* value2 = "ATO";
+	int size1 = strlen(value1) + 1;
+	int size2 = strlen(value2) + 1;
+
+	bool res = redis_set(redis, key1, value1, size1);
+	CU_ASSERT_TRUE(res);
+
+	for(int i=2; i<9; i++){
+		res = redis_set(redis, keys[i], vals[i], sizes[i]);
+		CU_ASSERT_TRUE(res);
+	}
+
+	res = redis_set(redis, key1, value2, size2);
+	CU_ASSERT_TRUE(res);
+
+	assert_key_in_position(9, 0, 8, key1, value2, size2);
+
+	for(int i=2; i<9; i++){
+		assert_key_in_position(9, i, 8, keys[i], vals[i], sizes[i]);
+	}
+
+	CU_ASSERT_EQUAL(redis->slots_available, 2);
+
+	printf("STATUS BEFORE COMPACT: \n");
+	redis_print_status(redis);
+
+	redis_compact(redis);
+
+	// number of keys should be the same
+	assert_key_in_position(8, 0, 8, key1, value2, size2);
+
+	for(int i=1; i<8; i++){
+		assert_key_in_position(8, i, 8, keys[i+1], vals[i+1], sizes[i+1]);
+	}
+
+	assert_memory_position_empty(redis->occupied_memory_map[8]);
+	assert_memory_position_empty(redis->occupied_memory_map[9]);
+
+	printf("STATUS AFTER COMPACT: \n");
+	redis_print_status(redis);
+}
+
+void test_add_and_compact_non_atomic_should_compact(){
+	char* key1 = "KEY1";
+	char* value1_1 = "VALUEONELONG12"; // 4 slots
+	char* value1_2 = "SHORTV"; // 2 slots
+	unsigned int size_1_1 = strlen(value1_1) + 1;
+	unsigned int size_1_2 = strlen(value1_2) + 1;
+
+	char* key2 = "KEY2";
+	char* value2_1 = "TRESSLOTS"; // 3 slots
+	char* value2_2 = "ATO"; //1 slot
+	unsigned int size_2_1 = strlen(value2_1) + 1;
+	unsigned int size_2_2 = strlen(value2_2) + 1;
+
+	char* key3 = "KEY3";
+	char* value3 = "DOSSLOT"; // 2 slots
+	unsigned int size_3 = strlen(value3) + 1;
+
+	redis_set(redis, key1, value1_1, size_1_1);
+	redis_set(redis, key2, value2_1, size_2_1);
+	redis_set(redis, key3, value3, size_3);
+
+	redis_set(redis, key1, value1_2, size_1_2);
+	redis_set(redis, key2, value2_2, size_2_2);
+
+	printf("Status before compact:\n");
+	redis_print_status(redis);
+
+	redis_compact(redis);
+
+	assert_key_in_position(5, 0, 3, key1, value1_2, size_1_2);
+	assert_key_in_position(5, 2, 3, key2, value2_2, size_2_2);
+	assert_key_in_position(5, 3, 3, key3, value3, size_3);
+
+	printf("Status after compact:\n");
+	redis_print_status(redis);
+}
+
 void add_tests() {
 	CU_pSuite redis_test = CU_add_suite_with_setup_and_teardown("Redis", init_suite, clean_suite, setup, tear_down);
 	CU_add_test(redis_test, "test_init_should_create_correctly", test_init_should_create_correctly);
@@ -894,6 +980,8 @@ void add_tests() {
 	CU_add_test(redis_test, "set_not_atomic_value_twice_new_value_is_bigger_without_space_then_contiguous_should_remove_key_replace_and_set_value", set_not_atomic_value_twice_new_value_is_bigger_without_space_then_contiguous_should_remove_key_replace_and_set_value);
 	CU_add_test(redis_test, "set_not_atomic_value_twice_new_value_is_bigger_without_space_then_non_contiguous_should_remove_key_replace_and_signal_compact", set_not_atomic_value_twice_new_value_is_bigger_without_space_then_non_contiguous_should_remove_key_replace_and_signal_compact);
 	CU_add_test(redis_test, "test_set_and_store_should_save_file", test_set_and_store_should_save_file);
+	CU_add_test(redis_test, "test_add_and_compact_all_atomic_should_compact", test_add_and_compact_all_atomic_should_compact);
+	CU_add_test(redis_test, "test_add_and_compact_non_atomic_should_compact", test_add_and_compact_non_atomic_should_compact);
 }
 
 
