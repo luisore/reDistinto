@@ -7,12 +7,16 @@
 #define _GNU_SOURCE
 #include "redis.h"
 #include <commons/string.h>
+#include <commons/collections/queue.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <linux/mman.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <fcntl.h>
+#include <dirent.h>
+
 
 
 int effective_position_for(t_redis* redis, int position){
@@ -520,7 +524,81 @@ void redis_compact(t_redis* redis){
 		redis->current_slot = first_empty;
 }
 
-void redis_load_dump_files(t_redis* redis){
-	// TODO! IMPLEMENTAR
+t_queue* redis_get_dump_dir_file_names(t_redis* redis){
+	t_queue* files_queue = queue_create();
+
+	DIR *d;
+	struct dirent *dir;
+	d = opendir(redis->mount_dir);
+	char* file;
+	if (d) {
+		while ((dir = readdir(d)) != NULL) {
+			if (dir->d_type == DT_REG){
+				file = malloc(strlen(dir->d_name)+1);
+				strcpy(file, dir->d_name);
+				queue_push(files_queue, file);
+			}
+		}
+		closedir(d);
+	}
+
+	return files_queue;
+}
+
+bool redis_set_from_file(t_redis* redis, char* filename){
+	char* file_path = malloc(strlen(redis->mount_dir) + strlen(filename) + 1);
+	strcpy(file_path, redis->mount_dir);
+	strcat(file_path, filename);
+
+	log_info(redis->log, "Loading file from dump dir: %s", file_path);
+
+	struct stat st;
+	stat(filename, &st);
+
+	t_entry_data entry_data;
+	entry_data.size = st.st_size;
+
+	// filename is the key of the entry
+	log_info(redis->log, "Memory mapping dump file: %s", file_path);
+	if(!create_and_map_file_for_entry(redis, &entry_data, filename)){
+		log_error(redis->log, "FATAL ERROR: Could not create memory mapped file for key: %s.", filename);
+		return false;
+	}
+
+	log_info(redis->log, "Performing SET from Dump file: %s. key: %s, value: %s, size: %i",
+			file_path, filename, entry_data.mapped_value, entry_data.size);
+	if(!redis_set(redis, filename, entry_data.mapped_value, entry_data.size)){
+		log_error(redis->log, "FATAL ERROR: Could not perform set from dump for key: %s.", filename);
+		return false;
+	}
+
+	// update the actual key with both the file and the mapped value
+	t_entry_data* actual_entry = dictionary_get(redis->key_dictionary, filename);
+	actual_entry->mapped_file = entry_data.mapped_file;
+	actual_entry->mapped_value = entry_data.mapped_value;
+
+	return true;
+}
+
+bool redis_load_dump_files(t_redis* redis){
+	t_queue* dump_filenames = redis_get_dump_dir_file_names(redis);
+
+	char* filename;
+
+	while(!queue_is_empty(dump_filenames)){
+		filename = queue_pop(dump_filenames);
+
+		if(!redis_set_from_file(redis, filename)){
+			log_error(redis->log, "FATAL ERROR: Could not load value from file: %s. Aborting execution");
+			free(filename);
+			queue_destroy_and_destroy_elements(dump_filenames, free);
+			return false;
+		}
+
+		free(filename);
+	}
+
+	queue_destroy(dump_filenames);
+	return true;
 }
 
