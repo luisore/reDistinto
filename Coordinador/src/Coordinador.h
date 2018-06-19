@@ -87,7 +87,24 @@ void send_message_instance(t_connection_header *connection_header, int client_so
 void send_message_clients(t_connection_header *connection_header, int client_socket, int socket_id);
 t_connected_client* find_connected_client_by_type(instance_type_e instance_type);
 t_connected_client* select_instancia();
-void send_operation_instance(t_operation_request* esi_request, operation_type_e t);
-void send_set_operation(t_operation_request* esi_request, operation_type_e t, t_connected_client *instance);
+
+bool send_operation_to_instance(t_connected_client * instance);
+
+bool send_get_operation(t_operation_request* esi_request, operation_type_e t, t_connected_client *instance);
+bool send_store_operation(t_operation_request* esi_request, operation_type_e t, t_connected_client *instance);
+bool send_set_operation(t_operation_request* esi_request, operation_type_e t, t_connected_client *instance , char * payload_value);
+
+bool receive_response_from_instance(t_connected_client * instance);
+
+// Must return value char * . For now its ok.
+bool receive_value_from_instance(t_connected_client * instance , int payload_size);
+
+
+/*ALGORITHIMS*/
+
+t_connected_client* select_intance_LSU();
+t_connected_client* select_intance_EL();
+t_connected_client* select_intance_KE();
+
 
 #endif /* SRC_COORDINADOR_H_ */

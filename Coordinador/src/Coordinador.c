@@ -102,7 +102,6 @@ void log_inicial_consola() {
 
 }
 
-
 void create_tcp_server(){
 
 	pthread_mutex_lock(&mutex_all);
@@ -141,13 +140,9 @@ void create_tcp_server_console(){
 	pthread_mutex_unlock(&mutex_all);
 }
 
-
-
 void before_tpc_server_cycle(tcp_server_t* server){
 	// ACÁ DEBERÍA IR LA LÓGICA DE DISTRIBUCION
 }
-
-
 
 void remove_client(server, socket_id){
 	bool is_linked_to_socket(void* conn_client){
@@ -211,7 +206,6 @@ t_operation_response * send_operation_to_planner(char * recurso, t_connected_cli
 	return response;
 }
 
-
 void on_server_accept(tcp_server_t* server, int client_socket, int socket_id){
 	void *header_buffer = malloc(CONNECTION_HEADER_SIZE);
 
@@ -237,11 +231,17 @@ void on_server_accept(tcp_server_t* server, int client_socket, int socket_id){
 	//TODO: Modularizar
 
 	t_connected_client* connected_client = malloc(sizeof(t_connected_client));
+
 	strcpy(&(connected_client->instance_name), connection_header->instance_name);
 	connected_client->instance_type = connection_header->instance_type;
 	connected_client->socket_id = socket_id;
 	connected_client->socket_reference = client_socket;
+
 	list_add(connected_clients, (void*)connected_client);
+
+	// Add to intances list -> For algorithims
+	list_add(connected_instances, (void*)connected_client);
+	instancia_actual=0;
 
 }
 
@@ -314,22 +314,41 @@ void handle_esi_request(t_operation_request* esi_request, t_connected_client* cl
 	t_connected_client* planner = find_connected_client_by_type(PLANNER);
 	t_operation_response *cod_result;
 
+	// Select an instance based on the selected algorithim.
+	t_connected_client * instance = select_instancia();
+
 	switch(esi_request->operation_type){
 	case GET:
 		log_info(coordinador_log, "Handling GET from ESI: %s. Key: %s.", client->instance_name, esi_request->key);
 
 		cod_result = send_operation_to_planner(esi_request->key, planner, GET);
 
-		// TODO: INSTANCE CASE - It depends on operation result.
+		if(!send_operation_to_instance(instance)){
+			cod_result->operation_result = OP_ERROR;
+		}else{
+
+			if(!send_get_operation(esi_request, esi_request->operation_type, instance)){
+				cod_result->operation_result = OP_ERROR;
+			}
+		}
 
 		send_response_to_esi(socket, client, cod_result->operation_result);
+
 		break;
+
 	case STORE:
 		log_info(coordinador_log, "Handling STORE from ESI: %s. Key: %s.", client->instance_name, esi_request->key);
 
 		cod_result =  send_operation_to_planner(esi_request->key, planner, STORE);
 
-		// TODO: INSTANCE CASE - It depends on operation result.
+		if(!send_operation_to_instance(instance)){
+			cod_result->operation_result = OP_ERROR;
+		}else{
+
+			if(!send_store_operation(esi_request, esi_request->operation_type, instance)){
+				cod_result->operation_result = OP_ERROR;
+			}
+		}
 
 		send_response_to_esi(socket, client, cod_result->operation_result);
 
@@ -359,57 +378,253 @@ void handle_esi_request(t_operation_request* esi_request, t_connected_client* cl
 
 			cod_result = send_operation_to_planner(esi_request->key, planner, SET);
 
-			// TODO: INSTANCE CASE -  It depends on operation result.
-			// 		 Use - payload_for_intance  as value
+			if(!send_operation_to_instance(instance)){
+				cod_result->operation_result = OP_ERROR;
+			}else{
 
-
-			send_response_to_esi(socket, client, cod_result->operation_result);
+				if(!send_set_operation(esi_request, esi_request->operation_type, instance ,result )){
+					cod_result->operation_result = OP_ERROR;
+				}
+			}
 
 		}
 
+		send_response_to_esi(socket, client, cod_result->operation_result);
 		break;
 	}
 }
 
-void send_operation_instance(t_operation_request* esi_request, operation_type_e t){
+bool receive_value_from_instance(t_connected_client * instance , int payload_size){
+
+	char* buffer = malloc(payload_size);
+
+	if (recv(socket, buffer, payload_size, MSG_WAITALL) < payload_size) {
+
+		log_warning(coordinador_log, "Instance Disconnected: %s", instance->instance_name);
+		free(buffer);
+		remove_client(server, instance->socket_id);
+		return false;
+	}
+
+	// Doesn't matter the receive value
+	return true;
+}
+
+bool receive_response_from_instance(t_connected_client * instance ){
+
+	void* buffer = malloc(INSTANCE_RESPONSE_SIZE);
+
+	if (recv(socket, buffer, INSTANCE_RESPONSE_SIZE, MSG_WAITALL) < INSTANCE_RESPONSE_SIZE) {
+
+		log_warning(coordinador_log, "Instance Disconnected: %s", instance->instance_name);
+		free(buffer);
+		remove_client(server, instance->socket_id);
+		return false;
+	}
+
+	t_instance_response * response = deserialize_instance_response(buffer);
+
+	switch(response->status){
+	case INSTANCE_SUCCESS:
+		log_info(coordinador_log, "Receive status from Instance - SUCCESS");
+		free(response);
+		return true;
+		break;
+	case INSTANCE_ERROR:
+		log_error(coordinador_log, "Receive status from Instance - ERROR");
+		free(response);
+		return false;
+		break;
+	case INSTANCE_COMPACT:
+		//TODO
+		log_warning(coordinador_log, "Receive status from Instance - COMPACT");
+		log_info(coordinador_log , "NEED TO COMPACT - STARTING COMPACT ALGORITHIM");
+		free(response);
+		return true;
+		break;
+	}
+	return false;
+}
+
+bool send_operation_to_instance( t_connected_client * instance){
+
 	t_coordinator_operation_header header;
 	header.coordinator_operation_type = KEY_OPERATION;
 
 	void *init_value_instance_buffer = serialize_coordinator_operation_header(&header);
-		t_connected_client *instance = select_instancia();
-		if( send(instance->socket_reference, init_value_instance_buffer, COORDINATOR_OPERATION_HEADER_SIZE, 0) != COORDINATOR_OPERATION_HEADER_SIZE){
-			exit_program(EXIT_FAILURE);
-		}else{
-			send_set_operation(esi_request, t, instance);
-		}
+
+	if( send(instance->socket_reference, init_value_instance_buffer, COORDINATOR_OPERATION_HEADER_SIZE, 0) != COORDINATOR_OPERATION_HEADER_SIZE){
+
+		// Conection to instance fails. Must be removed and replanify all instances.
+		log_warning(coordinador_log , "It was an error trying to send OPERATION to an Instance. Aborting execution");
+		remove_client(server,instance->socket_id);
+
+		// Verify free
+		free(instance);
+		free(init_value_instance_buffer);
+		return false;
+
+	}
+
 	free(init_value_instance_buffer);
+
+	return true;
 }
 
-t_connected_client* select_instancia(){
-	instancia_actual=0;
+bool send_store_operation(t_operation_request* esi_request, operation_type_e operation_type, t_connected_client *instance){
+
+	t_operation_request *operation;
+	strcpy(operation->key, esi_request->key);
+	operation->operation_type = operation_type;
+
+	bool response_status = false;
+	bool value_instance = false;
+
+	void *buffer = serialize_operation_request(operation);
+
+	if(send(instance->socket_reference, buffer, OPERATION_REQUEST_SIZE, 0) != OPERATION_REQUEST_SIZE){
+
+		// Conection to instance fails. Must be removed and replanify all instances.
+		log_warning(coordinador_log , "It was an error trying to send SET OPERATION to an Instance. Aborting execution");
+		remove_client(server,instance->socket_id);
+
+		// Verify free
+		free(instance);
+		free(operation);
+		return false;
+	}else{
+
+		response_status = receive_response_from_instance(instance);
+
+	}
+	free(buffer);
+	free(operation);
+
+	// Must return value. Ignore in this case.
+	return response_status;
+
+}
+
+
+bool send_get_operation(t_operation_request* esi_request, operation_type_e operation_type, t_connected_client *instance){
+
+	t_operation_request *operation;
+	strcpy(operation->key, esi_request->key);
+	operation->operation_type = operation_type;
+
+	bool response_status = false;
+	bool value_instance = false;
+
+	void *buffer = serialize_operation_request(operation);
+
+	if(send(instance->socket_reference, buffer, OPERATION_REQUEST_SIZE, 0) != OPERATION_REQUEST_SIZE){
+
+		// Conection to instance fails. Must be removed and replanify all instances.
+		log_warning(coordinador_log , "It was an error trying to send GET OPERATION to an Instance. Aborting execution");
+		remove_client(server,instance->socket_id);
+
+		// Verify free
+		free(instance);
+		free(operation);
+		return false;
+	}else{
+
+		response_status = receive_response_from_instance(instance);
+		value_instance = receive_value_from_instance(instance , esi_request->payload_size);
+
+	}
+	free(buffer);
+	free(operation);
+
+	// Must return value. Ignore in this case.
+	return response_status;
+}
+
+bool send_set_operation(t_operation_request* esi_request, operation_type_e operation_type, t_connected_client *instance , char * payload_value){
+
+	t_operation_request *operation;
+	strcpy(operation->key, esi_request->key);
+	operation->operation_type = operation_type;
+	operation->payload_size = esi_request->payload_size;
+
+	bool response_status = false;
+
+	void *buffer = serialize_operation_request(operation);
+
+	if(send(instance->socket_reference, buffer, OPERATION_REQUEST_SIZE, 0) != OPERATION_REQUEST_SIZE){
+
+		// Conection to instance fails. Must be removed and replanify all instances.
+		log_warning(coordinador_log , "It was an error trying to send SET OPERATION to an Instance. Aborting execution");
+		remove_client(server,instance->socket_id);
+
+		// Verify free
+		free(instance);
+		free(operation);
+		return false;
+	}else{
+
+		int payload_size = strlen(payload_value);
+
+		if( send(instance->socket_reference, payload_value, payload_size, 0) != payload_size){
+			log_warning(coordinador_log , "It was an error trying to send value to an Instance. Aborting execution");
+			remove_client(server,instance->socket_id);
+
+			// Verify free
+			free(instance);
+			free(operation);
+			return false;
+		}
+
+		response_status = receive_response_from_instance(instance);
+
+	}
+	free(buffer);
+	free(operation);
+
+	// Must return value. Ignore in this case.
+	return response_status;
+}
+
+t_connected_client* select_intance_LSU(){
+	// TODO
+	return NULL;
+}
+
+t_connected_client* select_intance_EL(){
+	// TODO
+	return NULL ;
+}
+
+t_connected_client* select_intance_KE(){
+
 	if(instancia_actual != list_size(connected_instances) && instancia_actual != 0){
 		instancia_actual++;
 	}else{
 		instancia_actual=0;
 	}
+
 	return list_get(connected_instances, instancia_actual);
 }
 
-void send_set_operation(t_operation_request* esi_request, operation_type_e t, t_connected_client *instance){
-	t_operation_request *operacion;
-	strcpy(operacion->key, esi_request->key);
-	operacion->operation_type = t;
-	if(t == SET){
-		operacion->payload_size = esi_request->payload_size;
+t_connected_client* select_instancia(){
+
+	// MEJORAR COMO ESTA EN INSTANCIA
+	switch(coordinador_setup.ALGORITMO_DISTRIBUCION){
+	case LSU:
+		return select_intance_LSU();
+		break;
+	case EL:
+		return select_intance_EL();
+		break;
+	case KE:
+		return select_intance_KE();
+		break;
 	}
-		void *buffer = serialize_operation_request(operacion);
-		if(send(instance->socket_reference, buffer, OPERATION_REQUEST_SIZE, 0) != OPERATION_REQUEST_SIZE){
-			exit_program(EXIT_FAILURE);
-		}else{
-				printf("Se envio bien");
-		}
-		free(buffer);
+
+	return NULL;
+
 }
+
 
 void handle_esi_read(t_connected_client* client, int socket){
 	char* buffer = malloc(OPERATION_REQUEST_SIZE);
