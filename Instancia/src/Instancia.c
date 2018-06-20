@@ -314,11 +314,11 @@ void initialize_instance(){
 		break;
 	case LRU:
 		log_info(console_log, "Algoritmo de reemplazo: LRU");
-		replacement_fn = redis_replace_circular; // TODO CAMBIAR!
+		replacement_fn = redis_replace_lru;
 		break;
 	case BSU:
 		log_info(console_log, "Algoritmo de planificacion: BSU");
-		replacement_fn = redis_replace_circular; // TODO CAMBIAR!
+		replacement_fn = redis_replace_bsu;
 		break;
 	}
 

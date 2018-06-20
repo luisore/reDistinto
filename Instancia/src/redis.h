@@ -17,13 +17,13 @@ typedef struct {
 	int first_position;
 	FILE* mapped_file;
 	char* mapped_value;
+	unsigned long last_reference;
+	bool is_atomic;
 } t_entry_data;
 
 typedef struct {
 	bool used;
-	bool is_atomic;
 	char key[40]; // the key that occupies this position
-	int last_reference;
 } t_memory_position;
 
 typedef struct Redis {
@@ -56,6 +56,9 @@ typedef struct Redis {
 
 	t_log* log;
 	char* mount_dir;
+
+	// Incremental counter of operations. To use with replacement algorithms
+	unsigned long op_counter;
 } t_redis;
 
 t_redis* redis_init(int entry_size, int number_of_entries, t_log* log, const char* mount_dir,
@@ -89,6 +92,8 @@ bool redis_load_dump_files(t_redis* redis);
 
 // Algoritmos de reemplazo
 void redis_replace_circular(struct Redis* redis, unsigned int value_size);
+void redis_replace_lru(struct Redis* redis, unsigned int value_size);
+void redis_replace_bsu(struct Redis* redis, unsigned int value_size);
 
 void redis_entry_data_destroy(t_entry_data* entry_data);
 
@@ -101,5 +106,7 @@ void redis_remove_key(t_redis* redis, char* key, t_entry_data* entry_data, int u
 void redis_print_status(t_redis* redis);
 
 bool is_memory_mapped(t_entry_data* entry);
+
+void redis_update_last_reference(t_redis* redis, char* key);
 
 #endif /* SRC_REDIS_H_ */

@@ -42,7 +42,56 @@ void redis_replace_circular(struct Redis* redis, unsigned int value_size){
 		int pos = effective_position_for(redis, slot_cursor);
 
 		mem_pos = redis->occupied_memory_map[pos];
-		if(mem_pos->used && mem_pos->is_atomic){
+		entry_data = dictionary_get(redis->key_dictionary, mem_pos->key);
+		if(mem_pos->used && entry_data->is_atomic){
+			freed_memory ++;
+			redis_remove_key(redis, mem_pos->key, entry_data, 1); // 1 because it is atomic
+		}
+		slot_cursor++;
+	}
+}
+
+void redis_replace_lru(struct Redis* redis, unsigned int value_size){
+	// TODO: IMPLEMENTAR!
+	int slot_cursor = redis->current_slot;
+	unsigned int freed_memory = 0;
+
+	t_memory_position* mem_pos;
+	t_entry_data* entry_data;
+
+	int required_slots = slots_occupied_by(redis->entry_size, value_size);
+
+	while(redis->slots_available < required_slots &&  slot_cursor < redis->number_of_entries + redis->current_slot){
+		int pos = effective_position_for(redis, slot_cursor);
+
+		mem_pos = redis->occupied_memory_map[pos];
+		entry_data = dictionary_get(redis->key_dictionary, mem_pos->key);
+		if(mem_pos->used && entry_data->is_atomic){
+			entry_data = dictionary_get(redis->key_dictionary, mem_pos->key);
+
+			freed_memory ++;
+			redis_remove_key(redis, mem_pos->key, entry_data, 1); // 1 because it is atomic
+		}
+		slot_cursor++;
+	}
+}
+
+void redis_replace_bsu(struct Redis* redis, unsigned int value_size){
+	// TODO: IMPLEMENTAR
+	int slot_cursor = redis->current_slot;
+	unsigned int freed_memory = 0;
+
+	t_memory_position* mem_pos;
+	t_entry_data* entry_data;
+
+	int required_slots = slots_occupied_by(redis->entry_size, value_size);
+
+	while(redis->slots_available < required_slots &&  slot_cursor < redis->number_of_entries + redis->current_slot){
+		int pos = effective_position_for(redis, slot_cursor);
+
+		mem_pos = redis->occupied_memory_map[pos];
+		entry_data = dictionary_get(redis->key_dictionary, mem_pos->key);
+		if(mem_pos->used && entry_data->is_atomic){
 			entry_data = dictionary_get(redis->key_dictionary, mem_pos->key);
 
 			freed_memory ++;
@@ -76,9 +125,7 @@ void redis_destroy(t_redis* redis){
 
 t_memory_position* redis_create_empty_memory_position(){
 	t_memory_position* memory_pos = malloc(sizeof(t_memory_position));
-	memory_pos->is_atomic = true;
 	memory_pos->used = false;
-	memory_pos->last_reference = 0;
 	memory_pos->key[0] = '\0';
 
 	return memory_pos;
@@ -106,6 +153,8 @@ t_redis* redis_init(int entry_size, int number_of_entries, t_log* log, const cha
 
 	redis->slots_available = number_of_entries;
 
+	redis->op_counter = 0;
+
 	return redis;
 }
 
@@ -125,16 +174,32 @@ void redis_entry_data_destroy(t_entry_data* entry_data){
 	free(entry_data);
 }
 
+void redis_update_last_reference(t_redis* redis, char* key){
+	log_info(redis->log, "Updating last reference for key: %s to: %i", key, redis->op_counter);
+
+	t_entry_data* entry = dictionary_get(redis->key_dictionary, key);
+
+	if(entry != NULL){
+		entry->last_reference = redis->op_counter;
+	} else {
+		log_error(redis->log, "UNEXPECTED ERROR: Key: %s not present in dictionary when updating last reference.");
+	}
+}
+
 char* redis_get(t_redis* redis, char* key){
+	redis->op_counter++;
+
 	if(!dictionary_has_key(redis->key_dictionary, key)){
 		return NULL;
 	}
 
 	t_entry_data* entry_data = (t_entry_data*)dictionary_get(redis->key_dictionary, key);
+
+	redis_update_last_reference(redis, entry_data);
+
 	char* stored_value = malloc(entry_data->size);
 
 	int offset = redis->entry_size * entry_data->first_position;
-
 	log_debug(redis->log, "Key: %s is stored at: %i. Size: %i. Calculated offset: %i",
 			key, entry_data->first_position, entry_data->size, offset);
 
@@ -153,9 +218,7 @@ int slots_occupied_by(int entry_size, int value_size){
 
 void redis_free_slot(t_redis* redis, int slot_index){
 	t_memory_position* mem_pos = redis->occupied_memory_map[slot_index];
-	mem_pos->is_atomic = true;
 	mem_pos->key[0] = '\0';
-	mem_pos->last_reference = 0;
 	mem_pos->used = false;
 }
 
@@ -173,9 +236,8 @@ void set_in_same_place(t_redis* redis, t_entry_data* entry_data, char* key, char
 	}
 
 	// set atomic if necessary
-	if(needed_slots == 1){
-		redis->occupied_memory_map[entry_data->first_position]->is_atomic = true;
-	}
+	entry_data->is_atomic =  (needed_slots == 1);
+
 
 	// remap memory file if needed
 	if(is_memory_mapped(entry_data)){
@@ -255,16 +317,15 @@ void redis_set_in_position(t_redis* redis, char* key, char* value, unsigned int 
 	entry_data->size = value_size;
 	entry_data->mapped_file = NULL; // FD and mmapped file are created on STORE
 	entry_data->mapped_value = NULL;  // or at startup from an existing file.
+	entry_data->last_reference = redis->op_counter;
 
 	// mark the slots as used by this key
 	t_memory_position* mem_pos;
-	bool isAtomic = need_slots == 1;
+	entry_data->is_atomic = (need_slots == 1);
 
 	for(int pos = first_slot; pos < first_slot + need_slots; pos++){
 		mem_pos = redis->occupied_memory_map[pos];
-		mem_pos->is_atomic = isAtomic;
 		strcpy(mem_pos->key, key);
-		mem_pos->last_reference = 0; // TODO: FALTA SETEAR UNA VARIABLE CON EL NRO DE ITERACION
 		mem_pos->used = true;
 	}
 
@@ -285,7 +346,7 @@ void redis_set_in_position(t_redis* redis, char* key, char* value, unsigned int 
 	redis->slots_available -= need_slots;
 }
 
-bool redis_set(t_redis* redis, char* key, char* value, unsigned int value_size){
+bool redis_internal_set(t_redis* redis, char* key, char* value, unsigned int value_size){
 	int need_slots = slots_occupied_by(redis->entry_size, value_size);
 
 	// Check if key is already present
@@ -296,6 +357,7 @@ bool redis_set(t_redis* redis, char* key, char* value, unsigned int value_size){
 		if(need_slots <= used_slots){
 			// If the new value fits in the previously reserved slots, use those slots
 			set_in_same_place(redis, entry_data, key, value, value_size, need_slots, used_slots);
+			redis_update_last_reference(redis, entry_data);
 			return true;
 		} else{
 			// If it does not fit, remove the key, free the slots and check if it fits somewhere else.
@@ -304,7 +366,6 @@ bool redis_set(t_redis* redis, char* key, char* value, unsigned int value_size){
 	}
 
 	// At this point the key is either new or it was removed because the new value did not fit.
-
 	bool space_available = need_slots <= redis->slots_available;
 
 	// if there is no space available, then free some with the replacement algorithm
@@ -331,14 +392,24 @@ bool redis_set(t_redis* redis, char* key, char* value, unsigned int value_size){
 	return true;
 }
 
+bool redis_set(t_redis* redis, char* key, char* value, unsigned int value_size){
+	redis->op_counter++;
+	bool res = redis_internal_set(redis, key, value, value_size);
+	if(res){
+		redis_update_last_reference(redis, key);
+	}
+
+	return res;
+}
+
 void print_dict_key(char* key, void* val){
 	printf("'%s',", key);
 }
 
 void redis_print_status(t_redis* redis){
-	printf("\n================================================================================================\n");
+	printf("\n==========================================================================================================================\n");
 	printf("   INSTANCE STATUS\n");
-	printf("================================================================================================\n");
+	printf("==========================================================================================================================\n");
 	printf("  Entry size: %i. Max entries: %i, Storage size (bytes): %i.\n", redis->entry_size,
 			redis->number_of_entries, redis->storage_size);
 	printf("  Total entries: %i. Current slot: %i.\n", dictionary_size(redis->key_dictionary), redis->current_slot);
@@ -349,40 +420,41 @@ void redis_print_status(t_redis* redis){
 	printf("  Memory Map:\n\n");
 
 	/*
-	 * +-------------------------------------------------+------------------------------------------+
-	 * | Pos  | Key                                      |  Value                                   |
-	 * +-------------------------------------------------+------------------------------------------+
-	 * | 0001 | 1234567890123456789012345678901234567890 | 1234567890123456789012345678901234567890 |
-	 * | 0002 | FREE                                     |                                          |
-	 * +------+------------------------------------------+------------------------------------------+
+	 * +------+------------------------------------------+------------+------------+------------------------------------------+
+	 * | Pos  | Key                                      | Size (B)   | Last Ref.  | Value                                    |
+	 * +------+------------------------------------------+------------+------------+------------------------------------------+
+	 * | 0001 | 1234567890123456789012345678901234567890 | 4294967295 | 4294967295 | 1234567890123456789012345678901234567890 |
+	 * | 0002 | FREE                                     |            |            |                                          |
+	 * +------+------------------------------------------+------------+------------+------------------------------------------+
 	 */
 
-	printf("  +-------------------------------------------------+------------------------------------------+\n");
-	printf("  | Pos  | Key                                      | Value                                    |\n");
-	printf("  +-------------------------------------------------+------------------------------------------+\n");
+	printf("  +------+------------------------------------------+------------+------------+------------------------------------------+\n");
+	printf("  | Pos  | Key                                      | Size (B)   | Last Ref.  | Value                                    |\n");
+	printf("  +------+------------------------------------------+------------+------------+------------------------------------------+\n");
 
 	int offset;
 	int value_size_to_copy = redis->entry_size > 40 ? 40 : redis->entry_size;
 	char val_buffer[41];
 
 	t_memory_position* mem_pos;
-
+	t_entry_data* entry;
 	for(int i=0; i < redis->number_of_entries; i++){
 		mem_pos = redis->occupied_memory_map[i];
 
 		if(mem_pos->used){
+			entry = dictionary_get(redis->key_dictionary, mem_pos->key);
 			offset = redis->entry_size * i;
 		    memcpy(&val_buffer, redis->memory_region + offset, value_size_to_copy);
 		    val_buffer[value_size_to_copy] = '\0';
 
-			printf("  | %04d | %-40s | %-40s |\n", i, mem_pos->key, val_buffer);
+			printf("  | %04d | %-40s | %10d | %10d | %-40s |\n", i, mem_pos->key, entry->size, entry->last_reference, val_buffer);
 		} else {
-			printf("  | %04d | FREE                                     |                                          |\n", i);
+			printf("  | %04d | FREE                                     |            |            |                                          |\n", i);
 		}
 	}
 
-	printf("  +-------------------------------------------------+------------------------------------------+\n\n");
-	printf("================================================================================================\n");
+	printf("  +------+------------------------------------------+------------+------------+------------------------------------------+\n");
+	printf("==========================================================================================================================\n");
 }
 
 bool is_memory_mapped(t_entry_data* entry){
@@ -425,7 +497,7 @@ bool create_and_map_file_for_entry(t_redis* redis, t_entry_data* entry, char* ke
  *  1: The key was invalid.
  * -1: The operation failed with an unexpected error.
  */
-int redis_store(t_redis* redis, char* key){
+int redis_internal_store(t_redis* redis, char* key){
 	// Get the entry
 	t_entry_data* entry = dictionary_get(redis->key_dictionary, key);
 
@@ -456,6 +528,18 @@ int redis_store(t_redis* redis, char* key){
 	return 0;
 }
 
+int redis_store(t_redis* redis, char* key){
+	redis->op_counter++;
+
+	int res = redis_internal_store(redis, key);
+
+	if(res == 0){
+		redis_update_last_reference(redis, key);
+	}
+
+	return res;
+}
+
 /*
  * Relocates the key to the new_pos.
  * Returns the value of the first position empty after it was moved
@@ -476,9 +560,7 @@ int move_key_to_position(t_redis* redis, int current_pos, int new_pos, t_memory_
 		// set the memory position data
 		aux_pos = redis->occupied_memory_map[new_pos + i];
 		memcpy(aux_pos->key, mem_pos->key, 40);
-		aux_pos->is_atomic = mem_pos->is_atomic;
 		aux_pos->used = true;
-		aux_pos->last_reference = mem_pos->last_reference;
 
 		dest_offset += redis->entry_size;
 		from_offset += redis->entry_size;
@@ -490,9 +572,7 @@ int move_key_to_position(t_redis* redis, int current_pos, int new_pos, t_memory_
 	for(int i = 0; i < positions_freed; i++){
 		aux_pos = redis->occupied_memory_map[first_free_slot + i];
 		aux_pos->key[0] = '\0';
-		aux_pos->is_atomic = true;
 		aux_pos->used = false;
-		aux_pos->last_reference = 0;
 	}
 
 	entry->first_position = new_pos;
@@ -577,7 +657,7 @@ bool redis_set_from_file(t_redis* redis, char* filename){
 
 	log_info(redis->log, "Performing SET from Dump file: %s. key: %s, value: %s, size: %i",
 			file_path, filename, entry_data.mapped_value, entry_data.size);
-	if(!redis_set(redis, filename, entry_data.mapped_value, entry_data.size)){
+	if(!redis_internal_set(redis, filename, entry_data.mapped_value, entry_data.size)){
 		log_error(redis->log, "FATAL ERROR: Could not perform set from dump for key: %s.", filename);
 		return false;
 	}
@@ -624,7 +704,7 @@ bool redis_dump(t_redis* redis){
 	void dump_dict_key(char* key, void* val){
 		key_count++;
 		log_info(redis->log, "Dumping key: %s. %i of %i.", key, key_count, keys_stored);
-		result = result && (redis_store(redis, key) == 0);
+		result = result && (redis_internal_store(redis, key) == 0);
 	};
 
 	log_info(redis->log, "Dumping all keys. Keys stored: %i.", keys_stored);

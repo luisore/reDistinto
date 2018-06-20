@@ -84,16 +84,14 @@ void tear_down(){
 	redis_destroy(redis);
 }
 
-void assert_memory_position(t_memory_position* mem_pos, int last_ref, bool used, bool atomic, char* key){
+void assert_memory_position(t_memory_position* mem_pos, bool used, char* key){
 	CU_ASSERT_PTR_NOT_NULL_FATAL(mem_pos);
-	CU_ASSERT_EQUAL(mem_pos->last_reference, last_ref);
 	CU_ASSERT_EQUAL(mem_pos->used, used);
-	CU_ASSERT_EQUAL(mem_pos->is_atomic, atomic);
 	CU_ASSERT_STRING_EQUAL(mem_pos->key, key);
 }
 
 void assert_memory_position_empty(t_memory_position* mem_pos){
-	assert_memory_position(mem_pos, 0, false, true, "");
+	assert_memory_position(mem_pos, false, "");
 }
 
 void assert_key_in_position(int current_slot, int first_pos, int expected_keys, char* key,
@@ -105,7 +103,7 @@ void assert_key_in_position(int current_slot, int first_pos, int expected_keys, 
 
 	for(int i = 0; i < slots_occupied; i++){
 		t_memory_position* mem_pos = redis->occupied_memory_map[first_pos + i];
-		assert_memory_position(mem_pos, 0, true, slots_occupied == 1, key);
+		assert_memory_position(mem_pos, true, key);
 	}
 
 	CU_ASSERT_EQUAL(dictionary_size(redis->key_dictionary), expected_keys);
@@ -1136,6 +1134,8 @@ void test_load_from_dump_many_keys_occupy_all_space_should_set_keys(){
 	aux = redis_get(redis, key4);
 	CU_ASSERT_STRING_EQUAL(aux, value4);
 	free(aux);
+
+	redis_print_status(redis);
 }
 
 void test_load_from_dump_many_keys_not_enough_space_should_return_false(){
