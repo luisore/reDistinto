@@ -70,6 +70,7 @@ void loadConfig() {
 
 void liberar_memoria() {
 	if(connected_clients != NULL) list_destroy_and_destroy_elements(connected_clients, destroy_connected_client);
+	if(connected_instances != NULL) list_destroy_and_destroy_elements(connected_instances, destroy_connected_client);
 	if(server != NULL) tcpserver_destroy(server);
 	if(coordinador_setup.NOMBRE_INSTANCIA != NULL) free(coordinador_setup.NOMBRE_INSTANCIA);
 }
@@ -107,6 +108,8 @@ void create_tcp_server(){
 	pthread_mutex_lock(&mutex_all);
 
 	connected_clients = list_create();
+	connected_instances = list_create();
+	instancia_actual=0;
 
 	server = tcpserver_create(coordinador_setup.NOMBRE_INSTANCIA, coordinador_log,
 			coordinador_setup.CANTIDAD_MAXIMA_CLIENTES,
@@ -239,9 +242,10 @@ void on_server_accept(tcp_server_t* server, int client_socket, int socket_id){
 
 	list_add(connected_clients, (void*)connected_client);
 
-	// Add to intances list -> For algorithims
-	list_add(connected_instances, (void*)connected_client);
-	instancia_actual=0;
+	if(connection_header->instance_type == REDIS_INSTANCE){
+		// Add to intances list -> For algorithims
+		list_add(connected_instances, (void*)connected_client);
+	}
 
 }
 
@@ -398,7 +402,7 @@ bool receive_value_from_instance(t_connected_client * instance , int payload_siz
 
 	char* buffer = malloc(payload_size);
 
-	if (recv(socket, buffer, payload_size, MSG_WAITALL) < payload_size) {
+	if (recv(instance->socket_reference, buffer, payload_size, MSG_WAITALL) < payload_size) {
 
 		log_warning(coordinador_log, "Instance Disconnected: %s", instance->instance_name);
 		free(buffer);
@@ -414,7 +418,7 @@ bool receive_response_from_instance(t_connected_client * instance ){
 
 	void* buffer = malloc(INSTANCE_RESPONSE_SIZE);
 
-	if (recv(socket, buffer, INSTANCE_RESPONSE_SIZE, MSG_WAITALL) < INSTANCE_RESPONSE_SIZE) {
+	if (recv(instance->socket_reference, buffer, INSTANCE_RESPONSE_SIZE, MSG_WAITALL) < INSTANCE_RESPONSE_SIZE) {
 
 		log_warning(coordinador_log, "Instance Disconnected: %s", instance->instance_name);
 		free(buffer);
@@ -453,6 +457,8 @@ bool send_operation_to_instance( t_connected_client * instance){
 
 	void *init_value_instance_buffer = serialize_coordinator_operation_header(&header);
 
+	log_info(coordinador_log , "Attemting to send OPERATION to Instance");
+
 	if( send(instance->socket_reference, init_value_instance_buffer, COORDINATOR_OPERATION_HEADER_SIZE, 0) != COORDINATOR_OPERATION_HEADER_SIZE){
 
 		// Conection to instance fails. Must be removed and replanify all instances.
@@ -466,6 +472,8 @@ bool send_operation_to_instance( t_connected_client * instance){
 
 	}
 
+	log_info(coordinador_log , "Operation request sended succesful to Instance");
+
 	free(init_value_instance_buffer);
 
 	return true;
@@ -473,14 +481,16 @@ bool send_operation_to_instance( t_connected_client * instance){
 
 bool send_store_operation(t_operation_request* esi_request, operation_type_e operation_type, t_connected_client *instance){
 
-	t_operation_request *operation;
-	strcpy(operation->key, esi_request->key);
-	operation->operation_type = operation_type;
+	t_operation_request operation;
+	strcpy(operation.key, esi_request->key);
+	operation.operation_type = operation_type;
 
 	bool response_status = false;
 	bool value_instance = false;
 
-	void *buffer = serialize_operation_request(operation);
+	log_info(coordinador_log , "Attemting to send SET OPERATION to Instance");
+
+	void *buffer = serialize_operation_request(&operation);
 
 	if(send(instance->socket_reference, buffer, OPERATION_REQUEST_SIZE, 0) != OPERATION_REQUEST_SIZE){
 
@@ -490,7 +500,6 @@ bool send_store_operation(t_operation_request* esi_request, operation_type_e ope
 
 		// Verify free
 		free(instance);
-		free(operation);
 		return false;
 	}else{
 
@@ -498,7 +507,6 @@ bool send_store_operation(t_operation_request* esi_request, operation_type_e ope
 
 	}
 	free(buffer);
-	free(operation);
 
 	// Must return value. Ignore in this case.
 	return response_status;
@@ -508,14 +516,17 @@ bool send_store_operation(t_operation_request* esi_request, operation_type_e ope
 
 bool send_get_operation(t_operation_request* esi_request, operation_type_e operation_type, t_connected_client *instance){
 
-	t_operation_request *operation;
-	strcpy(operation->key, esi_request->key);
-	operation->operation_type = operation_type;
+	t_operation_request operation;
+	strcpy(operation.key, esi_request->key);
+	operation.operation_type = operation_type;
+	operation.payload_size = 0;
 
 	bool response_status = false;
 	bool value_instance = false;
 
-	void *buffer = serialize_operation_request(operation);
+	log_info(coordinador_log , "Attemting to send GET OPERATION to Instance");
+
+	void *buffer = serialize_operation_request(&operation);
 
 	if(send(instance->socket_reference, buffer, OPERATION_REQUEST_SIZE, 0) != OPERATION_REQUEST_SIZE){
 
@@ -525,16 +536,16 @@ bool send_get_operation(t_operation_request* esi_request, operation_type_e opera
 
 		// Verify free
 		free(instance);
-		free(operation);
 		return false;
 	}else{
 
 		response_status = receive_response_from_instance(instance);
+
+		if(response_status)
 		value_instance = receive_value_from_instance(instance , esi_request->payload_size);
 
 	}
 	free(buffer);
-	free(operation);
 
 	// Must return value. Ignore in this case.
 	return response_status;
@@ -548,6 +559,8 @@ bool send_set_operation(t_operation_request* esi_request, operation_type_e opera
 	operation->payload_size = esi_request->payload_size;
 
 	bool response_status = false;
+
+	log_info(coordinador_log , "Attemting to send STORE OPERATION to Instance");
 
 	void *buffer = serialize_operation_request(operation);
 

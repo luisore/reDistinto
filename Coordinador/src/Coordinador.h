@@ -41,16 +41,16 @@ pthread_mutex_t mutex_planner_console;
 pthread_mutex_t mutex_principal;
 pthread_mutex_t mutex_all;
 
-enum AlgortimoDistribucion {
+typedef enum {
 	LSU = 1, EL = 2, KE = 3
-};
+} dist_algo_e;
 
 struct {
 	char * NOMBRE_INSTANCIA;
 	int PUERTO_ESCUCHA_CONEXIONES;
 	int CANTIDAD_MAXIMA_CLIENTES;
 	int TAMANIO_COLA_CONEXIONES;
-	enum AlgortimoDistribucion ALGORITMO_DISTRIBUCION;
+	dist_algo_e ALGORITMO_DISTRIBUCION;
 	int CANTIDAD_ENTRADAS;
 	int TAMANIO_ENTRADA_BYTES;
 	int RETARDO_MS;
