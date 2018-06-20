@@ -2,8 +2,9 @@
 #include <commons/log.h>
 #include <stdio.h> //printf
 #include <commons/collections/list.h>
-#include "libs/tcpserver.h"
-#include "libs/protocols.h"
+#include <library/serialize.h>
+#include <library/tcpserver.h>
+#include <library/protocols.h>
 
 #ifndef SRC_COORDINADOR_H_
 #define SRC_COORDINADOR_H_
@@ -67,5 +68,7 @@ void send_response_to_esi(int esi_socket, t_connected_client* client, operation_
 void send_message_instance(t_connection_header *connection_header, int client_socket, int socket_id);
 void send_message_clients(t_connection_header *connection_header, int client_socket, int socket_id);
 t_connected_client* find_connected_client_by_type(instance_type_e instance_type);
+
+void* serialize_init_instancia_message(t_instance_init_values *init_values_message);
 
 #endif /* SRC_COORDINADOR_H_ */

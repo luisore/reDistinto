@@ -1,5 +1,4 @@
 #include "Coordinador.h"
-#include "libs/protocols.h"
 #include <stdlib.h>
 
 
@@ -470,7 +469,15 @@ void destroy_connected_client(t_connected_client* connected_client){
 	free(connected_client);
 }
 
+void* serialize_init_instancia_message(t_instance_init_values *init_values_message){
+	void* buffer = malloc(INSTANCE_INIT_VALUES_SIZE);
+	int lastIndex = 0;
 
+	serialize_data(&(init_values_message->entry_size), 4, &buffer, &lastIndex);
+	serialize_data(&(init_values_message->number_of_entries), 4, &buffer, &lastIndex);
+
+	return buffer;
+}
 
 int main(void) {
 

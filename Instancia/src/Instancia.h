@@ -6,8 +6,8 @@
 #include <commons/log.h>
 #include <commons/collections/dictionary.h>
 #include <commons/collections/list.h>
-#include "libs/protocols.h"
-#include "libs/serialize.h"
+#include <library/serialize.h>
+#include <library/protocols.h>
 #include <stdbool.h>
 #include "redis.h"
 

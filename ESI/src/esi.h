@@ -5,8 +5,8 @@
 #include <commons/config.h>
 #include <commons/log.h>
 #include <commons/collections/queue.h>
-#include "libs/serialize.h"
-#include "libs/protocols.h"
+#include <library/serialize.h>
+#include <library/protocols.h>
 
 #ifndef ESI_H_
 #define ESI_H_
