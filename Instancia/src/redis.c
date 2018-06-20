@@ -525,23 +525,26 @@ void redis_compact(t_redis* redis){
 }
 
 t_queue* redis_get_dump_dir_file_names(t_redis* redis){
-	t_queue* files_queue = queue_create();
-
 	DIR *d;
-	struct dirent *dir;
 	d = opendir(redis->mount_dir);
-	char* file;
-	if (d) {
-		while ((dir = readdir(d)) != NULL) {
-			if (dir->d_type == DT_REG){
-				file = malloc(strlen(dir->d_name)+1);
-				strcpy(file, dir->d_name);
-				queue_push(files_queue, file);
-			}
-		}
-		closedir(d);
+
+	if(!d){
+		log_error(redis->log, "Invalid dump directory: %s. Aborting execution.");
+		return NULL;
 	}
 
+	struct dirent *dir;
+	char* file;
+	t_queue* files_queue = queue_create();
+
+	while ((dir = readdir(d)) != NULL) {
+		if (dir->d_type == DT_REG){
+			file = malloc(strlen(dir->d_name)+1);
+			strcpy(file, dir->d_name);
+			queue_push(files_queue, file);
+		}
+	}
+	closedir(d);
 	return files_queue;
 }
 
@@ -553,10 +556,18 @@ bool redis_set_from_file(t_redis* redis, char* filename){
 	log_info(redis->log, "Loading file from dump dir: %s", file_path);
 
 	struct stat st;
-	stat(filename, &st);
+	stat(file_path, &st);
 
 	t_entry_data entry_data;
 	entry_data.size = st.st_size;
+
+	int slots_needed = slots_occupied_by(redis->entry_size, entry_data.size);
+
+	if(slots_needed > redis->slots_available){
+		log_error(redis->log, "Attempting to set value of size: %i greater than available space: %i. Aborting execution.",
+				entry_data.size, redis->slots_available);
+		return false;
+	}
 
 	// filename is the key of the entry
 	log_info(redis->log, "Memory mapping dump file: %s", file_path);
@@ -583,13 +594,15 @@ bool redis_set_from_file(t_redis* redis, char* filename){
 bool redis_load_dump_files(t_redis* redis){
 	t_queue* dump_filenames = redis_get_dump_dir_file_names(redis);
 
+	if(dump_filenames == NULL) return false;
+
 	char* filename;
 
 	while(!queue_is_empty(dump_filenames)){
 		filename = queue_pop(dump_filenames);
 
 		if(!redis_set_from_file(redis, filename)){
-			log_error(redis->log, "FATAL ERROR: Could not load value from file: %s. Aborting execution");
+			log_error(redis->log, "FATAL ERROR: Could not load value from file: %s. Aborting execution", filename);
 			free(filename);
 			queue_destroy_and_destroy_elements(dump_filenames, free);
 			return false;

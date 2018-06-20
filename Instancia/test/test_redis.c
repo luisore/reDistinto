@@ -957,6 +957,214 @@ void test_add_and_compact_non_atomic_should_compact(){
 	redis_print_status(redis);
 }
 
+
+void test_load_from_dump_no_files_should_remain_empty(){
+	bool res = redis_load_dump_files(redis);
+
+	CU_ASSERT_TRUE(res);
+
+	t_memory_position* mem_pos;
+	for(int i =0; i < NUMBER_OF_ENTRIES; i++){
+		mem_pos = redis->occupied_memory_map[i];
+		assert_memory_position_empty(mem_pos);
+	}
+}
+
+void test_load_from_dump_dir_not_exist_should_return_false_and_remain_empty(){
+	char* mount_dir = "/dir/not/exists";
+	free(redis->mount_dir);
+	redis->mount_dir = string_duplicate(mount_dir);
+
+	bool res = redis_load_dump_files(redis);
+
+	CU_ASSERT_FALSE(res);
+
+	t_memory_position* mem_pos;
+	for(int i =0; i < NUMBER_OF_ENTRIES; i++){
+		mem_pos = redis->occupied_memory_map[i];
+		assert_memory_position_empty(mem_pos);
+	}
+}
+
+void create_dump_file(char* key, char* value, unsigned int value_size){
+	char* file_path = malloc(strlen(redis->mount_dir) + strlen(key) + 1);
+	strcpy(file_path, redis->mount_dir);
+	strcat(file_path, key);
+
+	FILE* file = fopen(file_path, "wb");
+
+	fwrite(value, 1, value_size, file);
+
+	fclose(file);
+
+	free(file_path);
+}
+
+void test_load_from_dump_one_key_atomic_should_set_key(){
+	char* key = "ONEKEY";
+	char* value = "VAL";
+	unsigned int value_size = strlen(value)+1;
+
+	create_dump_file(key, value, value_size);
+
+	bool res = redis_load_dump_files(redis);
+
+	CU_ASSERT_TRUE_FATAL(res);
+
+	assert_key_in_position(1, 0, 1, key, value, value_size);
+
+	t_memory_position* mem_pos;
+	for(int i =1; i < NUMBER_OF_ENTRIES; i++){
+		mem_pos = redis->occupied_memory_map[i];
+		assert_memory_position_empty(mem_pos);
+	}
+}
+
+void test_load_from_dump_one_key_not_atomic_should_set_key(){
+	char* key = "ONEKEY";
+	char* value = "ABIGVALUEHERE";
+	unsigned int value_size = strlen(value)+1;
+
+	create_dump_file(key, value, value_size);
+
+	bool res = redis_load_dump_files(redis);
+
+	CU_ASSERT_TRUE_FATAL(res);
+
+	assert_key_in_position(4, 0, 1, key, value, value_size);
+
+	t_memory_position* mem_pos;
+	for(int i =4; i < NUMBER_OF_ENTRIES; i++){
+		mem_pos = redis->occupied_memory_map[i];
+		assert_memory_position_empty(mem_pos);
+	}
+}
+
+void test_load_from_dump_many_keys_with_space_available_should_set_all_keys(){
+	char* key1 = "ONEKEY";
+	char* value1 = "ABIGVALUEHERE"; //4 slots
+	unsigned int value_size1 = strlen(value1)+1;
+	create_dump_file(key1, value1, value_size1);
+
+	char* key2 = "OTHERKEY";
+	char* value2 = "ATO"; //1 slot
+	unsigned int value_size2 = strlen(value2)+1;
+	create_dump_file(key2, value2, value_size2);
+
+	char* key3 = "KEY3";
+	char* value3 = "DOSSLOT"; //2 slots
+	unsigned int value_size3 = strlen(value3)+1;
+	create_dump_file(key3, value3, value_size3);
+
+	char* key4 = "CLAVE4";
+	char* value4 = "ABC"; //1 slot
+	unsigned int value_size4 = strlen(value4)+1;
+	create_dump_file(key4, value4, value_size4);
+
+	bool res = redis_load_dump_files(redis);
+
+	CU_ASSERT_TRUE_FATAL(res);
+
+	CU_ASSERT_EQUAL_FATAL(redis->current_slot, 8);
+	CU_ASSERT_EQUAL_FATAL(redis->slots_available, 2);
+	CU_ASSERT_EQUAL_FATAL(dictionary_size(redis->key_dictionary), 4);
+
+	// contains all keys
+	char* aux = redis_get(redis, key1);
+	CU_ASSERT_STRING_EQUAL(aux, value1);
+	free(aux);
+
+	aux = redis_get(redis, key2);
+	CU_ASSERT_STRING_EQUAL(aux, value2);
+	free(aux);
+
+	aux = redis_get(redis, key3);
+	CU_ASSERT_STRING_EQUAL(aux, value3);
+	free(aux);
+
+	aux = redis_get(redis, key4);
+	CU_ASSERT_STRING_EQUAL(aux, value4);
+	free(aux);
+
+	// empty positions are at the end
+	assert_memory_position_empty(redis->occupied_memory_map[8]);
+	assert_memory_position_empty(redis->occupied_memory_map[9]);
+}
+
+void test_load_from_dump_many_keys_occupy_all_space_should_set_keys(){
+	char* key1 = "ONEKEY";
+	char* value1 = "ABIGVALUEHERE"; //4 slots
+	unsigned int value_size1 = strlen(value1)+1;
+	create_dump_file(key1, value1, value_size1);
+
+	char* key2 = "OTHERKEY";
+	char* value2 = "ATO"; //1 slot
+	unsigned int value_size2 = strlen(value2)+1;
+	create_dump_file(key2, value2, value_size2);
+
+	char* key3 = "KEY3";
+	char* value3 = "DOSSLOT"; //2 slots
+	unsigned int value_size3 = strlen(value3)+1;
+	create_dump_file(key3, value3, value_size3);
+
+	char* key4 = "CLAVE4";
+	char* value4 = "ABCDEFGHIJ"; //3 slots
+	unsigned int value_size4 = strlen(value4)+1;
+	create_dump_file(key4, value4, value_size4);
+
+	bool res = redis_load_dump_files(redis);
+
+	CU_ASSERT_TRUE_FATAL(res);
+
+	CU_ASSERT_EQUAL_FATAL(redis->current_slot, 0);
+	CU_ASSERT_EQUAL_FATAL(redis->slots_available, 0);
+	CU_ASSERT_EQUAL_FATAL(dictionary_size(redis->key_dictionary), 4);
+
+	// contains all keys
+	char* aux = redis_get(redis, key1);
+	CU_ASSERT_STRING_EQUAL(aux, value1);
+	free(aux);
+
+	aux = redis_get(redis, key2);
+	CU_ASSERT_STRING_EQUAL(aux, value2);
+	free(aux);
+
+	aux = redis_get(redis, key3);
+	CU_ASSERT_STRING_EQUAL(aux, value3);
+	free(aux);
+
+	aux = redis_get(redis, key4);
+	CU_ASSERT_STRING_EQUAL(aux, value4);
+	free(aux);
+}
+
+void test_load_from_dump_many_keys_not_enough_space_should_return_false(){
+	char* key1 = "ONEKEY";
+	char* value1 = "ABIGVALUEHERE"; //4 slots
+	unsigned int value_size1 = strlen(value1)+1;
+	create_dump_file(key1, value1, value_size1);
+
+	char* key2 = "OTHERKEY";
+	char* value2 = "ATO"; //1 slot
+	unsigned int value_size2 = strlen(value2)+1;
+	create_dump_file(key2, value2, value_size2);
+
+	char* key3 = "KEY3";
+	char* value3 = "TRESSLOTS"; //3 slots
+	unsigned int value_size3 = strlen(value3)+1;
+	create_dump_file(key3, value3, value_size3);
+
+	char* key4 = "CLAVE4";
+	char* value4 = "ABCDEFGHIJKLMNO"; // 4 slots
+	unsigned int value_size4 = strlen(value4)+1;
+	create_dump_file(key4, value4, value_size4);
+
+	bool res = redis_load_dump_files(redis);
+
+	CU_ASSERT_FALSE_FATAL(res);
+}
+
+
 void add_tests() {
 	CU_pSuite redis_test = CU_add_suite_with_setup_and_teardown("Redis", init_suite, clean_suite, setup, tear_down);
 	CU_add_test(redis_test, "test_init_should_create_correctly", test_init_should_create_correctly);
@@ -982,6 +1190,13 @@ void add_tests() {
 	CU_add_test(redis_test, "test_set_and_store_should_save_file", test_set_and_store_should_save_file);
 	CU_add_test(redis_test, "test_add_and_compact_all_atomic_should_compact", test_add_and_compact_all_atomic_should_compact);
 	CU_add_test(redis_test, "test_add_and_compact_non_atomic_should_compact", test_add_and_compact_non_atomic_should_compact);
+	CU_add_test(redis_test, "test_load_from_dump_no_files_should_remain_empty", test_load_from_dump_no_files_should_remain_empty);
+	CU_add_test(redis_test, "test_load_from_dump_dir_not_exist_should_return_false_and_remain_empty", test_load_from_dump_dir_not_exist_should_return_false_and_remain_empty);
+	CU_add_test(redis_test, "test_load_from_dump_one_key_atomic_should_set_key", test_load_from_dump_one_key_atomic_should_set_key);
+	CU_add_test(redis_test, "test_load_from_dump_one_key_not_atomic_should_set_key", test_load_from_dump_one_key_not_atomic_should_set_key);
+	CU_add_test(redis_test, "test_load_from_dump_many_keys_occupy_all_space_should_set_keys", test_load_from_dump_many_keys_occupy_all_space_should_set_keys);
+	CU_add_test(redis_test, "test_load_from_dump_many_keys_with_space_available_should_set_all_keys", test_load_from_dump_many_keys_with_space_available_should_set_all_keys);
+	CU_add_test(redis_test, "test_load_from_dump_many_keys_not_enough_space_should_return_false", test_load_from_dump_many_keys_not_enough_space_should_return_false);
 }
 
 
