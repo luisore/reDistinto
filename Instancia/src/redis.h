@@ -9,19 +9,27 @@
 #define SRC_REDIS_H_
 
 #include <commons/collections/dictionary.h>
+#include <commons/collections/list.h>
 #include <commons/log.h>
 #include <stdbool.h>
+
+typedef enum {
+	CIRC = 1, LRU = 2, BSU = 3
+} replacement_algo_e;
 
 typedef struct {
 	unsigned int size;
 	int first_position;
+	FILE* mapped_file;
+	char* mapped_value;
+	unsigned long last_reference;
+	bool is_atomic;
+	struct Redis* redis; // a reference to the redis instance
 } t_entry_data;
 
 typedef struct {
 	bool used;
-	bool is_atomic;
 	char key[40]; // the key that occupies this position
-	int last_reference;
 } t_memory_position;
 
 typedef struct Redis {
@@ -36,32 +44,46 @@ typedef struct Redis {
 	// value: t_entry_data
 	t_dictionary* key_dictionary;
 
+	// list of atomic keys
+	t_list* atomic_entries;
+
 	// Configuracion recibida del Coordinador
 	int storage_size;
 	int entry_size;
 	int number_of_entries;
 
 	/*
-	 * Algoritmo actual de reemplazo de claves
-	 * Recorre la memoria y libera el espacio para colocar la clave del
-	 * tamanio suministrado.
-	 * Retorna la primera posicion donde ubicar el nuevo valor
+	 * Comparador de t_entry_data.
+	 * Asignado segun el algoritmo de reemplazo
 	 */
-	int (*perform_replacement_and_return_first_position)(struct Redis*, unsigned int);
+	bool (*entry_data_comparator)(void*, void*);
+
 	int current_slot;
+
+	// stores the amount of free slots available at any given moment.
+	unsigned int slots_available;
 
 	t_log* log;
 	char* mount_dir;
+
+	// Incremental counter of operations. To use with replacement algorithms
+	unsigned long op_counter;
 } t_redis;
 
-t_redis* redis_init(int entry_size, int number_of_entries, t_log* log, const char* mount_dir,
-		int (*perform_replacement_and_return_first_position)(struct Redis*, unsigned int));
+t_redis* redis_init(int entry_size, int number_of_entries, t_log* log,
+		const char* mount_dir, replacement_algo_e replacement_algo);
 
 
 // NOTE: redis_destroy will not free the log. If you created a specific log for redis,
 // you should free it yourself.
 void redis_destroy(t_redis* redis);
 
+/*
+ * PRE: Por aclaracion del enunciado, asumimos que el valor provisto siempre entrara
+ * en memoria, ya sea inmediatamente o luego de una compactacion. Si se proporciona
+ * un valor que no entre en memoria, el resultado es indefinido y el sistema podria
+ * no funcionar correctamente.
+ */
 bool redis_set(t_redis* redis, char* key, char* value, unsigned int value_size);
 char* redis_get(t_redis* redis, char* key);
 
@@ -74,11 +96,15 @@ char* redis_get(t_redis* redis, char* key);
  */
 int redis_store(t_redis* redis, char* key);
 void redis_compact(t_redis* redis);
-void redis_dump(t_redis* redis);
-void redis_load_dump_files(t_redis* redis);
+bool redis_dump(t_redis* redis);
+bool redis_load_dump_files(t_redis* redis);
 
-// Algoritmos de reemplazo
-int redis_replace_circular(struct Redis* redis, unsigned int value_size);
+void redis_replace_necessary_positions(struct Redis* redis, unsigned int value_size);
+
+// Ordering of the entry_data. Defines the replacement algorithm.
+bool redis_entry_data_comparator_circular(void* entry1, void* entry2);
+bool redis_entry_data_comparator_lru(void* entry1, void* entry2);
+bool redis_entry_data_comparator_bsu(void* entry1, void* entry2);
 
 void redis_entry_data_destroy(t_entry_data* entry_data);
 
@@ -88,5 +114,10 @@ int slots_occupied_by(int entry_size, int value_size);
 
 void redis_remove_key(t_redis* redis, char* key, t_entry_data* entry_data, int used_slots);
 
+void redis_print_status(t_redis* redis);
+
+bool is_memory_mapped(t_entry_data* entry);
+
+void redis_update_last_reference(t_redis* redis, char* key);
 
 #endif /* SRC_REDIS_H_ */

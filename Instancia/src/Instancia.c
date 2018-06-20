@@ -1,6 +1,7 @@
 #include "Instancia.h"
 #include "redis.h"
 #include <unistd.h> // Para close
+#include <commons/string.h>
 
 void print_header() {
 	printf("\n\t\e[31;1m=========================================\e[0m\n");
@@ -305,24 +306,8 @@ void compact() {
 }
 
 void initialize_instance(){
-	int (*replacement_fn)(struct Redis*, unsigned int);
-	switch (instance_setup.ALGORITMO_REEMPLAZO) {
-	case CIRC:
-		log_info(console_log, "Algoritmo de reemplazo: CIRC");
-		replacement_fn = redis_replace_circular;
-		break;
-	case LRU:
-		log_info(console_log, "Algoritmo de reemplazo: LRU");
-		replacement_fn = redis_replace_circular; // TODO CAMBIAR!
-		break;
-	case BSU:
-		log_info(console_log, "Algoritmo de planificacion: BSU");
-		replacement_fn = redis_replace_circular; // TODO CAMBIAR!
-		break;
-	}
-
 	redis = redis_init(entry_size, number_of_entries, console_log,
-			instance_setup.PUNTO_MONTAJE, replacement_fn);
+			instance_setup.PUNTO_MONTAJE, instance_setup.ALGORITMO_REEMPLAZO);
 }
 
 int main(int argc, char **argv) {

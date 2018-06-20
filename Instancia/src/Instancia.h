@@ -23,9 +23,6 @@ int coordinator_socket;
 #define INSTANCE_CFG_FILE "instancia.config"
 
 /*ESTRUCTURAS*/
-typedef enum {
-	CIRC = 1, LRU = 2, BSU = 3
-} replacement_algo_e;
 
 typedef struct {
 	operation_type_e operation_type;
