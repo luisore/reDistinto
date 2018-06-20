@@ -195,7 +195,7 @@ char* redis_get(t_redis* redis, char* key){
 
 	t_entry_data* entry_data = (t_entry_data*)dictionary_get(redis->key_dictionary, key);
 
-	redis_update_last_reference(redis, entry_data);
+	redis_update_last_reference(redis, key);
 
 	char* stored_value = malloc(entry_data->size);
 
@@ -357,7 +357,6 @@ bool redis_internal_set(t_redis* redis, char* key, char* value, unsigned int val
 		if(need_slots <= used_slots){
 			// If the new value fits in the previously reserved slots, use those slots
 			set_in_same_place(redis, entry_data, key, value, value_size, need_slots, used_slots);
-			redis_update_last_reference(redis, entry_data);
 			return true;
 		} else{
 			// If it does not fit, remove the key, free the slots and check if it fits somewhere else.
