@@ -899,9 +899,6 @@ void test_add_and_compact_all_atomic_should_compact(){
 
 	CU_ASSERT_EQUAL(redis->slots_available, 2);
 
-	printf("STATUS BEFORE COMPACT: \n");
-	redis_print_status(redis);
-
 	redis_compact(redis);
 
 	// number of keys should be the same
@@ -913,9 +910,6 @@ void test_add_and_compact_all_atomic_should_compact(){
 
 	assert_memory_position_empty(redis->occupied_memory_map[8]);
 	assert_memory_position_empty(redis->occupied_memory_map[9]);
-
-	printf("STATUS AFTER COMPACT: \n");
-	redis_print_status(redis);
 }
 
 void test_add_and_compact_non_atomic_should_compact(){
@@ -942,17 +936,11 @@ void test_add_and_compact_non_atomic_should_compact(){
 	redis_set(redis, key1, value1_2, size_1_2);
 	redis_set(redis, key2, value2_2, size_2_2);
 
-	printf("Status before compact:\n");
-	redis_print_status(redis);
-
 	redis_compact(redis);
 
 	assert_key_in_position(5, 0, 3, key1, value1_2, size_1_2);
 	assert_key_in_position(5, 2, 3, key2, value2_2, size_2_2);
 	assert_key_in_position(5, 3, 3, key3, value3, size_3);
-
-	printf("Status after compact:\n");
-	redis_print_status(redis);
 }
 
 
@@ -1134,8 +1122,6 @@ void test_load_from_dump_many_keys_occupy_all_space_should_set_keys(){
 	aux = redis_get(redis, key4);
 	CU_ASSERT_STRING_EQUAL(aux, value4);
 	free(aux);
-
-	redis_print_status(redis);
 }
 
 void test_load_from_dump_many_keys_not_enough_space_should_return_false(){
@@ -1226,16 +1212,12 @@ void test_add_atomic_to_redis_full_of_atomic_keys_replace_bsu_should_replace_fir
 		assert_key_in_position(0, i, 10, keys[i], vals[i], sizes[i]);
 	}
 
-	redis_print_status(redis);
-
 	char* new_key = "NEW";
 	char* new_val = "NVL";
 	int new_val_size = 4;
 
 	res = redis_set(redis, new_key, new_val, new_val_size);
 	CU_ASSERT_TRUE(res);
-
-	redis_print_status(redis);
 
 	assert_key_in_position(3, 0, 10, keys[0], vals[0], sizes[0]);
 	assert_key_in_position(3, 1, 10, keys[1], vals[1], sizes[1]);
@@ -1245,11 +1227,12 @@ void test_add_atomic_to_redis_full_of_atomic_keys_replace_bsu_should_replace_fir
 	for(int i=3; i<10; i++){
 		assert_key_in_position(3, i, 10, keys[i], vals[i], sizes[i]);
 	}
-
-	redis_print_status(redis);
 }
 
-void test_add_non_atomic_to_redis_full_of_atomic_keys_replace_bsu_should_replace_first_keys(){
+void test_add_non_atomic_to_redis_full_of_atomic_keys_replace_bsu_should_replace_first_bigger_keys_and_set_in_contiguous_space(){
+	redis_destroy(redis);
+	redis = redis_init(ENTRY_SIZE, NUMBER_OF_ENTRIES, test_log, MOUNT_DIR, BSU);
+
 	char* keys[10] = {"KEY1", "KEY2", "KEY3", "KEY4", "KEY5", "KEY6", "KEY7", "KEY8", "KEY9", "KEY10"};
 	char* vals[10] = {  "V" ,  "VA" ,  "VA3", "VA4" , "VA5" , "VA6" , "VA7" ,  "8"  , "VA9" ,  "10"  };
 	int  sizes[10] = {   2  ,   3   ,    4  ,   4   ,   4   ,   4   ,   4   ,   2   ,   4   ,   3    };
@@ -1271,50 +1254,105 @@ void test_add_non_atomic_to_redis_full_of_atomic_keys_replace_bsu_should_replace
 	res = redis_set(redis, new_key, new_val, new_val_size);
 	CU_ASSERT_TRUE(res);
 
-	assert_key_in_position(3, 0, 8, new_key, new_val, new_val_size);
+	assert_key_in_position(5, 0, 8, keys[0], vals[0], sizes[0]);
+	assert_key_in_position(5, 1, 8, keys[1], vals[1], sizes[1]);
 
-	for(int i=3; i<10; i++){
-		assert_key_in_position(3, i, 8, keys[i], vals[i], sizes[i]);
+	assert_key_in_position(5, 2, 8, new_key, new_val, new_val_size);
+
+	for(int i=5; i<10; i++){
+		assert_key_in_position(5, i, 8, keys[i], vals[i], sizes[i]);
 	}
 }
 
-void test_add_non_atomic_to_redis_full_first_key_not_atomic_replace_bsu_should_replace_first_atomic_keys(){
+void test_add_non_atomic_to_redis_full_of_atomic_keys_replace_bsu_should_replace_first_bigger_keys_not_contiguous_signal_compaction(){
+	redis_destroy(redis);
+	redis = redis_init(ENTRY_SIZE, NUMBER_OF_ENTRIES, test_log, MOUNT_DIR, BSU);
+
 	char* keys[10] = {"KEY1", "KEY2", "KEY3", "KEY4", "KEY5", "KEY6", "KEY7", "KEY8", "KEY9", "KEY10"};
-	char* vals[10] = {  "V" ,  "VA" ,  "VA3", "VA4" , "VA5" , "VA6" , "VA7" ,  "8"  , "VA9" ,  "10"  };
-	int  sizes[10] = {   2  ,   3   ,    4  ,   4   ,   4   ,   4   ,   4   ,   2   ,   4   ,   3    };
+	char* vals[10] = {  "V" ,  "VA" ,  "VA3", "4" , "V5" , "VA6" , "VA7" ,  "8"  , "VA9" ,  "10"  };
+	int  sizes[10] = {   2  ,   3   ,    4  ,   2   ,   3   ,   4   ,   4   ,   2   ,   4   ,   3    };
 
 	bool res;
-
-	char* first_key = "FST";
-	char* first_val = "FIRSTVL";
-	int first_size = 8;
-	res = redis_set(redis, first_key, first_val, first_size);
-	CU_ASSERT_TRUE(res);
-
-	for(int i=2; i<10; i++){
+	for(int i=0; i<10; i++){
 		res = redis_set(redis, keys[i], vals[i], sizes[i]);
 		CU_ASSERT_TRUE(res);
 	}
 
-
-	assert_key_in_position(0, 0, 9, first_key, first_val, first_size);
-
-	for(int i=2; i<10; i++){
-		assert_key_in_position(0, i, 9, keys[i], vals[i], sizes[i]);
+	for(int i=0; i<10; i++){
+		assert_key_in_position(0, i, 10, keys[i], vals[i], sizes[i]);
 	}
 
 	char* new_key = "NEW";
-	char* new_val = "NEWVAL";
-	int new_val_size = 7;
+	char* new_val = "NEWVALUE";
+	int new_val_size = 9;
 
 	res = redis_set(redis, new_key, new_val, new_val_size);
-	CU_ASSERT_TRUE(res);
+	CU_ASSERT_FALSE(res); // false signals compaction
 
-	assert_key_in_position(4, 2, 8, new_key, new_val, new_val_size);
+	assert_key_in_position(0, 0, 7, keys[0], vals[0], sizes[0]);
+	assert_key_in_position(0, 1, 7, keys[1], vals[1], sizes[1]);
 
-	for(int i=4; i<10; i++){
-		assert_key_in_position(4, i, 8, keys[i], vals[i], sizes[i]);
+	assert_memory_position_empty(redis->occupied_memory_map[2]);
+
+	assert_key_in_position(0, 3, 7, keys[3], vals[3], sizes[3]);
+	assert_key_in_position(0, 4, 7, keys[4], vals[4], sizes[4]);
+
+	assert_memory_position_empty(redis->occupied_memory_map[5]);
+	assert_memory_position_empty(redis->occupied_memory_map[6]);
+
+	for(int i=7; i<10; i++){
+		assert_key_in_position(0, i, 7, keys[i], vals[i], sizes[i]);
 	}
+}
+
+
+void test_add_atomic_to_redis_full_biggest_key_not_atomic_replace_bsu_should_replace_bigger_atomic_key(){
+	redis_destroy(redis);
+	redis = redis_init(ENTRY_SIZE, NUMBER_OF_ENTRIES, test_log, MOUNT_DIR, BSU);
+
+	char* key1 = "KEY1";
+	char* val1 = "FOURSLOTS12345"; // 4 slots
+	unsigned int size1 = strlen(val1) + 1;
+	bool res = redis_set(redis, key1, val1, size1);
+	CU_ASSERT_TRUE_FATAL(res);
+
+	char* key2 = "KEY2";
+	char* val2 = "A"; // 1 slot
+	unsigned int size2 = strlen(val2) + 1;
+	res = redis_set(redis, key2, val2, size2);
+	CU_ASSERT_TRUE_FATAL(res);
+
+	char* key3 = "KEY3";
+	char* val3 = "THREESLOTS"; // 3 slots
+	unsigned int size3 = strlen(val3) + 1;
+	res = redis_set(redis, key3, val3, size3);
+	CU_ASSERT_TRUE_FATAL(res);
+
+	char* key4 = "KEY4";
+	char* val4 = "V4"; // 1 slot
+	unsigned int size4 = strlen(val4) + 1;
+	res = redis_set(redis, key4, val4, size4);
+	CU_ASSERT_TRUE_FATAL(res);
+
+	char* key5 = "KEY5";
+	char* val5 = "BIG"; // 1 slot
+	unsigned int size5 = strlen(val5) + 1;
+	res = redis_set(redis, key5, val5, size5);
+	CU_ASSERT_TRUE_FATAL(res);
+
+
+	char* new_key = "NEW_KEY";
+	char* new_val = "NEW"; // 1 slot
+	unsigned int new_size = strlen(new_val) + 1;
+
+	res = redis_set(redis, new_key, new_val, new_size);
+	CU_ASSERT_TRUE_FATAL(res);
+
+	assert_key_in_position(0, 0, 5, key1, val1, size1);
+	assert_key_in_position(0, 4, 5, key2, val2, size2);
+	assert_key_in_position(0, 5, 5, key3, val3, size3);
+	assert_key_in_position(0, 8, 5, key4, val4, size4);
+	assert_key_in_position(0, 9, 5, new_key, new_val, new_size);
 }
 
 
@@ -1355,6 +1393,9 @@ void add_tests() {
 	CU_add_test(redis_test, "test_dump_one_key_should_store_that_key", test_dump_one_key_should_store_that_key);
 
 	CU_add_test(redis_test, "test_add_atomic_to_redis_full_of_atomic_keys_replace_bsu_should_replace_first_bigger_key", test_add_atomic_to_redis_full_of_atomic_keys_replace_bsu_should_replace_first_bigger_key);
+	CU_add_test(redis_test, "test_add_non_atomic_to_redis_full_of_atomic_keys_replace_bsu_should_replace_first_bigger_keys_and_set_in_contiguous_space", test_add_non_atomic_to_redis_full_of_atomic_keys_replace_bsu_should_replace_first_bigger_keys_and_set_in_contiguous_space);
+	CU_add_test(redis_test, "test_add_non_atomic_to_redis_full_of_atomic_keys_replace_bsu_should_replace_first_bigger_keys_not_contiguous_signal_compaction", test_add_non_atomic_to_redis_full_of_atomic_keys_replace_bsu_should_replace_first_bigger_keys_not_contiguous_signal_compaction);
+	CU_add_test(redis_test, "test_add_atomic_to_redis_full_biggest_key_not_atomic_replace_bsu_should_replace_bigger_atomic_key", test_add_atomic_to_redis_full_biggest_key_not_atomic_replace_bsu_should_replace_bigger_atomic_key);
 }
 
 
