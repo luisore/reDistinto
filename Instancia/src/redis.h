@@ -9,8 +9,13 @@
 #define SRC_REDIS_H_
 
 #include <commons/collections/dictionary.h>
+#include <commons/collections/list.h>
 #include <commons/log.h>
 #include <stdbool.h>
+
+typedef enum {
+	CIRC = 1, LRU = 2, BSU = 3
+} replacement_algo_e;
 
 typedef struct {
 	unsigned int size;
@@ -19,6 +24,7 @@ typedef struct {
 	char* mapped_value;
 	unsigned long last_reference;
 	bool is_atomic;
+	struct Redis* redis; // a reference to the redis instance
 } t_entry_data;
 
 typedef struct {
@@ -38,17 +44,20 @@ typedef struct Redis {
 	// value: t_entry_data
 	t_dictionary* key_dictionary;
 
+	// list of atomic keys
+	t_list* atomic_entries;
+
 	// Configuracion recibida del Coordinador
 	int storage_size;
 	int entry_size;
 	int number_of_entries;
 
 	/*
-	 * Algoritmo actual de reemplazo de claves
-	 * Recorre la memoria y libera el espacio para colocar la clave del
-	 * tamanio suministrado.
+	 * Comparador de t_entry_data.
+	 * Asignado segun el algoritmo de reemplazo
 	 */
-	void (*replace_necessary_positions)(struct Redis*, unsigned int);
+	bool (*entry_data_comparator)(void*, void*);
+
 	int current_slot;
 
 	// stores the amount of free slots available at any given moment.
@@ -61,8 +70,8 @@ typedef struct Redis {
 	unsigned long op_counter;
 } t_redis;
 
-t_redis* redis_init(int entry_size, int number_of_entries, t_log* log, const char* mount_dir,
-		void (*perform_replacement_and_return_first_position)(struct Redis*, unsigned int));
+t_redis* redis_init(int entry_size, int number_of_entries, t_log* log,
+		const char* mount_dir, replacement_algo_e replacement_algo);
 
 
 // NOTE: redis_destroy will not free the log. If you created a specific log for redis,
@@ -90,10 +99,12 @@ void redis_compact(t_redis* redis);
 bool redis_dump(t_redis* redis);
 bool redis_load_dump_files(t_redis* redis);
 
-// Algoritmos de reemplazo
-void redis_replace_circular(struct Redis* redis, unsigned int value_size);
-void redis_replace_lru(struct Redis* redis, unsigned int value_size);
-void redis_replace_bsu(struct Redis* redis, unsigned int value_size);
+void redis_replace_necessary_positions(struct Redis* redis, unsigned int value_size);
+
+// Ordering of the entry_data. Defines the replacement algorithm.
+bool redis_entry_data_comparator_circular(void* entry1, void* entry2);
+bool redis_entry_data_comparator_lru(void* entry1, void* entry2);
+bool redis_entry_data_comparator_bsu(void* entry1, void* entry2);
 
 void redis_entry_data_destroy(t_entry_data* entry_data);
 

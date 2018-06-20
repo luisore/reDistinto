@@ -29,9 +29,8 @@ int effective_position_for(t_redis* redis, int position){
  * Compaction may be needed afterwards to ensure that memory is contiguous.
  * PRE: the value_size must be less than the memory size.
  */
-void redis_replace_circular(struct Redis* redis, unsigned int value_size){
+void redis_replace_circular2(struct Redis* redis, unsigned int value_size){
 	int slot_cursor = redis->current_slot;
-	unsigned int freed_memory = 0;
 
 	t_memory_position* mem_pos;
 	t_entry_data* entry_data;
@@ -44,63 +43,67 @@ void redis_replace_circular(struct Redis* redis, unsigned int value_size){
 		mem_pos = redis->occupied_memory_map[pos];
 		entry_data = dictionary_get(redis->key_dictionary, mem_pos->key);
 		if(mem_pos->used && entry_data->is_atomic){
-			freed_memory ++;
 			redis_remove_key(redis, mem_pos->key, entry_data, 1); // 1 because it is atomic
 		}
 		slot_cursor++;
 	}
 }
 
-void redis_replace_lru(struct Redis* redis, unsigned int value_size){
-	// TODO: IMPLEMENTAR!
-	int slot_cursor = redis->current_slot;
-	unsigned int freed_memory = 0;
 
-	t_memory_position* mem_pos;
+void redis_replace_necessary_positions(struct Redis* redis, unsigned int value_size){
 	t_entry_data* entry_data;
+	t_memory_position* mem_pos;
+	list_sort(redis->atomic_entries, redis->entry_data_comparator);
 
 	int required_slots = slots_occupied_by(redis->entry_size, value_size);
 
-	while(redis->slots_available < required_slots &&  slot_cursor < redis->number_of_entries + redis->current_slot){
-		int pos = effective_position_for(redis, slot_cursor);
+	while(redis->slots_available < required_slots &&  !list_is_empty(redis->atomic_entries)){
+		entry_data = list_get(redis->atomic_entries, 0);
+		mem_pos = redis->occupied_memory_map[entry_data->first_position];
 
-		mem_pos = redis->occupied_memory_map[pos];
-		entry_data = dictionary_get(redis->key_dictionary, mem_pos->key);
-		if(mem_pos->used && entry_data->is_atomic){
-			entry_data = dictionary_get(redis->key_dictionary, mem_pos->key);
-
-			freed_memory ++;
-			redis_remove_key(redis, mem_pos->key, entry_data, 1); // 1 because it is atomic
-		}
-		slot_cursor++;
+		redis_remove_key(redis, mem_pos->key, entry_data, 1); // 1 because it is atomic
 	}
 }
 
-void redis_replace_bsu(struct Redis* redis, unsigned int value_size){
-	// TODO: IMPLEMENTAR
-	int slot_cursor = redis->current_slot;
-	unsigned int freed_memory = 0;
-
-	t_memory_position* mem_pos;
-	t_entry_data* entry_data;
-
-	int required_slots = slots_occupied_by(redis->entry_size, value_size);
-
-	while(redis->slots_available < required_slots &&  slot_cursor < redis->number_of_entries + redis->current_slot){
-		int pos = effective_position_for(redis, slot_cursor);
-
-		mem_pos = redis->occupied_memory_map[pos];
-		entry_data = dictionary_get(redis->key_dictionary, mem_pos->key);
-		if(mem_pos->used && entry_data->is_atomic){
-			entry_data = dictionary_get(redis->key_dictionary, mem_pos->key);
-
-			freed_memory ++;
-			redis_remove_key(redis, mem_pos->key, entry_data, 1); // 1 because it is atomic
-		}
-		slot_cursor++;
+int calculate_cursor_distance(int current_slot, int entry_slot, int number_of_entries){
+	if(current_slot <= entry_slot){
+		return entry_slot - current_slot;
 	}
+	return number_of_entries - current_slot + entry_slot - 1;
 }
 
+bool redis_entry_data_comparator_circular(void* entry1, void* entry2){
+	t_entry_data* entry_data_1 = (t_entry_data*)entry1;
+	t_entry_data* entry_data_2 = (t_entry_data*)entry2;
+	t_redis* redis = entry_data_1->redis;
+
+	int distance_to_1 = calculate_cursor_distance(redis->current_slot, entry_data_1->first_position, redis->number_of_entries);
+	int distance_to_2 = calculate_cursor_distance(redis->current_slot, entry_data_2->first_position, redis->number_of_entries);
+
+	return distance_to_1 < distance_to_2;
+}
+
+bool redis_entry_data_comparator_lru(void* entry1, void* entry2){
+	t_entry_data* entry_data_1 = (t_entry_data*)entry1;
+	t_entry_data* entry_data_2 = (t_entry_data*)entry2;
+
+	// Tie breaker is circular
+	if(entry_data_1->last_reference == entry_data_2->last_reference)
+		return redis_entry_data_comparator_circular(entry1, entry2);
+
+	return (entry_data_1->last_reference < entry_data_2->last_reference);
+}
+
+bool redis_entry_data_comparator_bsu(void* entry1, void* entry2){
+	t_entry_data* entry_data_1 = (t_entry_data*)entry1;
+	t_entry_data* entry_data_2 = (t_entry_data*)entry2;
+
+	// Tie breaker is circular
+	if(entry_data_1->size == entry_data_2->size)
+		return redis_entry_data_comparator_circular(entry1, entry2);
+
+	return entry_data_1->size > entry_data_2->size;
+}
 
 void redis_destroy(t_redis* redis){
 	if(redis == NULL) return;
@@ -120,6 +123,8 @@ void redis_destroy(t_redis* redis){
 	if(redis->mount_dir != NULL)
 		free(redis->mount_dir);
 
+	list_destroy(redis->atomic_entries);
+
 	free(redis);
 }
 
@@ -132,7 +137,7 @@ t_memory_position* redis_create_empty_memory_position(){
 }
 
 t_redis* redis_init(int entry_size, int number_of_entries, t_log* log, const char* mount_dir,
-		void (*replace_necessary_positions)(struct Redis*, unsigned int)){
+		replacement_algo_e replacement_algo){
 	t_redis* redis = malloc(sizeof(t_redis));
 	redis->entry_size = entry_size;
 	redis->number_of_entries = number_of_entries;
@@ -149,7 +154,22 @@ t_redis* redis_init(int entry_size, int number_of_entries, t_log* log, const cha
 	redis->log = log;
 
 	redis->mount_dir = string_duplicate(mount_dir);
-	redis->replace_necessary_positions = replace_necessary_positions;
+	redis->atomic_entries = list_create();
+
+	switch (replacement_algo) {
+	case CIRC:
+		log_info(log, "Replacement algorithm: CIRC");
+		redis->entry_data_comparator = redis_entry_data_comparator_circular;
+		break;
+	case LRU:
+		log_info(log, "Replacement algorithm: LRU");
+		redis->entry_data_comparator = redis_entry_data_comparator_lru;
+		break;
+	case BSU:
+		log_info(log, "Replacement algorithm: BSU");
+		redis->entry_data_comparator = redis_entry_data_comparator_bsu;
+		break;
+	}
 
 	redis->slots_available = number_of_entries;
 
@@ -225,6 +245,12 @@ void redis_free_slot(t_redis* redis, int slot_index){
 void set_in_same_place(t_redis* redis, t_entry_data* entry_data, char* key, char* value,
 		int value_size, int needed_slots, int used_slots){
 
+	bool is_entry_for_key(void* entry){
+		int entry_pos = ((t_entry_data*)entry)->first_position;
+		char* entry_key = redis->occupied_memory_map[entry_pos]->key;
+		return string_equals_ignore_case(key, entry_key);
+	}
+
 	int slots_to_free = used_slots - needed_slots;
 
 	int slot_index = entry_data->first_position + needed_slots;
@@ -236,8 +262,17 @@ void set_in_same_place(t_redis* redis, t_entry_data* entry_data, char* key, char
 	}
 
 	// set atomic if necessary
-	entry_data->is_atomic =  (needed_slots == 1);
+	bool was_atomic = entry_data->is_atomic;
+	bool is_atomic = (needed_slots == 1);
+	entry_data->is_atomic = is_atomic;
 
+	// if it was atomic and it is no longer atomic, remove from atomic entries
+	if(was_atomic && !is_atomic){
+		list_remove_by_condition(redis->atomic_entries, is_entry_for_key);
+	} else if(!was_atomic && is_atomic){
+		// if it was not atomic and it is now atomic, add to atomic entries
+		list_add(redis->atomic_entries, entry_data);
+	}
 
 	// remap memory file if needed
 	if(is_memory_mapped(entry_data)){
@@ -263,6 +298,12 @@ void set_in_same_place(t_redis* redis, t_entry_data* entry_data, char* key, char
 
 // TODO: Repite codigo con set_in_same_place. Refactor!
 void redis_remove_key(t_redis* redis, char* key, t_entry_data* entry_data, int used_slots){
+	bool is_entry_for_key(void* entry){
+		int entry_pos = ((t_entry_data*)entry)->first_position;
+		char* entry_key = redis->occupied_memory_map[entry_pos]->key;
+		return string_equals_ignore_case(key, entry_key);
+	}
+
 	char * copied_key = string_duplicate(key);
 	int slot_index = entry_data->first_position;
 	int slots_to_free = used_slots;
@@ -272,6 +313,10 @@ void redis_remove_key(t_redis* redis, char* key, t_entry_data* entry_data, int u
 		slot_index++;
 		slots_to_free--;
 		redis->slots_available++;
+	}
+
+	if(entry_data->is_atomic){
+		list_remove_by_condition(redis->atomic_entries, is_entry_for_key);
 	}
 
 	dictionary_remove_and_destroy(redis->key_dictionary, copied_key, redis_entry_data_destroy);
@@ -318,6 +363,7 @@ void redis_set_in_position(t_redis* redis, char* key, char* value, unsigned int 
 	entry_data->mapped_file = NULL; // FD and mmapped file are created on STORE
 	entry_data->mapped_value = NULL;  // or at startup from an existing file.
 	entry_data->last_reference = redis->op_counter;
+	entry_data->redis = redis;
 
 	// mark the slots as used by this key
 	t_memory_position* mem_pos;
@@ -334,8 +380,11 @@ void redis_set_in_position(t_redis* redis, char* key, char* value, unsigned int 
 	memcpy(redis->memory_region + offset, value, value_size);
 
 	// save the new key in the dictionary
-	dictionary_put(redis->key_dictionary, key, entry_data);
+	if(entry_data->is_atomic){
+		list_add(redis->atomic_entries, entry_data);
+	}
 
+	dictionary_put(redis->key_dictionary, key, entry_data);
 
 	// Set the current_slot to the next position after the entry that was just inserted.
 	// if the size is exceeded, it returns to zero.
@@ -371,7 +420,7 @@ bool redis_internal_set(t_redis* redis, char* key, char* value, unsigned int val
 	if(!space_available){
 		log_info(redis->log, "There is not enough space. Executing replacement algorithm. Needed slots: %i. Available: %i",
 			need_slots, redis->slots_available);
-		redis->replace_necessary_positions(redis, value_size);
+		redis_replace_necessary_positions(redis, value_size);
 	} else {
 		log_info(redis->log, "There is enough space. Checking if space is contiguous. Needed slots: %i. Available: %i",
 			need_slots, redis->slots_available);

@@ -76,7 +76,7 @@ int clean_suite(){
 void setup(){
 	printf("\nSetup test\n");
 	delete_all_redis_files();
-	redis = redis_init(ENTRY_SIZE, NUMBER_OF_ENTRIES, test_log, MOUNT_DIR, redis_replace_circular);
+	redis = redis_init(ENTRY_SIZE, NUMBER_OF_ENTRIES, test_log, MOUNT_DIR, CIRC);
 }
 
 void tear_down(){
@@ -1202,8 +1202,125 @@ void test_dump_one_key_should_store_that_key(){
 	queue_destroy(files_queue);
 }
 
+
+
+/*
+ * REPLACE BSU
+ */
+
+void test_add_atomic_to_redis_full_of_atomic_keys_replace_bsu_should_replace_first_bigger_key(){
+	redis_destroy(redis);
+	redis = redis_init(ENTRY_SIZE, NUMBER_OF_ENTRIES, test_log, MOUNT_DIR, BSU);
+
+	char* keys[10] = {"KEY1", "KEY2", "KEY3", "KEY4", "KEY5", "KEY6", "KEY7", "KEY8", "KEY9", "KEY10"};
+	char* vals[10] = {  "V" ,  "VA" ,  "VA3", "VA4" , "VA5" , "VA6" , "VA7" ,  "8"  , "VA9" ,  "10"  };
+	int  sizes[10] = {   2  ,   3   ,    4  ,   4   ,   4   ,   4   ,   4   ,   2   ,   4   ,   3    };
+
+	bool res;
+	for(int i=0; i<10; i++){
+		res = redis_set(redis, keys[i], vals[i], sizes[i]);
+		CU_ASSERT_TRUE(res);
+	}
+
+	for(int i=0; i<10; i++){
+		assert_key_in_position(0, i, 10, keys[i], vals[i], sizes[i]);
+	}
+
+	redis_print_status(redis);
+
+	char* new_key = "NEW";
+	char* new_val = "NVL";
+	int new_val_size = 4;
+
+	res = redis_set(redis, new_key, new_val, new_val_size);
+	CU_ASSERT_TRUE(res);
+
+	redis_print_status(redis);
+
+	assert_key_in_position(3, 0, 10, keys[0], vals[0], sizes[0]);
+	assert_key_in_position(3, 1, 10, keys[1], vals[1], sizes[1]);
+
+	assert_key_in_position(3, 2, 10, new_key, new_val, new_val_size);
+
+	for(int i=3; i<10; i++){
+		assert_key_in_position(3, i, 10, keys[i], vals[i], sizes[i]);
+	}
+
+	redis_print_status(redis);
+}
+
+void test_add_non_atomic_to_redis_full_of_atomic_keys_replace_bsu_should_replace_first_keys(){
+	char* keys[10] = {"KEY1", "KEY2", "KEY3", "KEY4", "KEY5", "KEY6", "KEY7", "KEY8", "KEY9", "KEY10"};
+	char* vals[10] = {  "V" ,  "VA" ,  "VA3", "VA4" , "VA5" , "VA6" , "VA7" ,  "8"  , "VA9" ,  "10"  };
+	int  sizes[10] = {   2  ,   3   ,    4  ,   4   ,   4   ,   4   ,   4   ,   2   ,   4   ,   3    };
+
+	bool res;
+	for(int i=0; i<10; i++){
+		res = redis_set(redis, keys[i], vals[i], sizes[i]);
+		CU_ASSERT_TRUE(res);
+	}
+
+	for(int i=0; i<10; i++){
+		assert_key_in_position(0, i, 10, keys[i], vals[i], sizes[i]);
+	}
+
+	char* new_key = "NEW";
+	char* new_val = "NEWVALUE";
+	int new_val_size = 9;
+
+	res = redis_set(redis, new_key, new_val, new_val_size);
+	CU_ASSERT_TRUE(res);
+
+	assert_key_in_position(3, 0, 8, new_key, new_val, new_val_size);
+
+	for(int i=3; i<10; i++){
+		assert_key_in_position(3, i, 8, keys[i], vals[i], sizes[i]);
+	}
+}
+
+void test_add_non_atomic_to_redis_full_first_key_not_atomic_replace_bsu_should_replace_first_atomic_keys(){
+	char* keys[10] = {"KEY1", "KEY2", "KEY3", "KEY4", "KEY5", "KEY6", "KEY7", "KEY8", "KEY9", "KEY10"};
+	char* vals[10] = {  "V" ,  "VA" ,  "VA3", "VA4" , "VA5" , "VA6" , "VA7" ,  "8"  , "VA9" ,  "10"  };
+	int  sizes[10] = {   2  ,   3   ,    4  ,   4   ,   4   ,   4   ,   4   ,   2   ,   4   ,   3    };
+
+	bool res;
+
+	char* first_key = "FST";
+	char* first_val = "FIRSTVL";
+	int first_size = 8;
+	res = redis_set(redis, first_key, first_val, first_size);
+	CU_ASSERT_TRUE(res);
+
+	for(int i=2; i<10; i++){
+		res = redis_set(redis, keys[i], vals[i], sizes[i]);
+		CU_ASSERT_TRUE(res);
+	}
+
+
+	assert_key_in_position(0, 0, 9, first_key, first_val, first_size);
+
+	for(int i=2; i<10; i++){
+		assert_key_in_position(0, i, 9, keys[i], vals[i], sizes[i]);
+	}
+
+	char* new_key = "NEW";
+	char* new_val = "NEWVAL";
+	int new_val_size = 7;
+
+	res = redis_set(redis, new_key, new_val, new_val_size);
+	CU_ASSERT_TRUE(res);
+
+	assert_key_in_position(4, 2, 8, new_key, new_val, new_val_size);
+
+	for(int i=4; i<10; i++){
+		assert_key_in_position(4, i, 8, keys[i], vals[i], sizes[i]);
+	}
+}
+
+
 void add_tests() {
 	CU_pSuite redis_test = CU_add_suite_with_setup_and_teardown("Redis", init_suite, clean_suite, setup, tear_down);
+
 	CU_add_test(redis_test, "test_init_should_create_correctly", test_init_should_create_correctly);
 	CU_add_test(redis_test, "test_get_on_empty_redis_should_return_null", test_get_on_empty_redis_should_return_null);
 	CU_add_test(redis_test, "test_set_atomic_in_empty_redis_should_add_key", test_set_atomic_in_empty_redis_should_add_key);
@@ -1236,6 +1353,8 @@ void add_tests() {
 	CU_add_test(redis_test, "test_load_from_dump_many_keys_not_enough_space_should_return_false", test_load_from_dump_many_keys_not_enough_space_should_return_false);
 	CU_add_test(redis_test, "test_dump_on_empty_redis_should_not_fail", test_dump_on_empty_redis_should_not_fail);
 	CU_add_test(redis_test, "test_dump_one_key_should_store_that_key", test_dump_one_key_should_store_that_key);
+
+	CU_add_test(redis_test, "test_add_atomic_to_redis_full_of_atomic_keys_replace_bsu_should_replace_first_bigger_key", test_add_atomic_to_redis_full_of_atomic_keys_replace_bsu_should_replace_first_bigger_key);
 }
 
 
