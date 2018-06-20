@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <linux/mman.h>
+#include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -389,8 +390,6 @@ bool is_memory_mapped(t_entry_data* entry){
 }
 
 bool create_and_map_file_for_entry(t_redis* redis, t_entry_data* entry, char* key){
-	int mode = 0x0777;
-
 	char* filename = malloc(strlen(redis->mount_dir) + strlen(key) + 1);
 	strcpy(filename, redis->mount_dir);
 	strcat(filename, key);
@@ -613,5 +612,24 @@ bool redis_load_dump_files(t_redis* redis){
 
 	queue_destroy(dump_filenames);
 	return true;
+}
+
+
+
+bool redis_dump(t_redis* redis){
+	bool result = true;
+	int key_count = 0;
+	int keys_stored = dictionary_size(redis->key_dictionary);
+
+	void dump_dict_key(char* key, void* val){
+		key_count++;
+		log_info(redis->log, "Dumping key: %s. %i of %i.", key, key_count, keys_stored);
+		result = result && (redis_store(redis, key) == 0);
+	};
+
+	log_info(redis->log, "Dumping all keys. Keys stored: %i.", keys_stored);
+	dictionary_iterator(redis->key_dictionary, dump_dict_key);
+
+	return result;
 }
 

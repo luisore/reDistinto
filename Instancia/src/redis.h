@@ -84,7 +84,7 @@ char* redis_get(t_redis* redis, char* key);
  */
 int redis_store(t_redis* redis, char* key);
 void redis_compact(t_redis* redis);
-void redis_dump(t_redis* redis);
+bool redis_dump(t_redis* redis);
 bool redis_load_dump_files(t_redis* redis);
 
 // Algoritmos de reemplazo

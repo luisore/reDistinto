@@ -1164,6 +1164,43 @@ void test_load_from_dump_many_keys_not_enough_space_should_return_false(){
 	CU_ASSERT_FALSE_FATAL(res);
 }
 
+void test_dump_on_empty_redis_should_not_fail(){
+	bool res = redis_dump(redis);
+	CU_ASSERT_TRUE(res);
+
+	t_queue* files_queue = get_dir_files();
+	CU_ASSERT_TRUE(queue_is_empty(files_queue));
+
+	queue_destroy(files_queue);
+}
+
+void test_dump_one_key_should_store_that_key(){
+	char* key = "ONEKEY";
+	char* value = "AVALUEHERE";
+	unsigned int value_size = strlen(value)+1;
+
+	bool set_res = redis_set(redis, key, value, value_size);
+	CU_ASSERT_TRUE_FATAL(set_res);
+
+	bool res = redis_dump(redis);
+	CU_ASSERT_TRUE(res);
+
+	t_queue* files_queue = get_dir_files();
+	CU_ASSERT_EQUAL(queue_size(files_queue),1);
+
+	char* file = queue_pop(files_queue);
+
+	// file name is correct
+	CU_ASSERT_TRUE_FATAL(string_ends_with(file, key));
+	CU_ASSERT_TRUE_FATAL(string_starts_with(file, MOUNT_DIR));
+	CU_ASSERT_EQUAL_FATAL(strlen(file), strlen(MOUNT_DIR)+strlen(key));
+
+	// check file content
+	assert_file_content(file, value, value_size);
+
+	free(file);
+	queue_destroy(files_queue);
+}
 
 void add_tests() {
 	CU_pSuite redis_test = CU_add_suite_with_setup_and_teardown("Redis", init_suite, clean_suite, setup, tear_down);
@@ -1197,6 +1234,8 @@ void add_tests() {
 	CU_add_test(redis_test, "test_load_from_dump_many_keys_occupy_all_space_should_set_keys", test_load_from_dump_many_keys_occupy_all_space_should_set_keys);
 	CU_add_test(redis_test, "test_load_from_dump_many_keys_with_space_available_should_set_all_keys", test_load_from_dump_many_keys_with_space_available_should_set_all_keys);
 	CU_add_test(redis_test, "test_load_from_dump_many_keys_not_enough_space_should_return_false", test_load_from_dump_many_keys_not_enough_space_should_return_false);
+	CU_add_test(redis_test, "test_dump_on_empty_redis_should_not_fail", test_dump_on_empty_redis_should_not_fail);
+	CU_add_test(redis_test, "test_dump_one_key_should_store_that_key", test_dump_one_key_should_store_that_key);
 }
 
 
