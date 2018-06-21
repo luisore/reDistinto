@@ -169,6 +169,10 @@ t_redis* redis_init(int entry_size, int number_of_entries, t_log* log, const cha
 		log_info(log, "Replacement algorithm: BSU");
 		redis->entry_data_comparator = redis_entry_data_comparator_bsu;
 		break;
+	default:
+		log_error(log, "Invalid replacement algorithm: %i", replacement_algo);
+		redis_destroy(redis);
+		return NULL;
 	}
 
 	redis->slots_available = number_of_entries;
@@ -656,7 +660,7 @@ t_queue* redis_get_dump_dir_file_names(t_redis* redis){
 	d = opendir(redis->mount_dir);
 
 	if(!d){
-		log_error(redis->log, "Invalid dump directory: %s. Aborting execution.");
+		log_error(redis->log, "Invalid dump directory: %s. Aborting execution.", redis->mount_dir);
 		return NULL;
 	}
 

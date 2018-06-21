@@ -38,7 +38,7 @@ endif
 -include ../makefile.defs
 
 # Add inputs and outputs from these tool invocations to the build variables 
-LIBS = -lcommons -lreadline -lcrypto -lcunit
+LIBS = -lpthread -lcommons -lreadline -lcrypto -lcunit
 # All Target
 all: Instancia
 

@@ -2,6 +2,17 @@
 #include "redis.h"
 #include <unistd.h> // Para close
 #include <commons/string.h>
+#include <pthread.h>
+#include <sys/timerfd.h>
+#include <sys/epoll.h>
+
+pthread_mutex_t operation_mutex;
+pthread_t dump_thread;
+pthread_t console_thread;
+pthread_t operations_thread;
+int dump_timer_fd;
+
+#define DUMP_EPOLL_SIZE 10
 
 void print_header() {
 	printf("\n\t\e[31;1m=========================================\e[0m\n");
@@ -25,6 +36,10 @@ void exit_program(int retVal) {
 		close(coordinator_socket);
 
 	redis_destroy(redis);
+
+	if(dump_timer_fd > 0){
+		close(dump_timer_fd);
+	}
 
 	print_goodbye();
 	exit(retVal);
@@ -50,10 +65,27 @@ void loadConfig() {
 
 		instance_setup.IP_COORDINADOR = string_duplicate(config_get_string_value(config,"IP_COORDINADOR"));
 		instance_setup.PUERTO_COORDINADOR = config_get_int_value(config,"PUERTO_COORDINADOR");
-		instance_setup.ALGORITMO_REEMPLAZO = config_get_int_value(config,"ALGORITMO_REEMPLAZO");
-		instance_setup.PUNTO_MONTAJE = config_get_string_value(config,"PUNTO_MONTAJE");
+		 config_get_string_value(config,"ALGORITMO_REEMPLAZO");
+		instance_setup.PUNTO_MONTAJE = string_duplicate(config_get_string_value(config,"PUNTO_MONTAJE"));
 		instance_setup.NOMBRE_INSTANCIA = string_duplicate(config_get_string_value(config,"NOMBRE_INSTANCIA"));
 		instance_setup.INTERVALO_DUMP_SEGs = config_get_int_value(config, "INTERVALO_DUMP_SEGs");
+
+
+		char* algo_str = config_get_string_value(config,"ALGORITMO_REEMPLAZO");
+
+		if(string_equals_ignore_case(algo_str, "CIRC")){
+			instance_setup.ALGORITMO_REEMPLAZO = CIRC;
+			log_info(console_log, "Replacement algorithm: CIRC.");
+		} else if(string_equals_ignore_case(algo_str, "BSU")){
+			instance_setup.ALGORITMO_REEMPLAZO = BSU;
+			log_info(console_log, "Replacement algorithm: BSU.");
+		} else if(string_equals_ignore_case(algo_str, "LRU")){
+			log_info(console_log, "Replacement algorithm: LRU.");
+			instance_setup.ALGORITMO_REEMPLAZO = LRU;
+		} else {
+			log_error(console_log, "Invalid replacement algorithm. Assuming CIRC.");
+			instance_setup.ALGORITMO_REEMPLAZO = CIRC;
+		}
 
 		log_info(console_log, "COORDINADOR: IP: %s, PUERTO: %d",
 					instance_setup.IP_COORDINADOR, instance_setup.PUERTO_COORDINADOR);
@@ -228,7 +260,10 @@ void send_stored_value_to_coordinator(char* stored_value, int value_length){
 }
 
 void handle_get(t_operation* operation){
+	pthread_mutex_lock(&operation_mutex);
 	char* stored_value = redis_get(redis, operation->key);
+	pthread_mutex_unlock(&operation_mutex);
+
 	if(stored_value == NULL){
 		log_error(console_log, "Attempted GET on inexistent Key: %s.", operation->key);
 
@@ -246,7 +281,9 @@ void handle_get(t_operation* operation){
 }
 
 void handle_set(t_operation* operation){
+	pthread_mutex_lock(&operation_mutex);
 	bool success = redis_set(redis, operation->key, operation->value, operation->value_size);
+	pthread_mutex_unlock(&operation_mutex);
 
 	if(success){
 		send_response_to_coordinator(INSTANCE_SUCCESS, 0);
@@ -257,7 +294,9 @@ void handle_set(t_operation* operation){
 }
 
 void handle_store(t_operation* operation){
+	pthread_mutex_lock(&operation_mutex);
 	int success = redis_store(redis, operation->key);
+	pthread_mutex_unlock(&operation_mutex);
 
 	if(success == 0){
 		send_response_to_coordinator(INSTANCE_SUCCESS, 0);
@@ -302,12 +341,189 @@ void handle_operation(){
 }
 
 void compact() {
+	pthread_mutex_lock(&operation_mutex);
 	redis_compact(redis);
+	pthread_mutex_unlock(&operation_mutex);
 }
 
 void initialize_instance(){
 	redis = redis_init(entry_size, number_of_entries, console_log,
 			instance_setup.PUNTO_MONTAJE, instance_setup.ALGORITMO_REEMPLAZO);
+	if(redis == NULL){
+		log_error(console_log, "Could not initialize instance!");
+		exit_program(EXIT_FAILURE);
+	}
+}
+
+void run_operations(){
+	coordinator_operation_type_e coordinator_operation_type;
+
+	while(true){
+		coordinator_operation_type = wait_for_signal_from_coordinator();
+
+		switch(coordinator_operation_type){
+		case  KEY_OPERATION:
+			handle_operation();
+			break;
+		case COMPACT:
+			compact();
+			break;
+		}
+	}
+}
+
+void init_dump_timer(){
+	struct itimerspec ts;
+
+	ts.it_interval.tv_sec = instance_setup.INTERVALO_DUMP_SEGs;
+	ts.it_interval.tv_nsec = 0;
+	ts.it_value.tv_sec = instance_setup.INTERVALO_DUMP_SEGs;
+	ts.it_value.tv_nsec = 0;
+
+	dump_timer_fd = timerfd_create(CLOCK_REALTIME, 0);
+	if (dump_timer_fd == -1){
+		log_error(console_log, "Error creating dump timer");
+		exit_program(EXIT_FAILURE);
+	}
+
+	if (timerfd_settime(dump_timer_fd, 0, &ts, NULL) == -1){
+		log_error(console_log, "Error creating dump timer");
+		exit_program(EXIT_FAILURE);
+	}
+}
+
+
+void run_periodic_dump(){
+	ssize_t s;
+	uint64_t numExp;
+	bool dump_res;
+
+	init_dump_timer();
+
+	while(true) {
+		/* Read number of expirations on the timer, and then display
+		   time elapsed since timer was started, followed by number
+		   of expirations read and total expirations so far. */
+
+		s = read(dump_timer_fd, &numExp, sizeof(uint64_t));
+		if (s != sizeof(uint64_t)){
+			log_error(console_log, "Error reading dump timer");
+			exit_program(EXIT_FAILURE);
+		}
+
+		log_info(console_log, "Dump timer signaled.");
+		pthread_mutex_lock(&operation_mutex);
+		dump_res = redis_dump(redis);
+		pthread_mutex_unlock(&operation_mutex);
+		if(dump_res){
+			log_info(console_log, "Dump successful.");
+		} else {
+			log_error(console_log, "There was an error performing the periodic dump. Aborting execution.");
+			exit_program(EXIT_FAILURE);
+		}
+	}
+}
+
+
+char *read_console_line(void){
+	char *line = NULL;
+	ssize_t bufsize = 0; // have getline allocate a buffer for us
+	getline(&line, &bufsize, stdin);
+	int len = strlen(line);
+	line[len-1] = '\0';
+	return line;
+}
+
+void run_console(){
+	char *line;
+	char **args;
+	bool should_exit = false;
+
+	do {
+		printf("> ");
+		line = read_console_line();
+		args = string_split(line, " ");
+		//char* cmd = string_trim(&args[0]);
+
+		if(string_equals_ignore_case(args[0], "exit")){
+			should_exit = true;
+		} else if(string_equals_ignore_case(args[0], "status")){
+			pthread_mutex_lock(&operation_mutex);
+			redis_print_status(redis);
+			pthread_mutex_unlock(&operation_mutex);
+		} else if(string_equals_ignore_case(args[0], "set")){
+			char* key = args[1];
+			if(key == NULL){
+				printf("You must provide a key with the 'set' command.\n");
+			} else {
+				char* value = args[2];
+				if(value == NULL){
+					printf("You must provide a value with the 'set' command.\n");
+				} else {
+					pthread_mutex_lock(&operation_mutex);
+					bool set_res = redis_set(redis, key, value, strlen(value)+1);
+					pthread_mutex_unlock(&operation_mutex);
+
+					if(set_res){
+						printf("SET sucessful!\n");
+					} else {
+						printf("Cannot perform SET. Need to compact.\n");
+					}
+				}
+			}
+		} else if(string_equals_ignore_case(args[0], "get")) {
+			char* key = args[1];
+			if(key == NULL){
+				printf("You must provide a key with the 'get' command.\n");
+			} else {
+				pthread_mutex_lock(&operation_mutex);
+				char* value = redis_get(redis, key);
+				pthread_mutex_unlock(&operation_mutex);
+
+				if(value == NULL){
+					printf("The key %s was not found!\n");
+				} else {
+					printf("%s: %s\n", key, value);
+					free(value);
+				}
+			}
+
+		} else if(string_equals_ignore_case(args[0], "store")){
+			char* key = args[1];
+			if(key == NULL){
+				printf("You must provide a key with the 'get' command.\n");
+			} else {
+				pthread_mutex_lock(&operation_mutex);
+				int store_res = redis_store(redis, key);
+				pthread_mutex_unlock(&operation_mutex);
+
+				if(store_res == 0){
+					printf("STORE successful!\n");
+				} else if(store_res == 1){
+					printf("Invalid key: %s", key);
+				} else {
+					printf("Command failed!");
+					should_exit = true;
+				}
+			}
+		} else if(string_equals_ignore_case(args[0], "compact")){
+			pthread_mutex_lock(&operation_mutex);
+			redis_compact(redis);
+			pthread_mutex_unlock(&operation_mutex);
+		} else if(string_equals_ignore_case(args[0], "pause")){
+			printf("Pausing...\n");
+			pthread_mutex_lock(&operation_mutex);
+			printf("Press enter to continue...");
+			fgetc(stdin);
+			printf("Resuming execution...\n");
+			pthread_mutex_unlock(&operation_mutex);
+		}
+
+		free(line);
+		free(args);
+	} while (!should_exit);
+
+	exit_program(EXIT_SUCCESS);
 }
 
 int main(int argc, char **argv) {
@@ -326,29 +542,21 @@ int main(int argc, char **argv) {
 
 	load_dump_files();
 
+	pthread_mutex_init(&operation_mutex, NULL);
 
-	// 1. AL conectarse definir tamanio de entradas
+	pthread_create(&operations_thread, NULL, (void*) run_operations, NULL);
+	pthread_create(&dump_thread, NULL, (void*) run_periodic_dump, NULL);
+	pthread_create(&console_thread, NULL, (void*) run_console, NULL);
 
-	//Recibe sentencia
-	//Extrae la clave
-	//Identifica donde guardarlo. Si no hay espacio, le avisa al coordinador que tiene que compactar. Compacta
-	//Guardar la clave
-	//Envía el resultado al Coordinador
+	pthread_join(operations_thread, NULL);
+	pthread_join(dump_thread, NULL);
+	pthread_join(console_thread, NULL);
 
-	coordinator_operation_type_e coordinator_operation_type;
+	exit(EXIT_SUCCESS);
+	return 0;
 
-	while(true){
-		coordinator_operation_type = wait_for_signal_from_coordinator();
 
-		switch(coordinator_operation_type){
-		case  KEY_OPERATION:
-			handle_operation();
-			break;
-		case COMPACT:
-			compact();
-			break;
-		}
-	}
+
 
 	return 0;
 }
