@@ -362,8 +362,6 @@ void compact() {
 }
 
 void initialize_instance(){
-	entry_size = 5;
-	number_of_entries = 10;
 	redis = redis_init(entry_size, number_of_entries, console_log,
 			instance_setup.PUNTO_MONTAJE, instance_setup.ALGORITMO_REEMPLAZO);
 	if(redis == NULL){
@@ -569,7 +567,7 @@ int main(int argc, char **argv) {
 	create_log();
 	loadConfig();
 
-	//connect_with_coordinator();
+	connect_with_coordinator();
 
 	initialize_instance();
 
@@ -577,11 +575,11 @@ int main(int argc, char **argv) {
 
 	pthread_mutex_init(&operation_mutex, NULL);
 
-	//pthread_create(&operations_thread, NULL, (void*) run_operations, NULL);
+	pthread_create(&operations_thread, NULL, (void*) run_operations, NULL);
 	pthread_create(&dump_thread, NULL, (void*) run_periodic_dump, NULL);
 	pthread_create(&console_thread, NULL, (void*) run_console, NULL);
 
-	//pthread_join(operations_thread, NULL);
+	pthread_join(operations_thread, NULL);
 	pthread_join(dump_thread, NULL);
 	pthread_join(console_thread, NULL);
 
