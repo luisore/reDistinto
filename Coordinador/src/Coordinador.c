@@ -23,7 +23,11 @@ void exit_program(int entero) {
 
 	liberar_memoria();
 
-	printf("\n\t\e[31;1m FINALIZA COORDINAOR \e[0m\n");
+	pthread_mutex_destroy(&mutex_planner_console);
+	pthread_mutex_destroy(&mutex_principal);
+	pthread_mutex_destroy(&mutex_all);
+
+	printf("\n\t\e[31;1m FINALIZA COORDINADOR \e[0m\n");
 	exit(entero);
 }
 
@@ -59,12 +63,14 @@ void loadConfig() {
 		coordinador_setup.CANTIDAD_ENTRADAS = config_get_int_value(config,"CANTIDAD_ENTRADAS");
 		coordinador_setup.TAMANIO_ENTRADA_BYTES = config_get_int_value(config,"TAMANIO_ENTRADA_BYTES");
 		coordinador_setup.RETARDO_MS = config_get_int_value(config,	"RETARDO_MS");
+		coordinador_setup.PUERTO_ESCUCHA_CONEXION_CONSOLA = config_get_int_value(	config, "PUERTO_ESCUCHA_CONEXION_CONSOLA");
 	}
 	config_destroy(config);
 }
 
 void liberar_memoria() {
 	if(connected_clients != NULL) list_destroy_and_destroy_elements(connected_clients, destroy_connected_client);
+	if(connected_instances != NULL) list_destroy_and_destroy_elements(connected_instances, destroy_connected_client);
 	if(server != NULL) tcpserver_destroy(server);
 	if(coordinador_setup.NOMBRE_INSTANCIA != NULL) free(coordinador_setup.NOMBRE_INSTANCIA);
 }
@@ -93,12 +99,17 @@ void log_inicial_consola() {
 	log_info(coordinador_log, "\tCantidad de entradas: %d",	coordinador_setup.CANTIDAD_ENTRADAS);
 	log_info(coordinador_log, "\tTamanio de entrada en bytes: %d", coordinador_setup.TAMANIO_ENTRADA_BYTES);
 	log_info(coordinador_log, "\tRetardo en milis: %d", coordinador_setup.RETARDO_MS);
+	log_info(coordinador_log, "\tPuerto de escucha conexion con consola de planificador : %d",	coordinador_setup.PUERTO_ESCUCHA_CONEXION_CONSOLA);
 
 }
 
-
 void create_tcp_server(){
+
+	pthread_mutex_lock(&mutex_all);
+
 	connected_clients = list_create();
+	connected_instances = list_create();
+	instancia_actual=0;
 
 	server = tcpserver_create(coordinador_setup.NOMBRE_INSTANCIA, coordinador_log,
 			coordinador_setup.CANTIDAD_MAXIMA_CLIENTES,
@@ -109,13 +120,32 @@ void create_tcp_server(){
 		log_error(coordinador_log, "Could not create TCP server. Aborting execution.");
 		exit_program(EXIT_FAILURE);
 	}
+
+	pthread_mutex_unlock(&mutex_all);
+
+}
+
+void create_tcp_server_console(){
+
+	pthread_mutex_lock(&mutex_all);
+
+	server_planner_console = tcpserver_create("CONSOLE PLANNER", coordinador_log,
+							1,
+							1,
+							coordinador_setup.PUERTO_ESCUCHA_CONEXION_CONSOLA, true);
+
+	if(server_planner_console == NULL){
+		log_error(coordinador_log, "Could not create TCP server for PLANNER CONSOLE. Aborting execution.");
+		pthread_exit(0);
+		exit_program(EXIT_FAILURE);
+	}
+
+	pthread_mutex_unlock(&mutex_all);
 }
 
 void before_tpc_server_cycle(tcp_server_t* server){
 	// ACÁ DEBERÍA IR LA LÓGICA DE DISTRIBUCION
 }
-
-
 
 void remove_client(server, socket_id){
 	bool is_linked_to_socket(void* conn_client){
@@ -127,7 +157,7 @@ void remove_client(server, socket_id){
 	list_remove_and_destroy_by_condition(connected_clients, is_linked_to_socket, destroy_connected_client);
 }
 
-t_operation_response * mandarAlPlanificador(char * recurso, int client_socket, operation_type_e t){
+t_operation_response * send_operation_to_planner(char * recurso, t_connected_client * planner, operation_type_e t){
 
 	t_coordinator_operation_request e;
 	strcpy(e.key, recurso);
@@ -137,32 +167,47 @@ t_operation_response * mandarAlPlanificador(char * recurso, int client_socket, o
 
 	log_info(coordinador_log, "Sending operation request from ESI to PLANNER");
 
-	int r = send(client_socket, buffer, COORDINATOR_OPERATION_REQUEST_SIZE, 0);
+	int send_data = send(planner->socket_reference, buffer, COORDINATOR_OPERATION_REQUEST_SIZE, 0);
+
+	if(send_data < COORDINATOR_OPERATION_REQUEST_SIZE){
+		log_error(coordinador_log, "It was an Error trying to send instruction to Planner. Aborting conection");
+
+		remove_client(server, planner->socket_id);
+		free(buffer);
+		t_operation_response *response = malloc(OPERATION_RESPONSE_SIZE);
+		response->operation_result = OP_ERROR;
+		return response;
+
+	}
 
 	free(buffer);
 
 	int bytesReceived = 0;
 	void *res_buffer = malloc(COORDINATOR_OPERATION_REQUEST_SIZE);
 
-	bytesReceived = recv(client_socket, res_buffer, OPERATION_RESPONSE_SIZE, MSG_WAITALL);
+	bytesReceived = recv(planner->socket_reference, res_buffer, OPERATION_RESPONSE_SIZE, MSG_WAITALL);
 
 	if (bytesReceived < OPERATION_RESPONSE_SIZE) {
-		log_error(coordinador_log, "Error!");
 
+		log_error(coordinador_log, "It was an Error trying to receive instruction from Planner. Aborting conecction");
 		log_error(coordinador_log, "Bytes leidos: %d | Esperados: %d",
 				bytesReceived, OPERATION_RESPONSE_SIZE);
 
 		free(res_buffer);
-		exit_program(EXIT_FAILURE);
+
+		remove_client(server, planner->socket_id);
+
+		t_operation_response *response = malloc(OPERATION_RESPONSE_SIZE);
+		response->operation_result = OP_ERROR;
+		return response;
 	}
 	t_operation_response *response =
 				deserialize_operation_response(res_buffer);
 
 	log_info(coordinador_log, "Operation status well received from PLANNER");
-	log_info(coordinador_log, "Respuesta: %d", response->operation_result);
+	log_info(coordinador_log, "PLANNER Response: %d", response->operation_result);
 	return response;
 }
-
 
 void on_server_accept(tcp_server_t* server, int client_socket, int socket_id){
 	void *header_buffer = malloc(CONNECTION_HEADER_SIZE);
@@ -189,11 +234,18 @@ void on_server_accept(tcp_server_t* server, int client_socket, int socket_id){
 	//TODO: Modularizar
 
 	t_connected_client* connected_client = malloc(sizeof(t_connected_client));
+
 	strcpy(&(connected_client->instance_name), connection_header->instance_name);
 	connected_client->instance_type = connection_header->instance_type;
 	connected_client->socket_id = socket_id;
 	connected_client->socket_reference = client_socket;
+
 	list_add(connected_clients, (void*)connected_client);
+
+	if(connection_header->instance_type == REDIS_INSTANCE){
+		// Add to intances list -> For algorithims
+		list_add(connected_instances, (void*)connected_client);
+	}
 
 }
 
@@ -226,20 +278,7 @@ void send_message_clients(t_connection_header *connection_header, int client_soc
 		log_info(coordinador_log, "Successfully connected to TCP Client: %s", connection_header->instance_name);
 	}
 
-	/*if(connection_header->instance_type == PLANNER)
-	{
-		printf("Se conecto el planificador CHE\n");
-
-		mandarAlPlanificador("materias:K3002", client_socket, GET);
-		mandarAlPlanificador("LALALA1", client_socket, GET);
-		mandarAlPlanificador("materias:K3002", client_socket, SET);
-		mandarAlPlanificador("LALALA2", client_socket, SET);
-		mandarAlPlanificador("materias:K3002", client_socket, STORE);
-		mandarAlPlanificador("LALALA3", client_socket, STORE);
-	}*/
-
 }
-
 
 t_connected_client* find_connected_client(int socket_id){
 	bool is_linked_to_socket(void* conn_client){
@@ -259,7 +298,6 @@ t_connected_client* find_connected_client_by_type(instance_type_e instance_type)
 	return list_find(connected_clients, is_linked_to_socket);
 }
 
-
 void send_response_to_esi(int esi_socket, t_connected_client* client, operation_result_e op_result){
 	t_operation_response op_response;
 	op_response.operation_result = op_result;
@@ -275,28 +313,46 @@ void send_response_to_esi(int esi_socket, t_connected_client* client, operation_
 	free(buffer);
 }
 
-
 void handle_esi_request(t_operation_request* esi_request, t_connected_client* client, int socket){
 
 	t_connected_client* planner = find_connected_client_by_type(PLANNER);
 	t_operation_response *cod_result;
 
+	// Select an instance based on the selected algorithim.
+	t_connected_client * instance = select_instancia();
+
 	switch(esi_request->operation_type){
 	case GET:
 		log_info(coordinador_log, "Handling GET from ESI: %s. Key: %s.", client->instance_name, esi_request->key);
 
-		cod_result = mandarAlPlanificador(esi_request->key, planner->socket_reference, GET);
+		cod_result = send_operation_to_planner(esi_request->key, planner, GET);
 
-		// TODO: INSTANCE CASE - It depends on operation result.
+		if(!send_operation_to_instance(instance)){
+			cod_result->operation_result = OP_ERROR;
+		}else{
+
+			if(!send_get_operation(esi_request, esi_request->operation_type, instance)){
+				cod_result->operation_result = OP_ERROR;
+			}
+		}
 
 		send_response_to_esi(socket, client, cod_result->operation_result);
+
 		break;
+
 	case STORE:
 		log_info(coordinador_log, "Handling STORE from ESI: %s. Key: %s.", client->instance_name, esi_request->key);
 
-		cod_result =  mandarAlPlanificador(esi_request->key, planner->socket_reference, STORE);
+		cod_result =  send_operation_to_planner(esi_request->key, planner, STORE);
 
-		// TODO: INSTANCE CASE - It depends on operation result.
+		if(!send_operation_to_instance(instance)){
+			cod_result->operation_result = OP_ERROR;
+		}else{
+
+			if(!send_store_operation(esi_request, esi_request->operation_type, instance)){
+				cod_result->operation_result = OP_ERROR;
+			}
+		}
 
 		send_response_to_esi(socket, client, cod_result->operation_result);
 
@@ -305,34 +361,283 @@ void handle_esi_request(t_operation_request* esi_request, t_connected_client* cl
 		log_info(coordinador_log, "Handling SET from ESI: %s. Key: %s.", client->instance_name, esi_request->key);
 		log_info(coordinador_log, "Waiting for payload from ESI");
 
-		int payload_size = esi_request->payload_size;
+		char * payload_for_intance  = malloc(esi_request->payload_size);
+		int result = recv( socket, payload_for_intance, esi_request->payload_size, MSG_WAITALL);
 
-		char * payload_for_intance  = malloc(payload_size);
-		int result = recv( socket, payload_for_intance, payload_size, MSG_WAITALL);
+		if (result < esi_request->payload_size) {
 
-		if (result < payload_size) {
-			log_error(coordinador_log, "Error!");
+			// On receive error
+
+			log_error(coordinador_log, "It was an Error trying to receive payload from ESI. Aborting conection");
 			log_error(coordinador_log, "Bytes leidos: %d | Esperados: %d",
-					result, payload_size);
-			exit_program(EXIT_FAILURE);
+					result, esi_request->payload_size);
+
+			remove_client(server, client->socket_id);
+
+			// TODO: Figure out how to send planner that ESI has stop working;
+
+		}else{
+
+			log_info(coordinador_log, "Retrieving value from SET : %s ",payload_for_intance);
+
+			cod_result = send_operation_to_planner(esi_request->key, planner, SET);
+
+			if(!send_operation_to_instance(instance)){
+				cod_result->operation_result = OP_ERROR;
+			}else{
+
+				if(!send_set_operation(esi_request, esi_request->operation_type, instance ,result )){
+					cod_result->operation_result = OP_ERROR;
+				}
+			}
+
 		}
 
-		log_info(coordinador_log, "Retrieving value from SET : %s ",payload_for_intance);
-
-		cod_result = mandarAlPlanificador(esi_request->key, planner->socket_reference, SET);
-
-		// TODO: INSTANCE CASE -  It depends on operation result.
-		// 		 Use - payload_for_intance  as value
-
-
 		send_response_to_esi(socket, client, cod_result->operation_result);
-
-		// leer del buffer el contenido y procesar
-
-		//TODO: HANDLE!
 		break;
 	}
 }
+
+bool receive_value_from_instance(t_connected_client * instance , int payload_size){
+
+	char* buffer = malloc(payload_size);
+
+	if (recv(instance->socket_reference, buffer, payload_size, MSG_WAITALL) < payload_size) {
+
+		log_warning(coordinador_log, "Instance Disconnected: %s", instance->instance_name);
+		free(buffer);
+		remove_client(server, instance->socket_id);
+		return false;
+	}
+
+	// Doesn't matter the receive value
+	return true;
+}
+
+bool receive_response_from_instance(t_connected_client * instance ){
+
+	void* buffer = malloc(INSTANCE_RESPONSE_SIZE);
+
+	if (recv(instance->socket_reference, buffer, INSTANCE_RESPONSE_SIZE, MSG_WAITALL) < INSTANCE_RESPONSE_SIZE) {
+
+		log_warning(coordinador_log, "Instance Disconnected: %s", instance->instance_name);
+		free(buffer);
+		remove_client(server, instance->socket_id);
+		return false;
+	}
+
+	t_instance_response * response = deserialize_instance_response(buffer);
+
+	switch(response->status){
+	case INSTANCE_SUCCESS:
+		log_info(coordinador_log, "Receive status from Instance - SUCCESS");
+		free(response);
+		return true;
+		break;
+	case INSTANCE_ERROR:
+		log_error(coordinador_log, "Receive status from Instance - ERROR");
+		free(response);
+		return false;
+		break;
+	case INSTANCE_COMPACT:
+		//TODO
+		log_warning(coordinador_log, "Receive status from Instance - COMPACT");
+		log_info(coordinador_log , "NEED TO COMPACT - STARTING COMPACT ALGORITHIM");
+		free(response);
+		return true;
+		break;
+	}
+	return false;
+}
+
+bool send_operation_to_instance( t_connected_client * instance){
+
+	t_coordinator_operation_header header;
+	header.coordinator_operation_type = KEY_OPERATION;
+
+	void *init_value_instance_buffer = serialize_coordinator_operation_header(&header);
+
+	log_info(coordinador_log , "Attemting to send OPERATION to Instance");
+
+	if( send(instance->socket_reference, init_value_instance_buffer, COORDINATOR_OPERATION_HEADER_SIZE, 0) != COORDINATOR_OPERATION_HEADER_SIZE){
+
+		// Conection to instance fails. Must be removed and replanify all instances.
+		log_warning(coordinador_log , "It was an error trying to send OPERATION to an Instance. Aborting execution");
+		remove_client(server,instance->socket_id);
+
+		// Verify free
+		free(instance);
+		free(init_value_instance_buffer);
+		return false;
+
+	}
+
+	log_info(coordinador_log , "Operation request sended succesful to Instance");
+
+	free(init_value_instance_buffer);
+
+	return true;
+}
+
+bool send_store_operation(t_operation_request* esi_request, operation_type_e operation_type, t_connected_client *instance){
+
+	t_operation_request operation;
+	strcpy(operation.key, esi_request->key);
+	operation.operation_type = operation_type;
+
+	bool response_status = false;
+	bool value_instance = false;
+
+	log_info(coordinador_log , "Attemting to send SET OPERATION to Instance");
+
+	void *buffer = serialize_operation_request(&operation);
+
+	if(send(instance->socket_reference, buffer, OPERATION_REQUEST_SIZE, 0) != OPERATION_REQUEST_SIZE){
+
+		// Conection to instance fails. Must be removed and replanify all instances.
+		log_warning(coordinador_log , "It was an error trying to send SET OPERATION to an Instance. Aborting execution");
+		remove_client(server,instance->socket_id);
+
+		// Verify free
+		free(instance);
+		return false;
+	}else{
+
+		response_status = receive_response_from_instance(instance);
+
+	}
+	free(buffer);
+
+	// Must return value. Ignore in this case.
+	return response_status;
+
+}
+
+
+bool send_get_operation(t_operation_request* esi_request, operation_type_e operation_type, t_connected_client *instance){
+
+	t_operation_request operation;
+	strcpy(operation.key, esi_request->key);
+	operation.operation_type = operation_type;
+	operation.payload_size = 0;
+
+	bool response_status = false;
+	bool value_instance = false;
+
+	log_info(coordinador_log , "Attemting to send GET OPERATION to Instance");
+
+	void *buffer = serialize_operation_request(&operation);
+
+	if(send(instance->socket_reference, buffer, OPERATION_REQUEST_SIZE, 0) != OPERATION_REQUEST_SIZE){
+
+		// Conection to instance fails. Must be removed and replanify all instances.
+		log_warning(coordinador_log , "It was an error trying to send GET OPERATION to an Instance. Aborting execution");
+		remove_client(server,instance->socket_id);
+
+		// Verify free
+		free(instance);
+		return false;
+	}else{
+
+		response_status = receive_response_from_instance(instance);
+
+		if(response_status)
+		value_instance = receive_value_from_instance(instance , esi_request->payload_size);
+
+	}
+	free(buffer);
+
+	// Must return value. Ignore in this case.
+	return response_status;
+}
+
+bool send_set_operation(t_operation_request* esi_request, operation_type_e operation_type, t_connected_client *instance , char * payload_value){
+
+	t_operation_request *operation;
+	strcpy(operation->key, esi_request->key);
+	operation->operation_type = operation_type;
+	operation->payload_size = esi_request->payload_size;
+
+	bool response_status = false;
+
+	log_info(coordinador_log , "Attemting to send STORE OPERATION to Instance");
+
+	void *buffer = serialize_operation_request(operation);
+
+	if(send(instance->socket_reference, buffer, OPERATION_REQUEST_SIZE, 0) != OPERATION_REQUEST_SIZE){
+
+		// Conection to instance fails. Must be removed and replanify all instances.
+		log_warning(coordinador_log , "It was an error trying to send SET OPERATION to an Instance. Aborting execution");
+		remove_client(server,instance->socket_id);
+
+		// Verify free
+		free(instance);
+		free(operation);
+		return false;
+	}else{
+
+		int payload_size = strlen(payload_value);
+
+		if( send(instance->socket_reference, payload_value, payload_size, 0) != payload_size){
+			log_warning(coordinador_log , "It was an error trying to send value to an Instance. Aborting execution");
+			remove_client(server,instance->socket_id);
+
+			// Verify free
+			free(instance);
+			free(operation);
+			return false;
+		}
+
+		response_status = receive_response_from_instance(instance);
+
+	}
+	free(buffer);
+	free(operation);
+
+	// Must return value. Ignore in this case.
+	return response_status;
+}
+
+t_connected_client* select_intance_LSU(){
+	// TODO
+	return NULL;
+}
+
+t_connected_client* select_intance_EL(){
+	// TODO
+	return NULL ;
+}
+
+t_connected_client* select_intance_KE(){
+
+	if(instancia_actual != list_size(connected_instances) && instancia_actual != 0){
+		instancia_actual++;
+	}else{
+		instancia_actual=0;
+	}
+
+	return list_get(connected_instances, instancia_actual);
+}
+
+t_connected_client* select_instancia(){
+
+	// MEJORAR COMO ESTA EN INSTANCIA
+	switch(coordinador_setup.ALGORITMO_DISTRIBUCION){
+	case LSU:
+		return select_intance_LSU();
+		break;
+	case EL:
+		return select_intance_EL();
+		break;
+	case KE:
+		return select_intance_KE();
+		break;
+	}
+
+	return NULL;
+
+}
+
 
 void handle_esi_read(t_connected_client* client, int socket){
 	char* buffer = malloc(OPERATION_REQUEST_SIZE);
@@ -352,8 +657,21 @@ void handle_esi_read(t_connected_client* client, int socket){
 	free(buffer);
 }
 
+void planner_disconected(int socket_id){
+
+	char* buffer = malloc(OPERATION_RESPONSE_SIZE);
+
+	if (recv(socket, buffer, OPERATION_RESPONSE_SIZE, MSG_WAITALL) < OPERATION_RESPONSE_SIZE) {
+		log_warning(coordinador_log , "PLANNER has disconnected");
+		remove_client(server,socket_id );
+		free(buffer);
+		return;
+	}
+}
+
 void on_server_read(tcp_server_t* server, int client_socket, int socket_id){
-    // Verifico que instancia estoy leyendo:
+
+	// Verifico que proceso estoy leyendo:
 	t_connected_client* client = find_connected_client(socket_id);
 
 	if(client == NULL){
@@ -366,59 +684,20 @@ void on_server_read(tcp_server_t* server, int client_socket, int socket_id){
 		handle_esi_read(client, client_socket);
 		break;
 	case REDIS_INSTANCE:
+		// TODO : Verificar desconexion. Ojo , puede pasar que se desconecte en el
+		//		  medio de una escucha de otro proceso. Se deberia contemplar.
+		//		  Ademas las instancias me devuelven un valor en el GET , por lo que
+		// 		  no podria hacerlo tan parecido a la desconexion del planificador.
+		// 		  Se me ocurre un flag de utilizacion al esperar el SET.
 		break;
 	case PLANNER:
+		planner_disconected(client->socket_id);
 		break;
 	case COORDINATOR:
 		break;
 	}
 
-	/*
-	// 1. Verifica que lo que haya llegado este completo y de acuerdo al protocolo.
-	void *package_buffer = malloc(CONNECTION_PACKAGE_SIZE);
-
-	if (recv(client_socket, package_buffer, CONNECTION_PACKAGE_SIZE, MSG_WAITALL) < CONNECTION_PACKAGE_SIZE) {
-		log_error(coordinador_log, "Error receiving status from ESI!");
-		free(package_buffer);
-		tcpserver_remove_client(server, socket_id);
-		return;
-	}
-
-	t_response_process* abstract_response = deserialize_abstract_response(package_buffer);
-	switch(abstract_response->instance_type){
-		case ESI:
-			log_info(coordinador_log, "EL proceso que envia informacion fue un ESI");
-			enviar_respuesta_esi(client_socket, socket_id);
-			break;
-		case PLANNER:
-			log_info(coordinador_log, "EL proceso que envia informacion fue el PLANIFICADOR");
-			break;
-		case REDIS_INSTANCE:
-			log_info(coordinador_log, "EL proceso que envia informacion fue una INSTANCIA");
-
-			//void* estado=tratar_instancia(abstract_response);
-			//Agregar a lista de instancias en estado status (inicializacion de instancia)
-			//enviar_respuesta_instancia(client_socket, socket_id, estado);
-			break;
-	}
-
-	free(package_buffer);
-	free(abstract_response);
-*/
-
-
 }
-
-
-/*
-void* tratar_instancia(t_response_process* abstract_response){
-	void* buffer = malloc(4);
-	int lastIndex = 0;
-
-	serialize_data_instancia(&(abstract_response->response),4, &buffer, &lastIndex);
-
-	return buffer;
-}*/
 
 int serialize_data_instancia(void *object, int nBytes, void **buffer, int *lastIndex){
     void * auxiliar = NULL;
@@ -436,41 +715,69 @@ int serialize_data_instancia(void *object, int nBytes, void **buffer, int *lastI
 
 void on_server_command(tcp_server_t* server){
 	// TODO: FALTA HACER!
-
 }
 
-
-void enviar_respuesta_instancia(int instancia_socket, int socket_id, void *estado){
-	/*switch(estado){
-	case STATUS:
-		lista_instancias = list_create();
-		t_coordinador_request_instancia coordinador_request;
-		t_instancia instancia;
-		instancia->id_socket=socket_id;
-		instancia->tamanio_entrada_bytes=coordinador_request->TAMANIO_ENTRADA_BYTES;
-		instancia->vantidad_entradas=coordinador_request->CANTIDAD_ENTRADAS;
-		list_add(lista_instancias, instancia);
-		strcpy(coordinador_request.coordinador_name, coordinador_setup.NOMBRE_INSTANCIA);
-		strcpy(coordinador_request.TAMANIO_ENTRADA_BYTES, coordinador_setup.TAMANIO_ENTRADA_BYTES);
-		strcpy(coordinador_request.CANTIDAD_ENTRADAS, coordinador_setup.CANTIDAD_ENTRADAS);
-		void *buffer = serialize_coordinador_request_instancia(&coordinador_request);
-		int result = send(instancia_socket, buffer, PLANNER_REQUEST_SIZE, 0);
-		if (result <= 0) {
-			log_error(coordinador_log, "Signal execute next to ESI failed for ID: %d");
-			tcpserver_remove_client(server, socket_id);
-		}
-		free(buffer);
-		break;
-	}
-
-	free(estado); */
-}
 
 void destroy_connected_client(t_connected_client* connected_client){
 	free(connected_client);
 }
 
 
+
+void server_planner_console_accept(tcp_server_t* server, int client_socket, int socket_id){
+
+	void *header_buffer = malloc(CONNECTION_HEADER_SIZE);
+
+	int res = recv(client_socket, header_buffer, CONNECTION_HEADER_SIZE, MSG_WAITALL);
+	if (res <= 0) {
+		log_error(coordinador_log, "Error receiving handshake request from PLANNER CONSOLE");
+		tcpserver_remove_client(server, socket_id);
+		free(header_buffer);
+		return;
+	}
+
+	t_connection_header *connection_header = deserialize_connection_header(header_buffer);
+
+	send_message_clients(connection_header, client_socket, socket_id);
+
+}
+
+void server_planner_console_read(tcp_server_t* server, int client_socket, int socket_id){
+
+	// Handle PLANNER CONSOLE REQUEST
+
+	// DEFINE PROTOCOL WITH PLANNER CONSOLE.
+
+//	char* buffer = malloc(OPERATION_REQUEST_SIZE);
+//
+//	if (recv(socket, buffer, OPERATION_REQUEST_SIZE, MSG_WAITALL) < OPERATION_REQUEST_SIZE) {
+//		log_warning(coordinador_log, "ESI Disconnected: %s", client->instance_name);
+//		free(buffer);
+//		remove_client(server, client->socket_id); //TODO: NO HACE FALTA EL FIND PORQUE YA LO TENGO. SE PUEDE MEJORAR
+//		return;
+//	}
+//
+//	t_operation_request* esi_request = deserialize_operation_request(buffer);
+//
+//	handle_esi_request(esi_request, client, socket);
+//
+//	free(esi_request);
+//	free(buffer);
+}
+
+
+void coordinate_planner_console(){
+	create_tcp_server_console();
+	tcpserver_run(server_planner_console, before_tpc_server_cycle, server_planner_console_accept, server_planner_console_read, on_server_command);
+	pthread_exit(0);
+}
+
+void coordinate_principal_process(){
+	create_tcp_server();
+	tcpserver_run(server, before_tpc_server_cycle, on_server_accept, on_server_read, on_server_command);
+	pthread_exit(0);
+
+}
 
 int main(void) {
 
@@ -479,11 +786,18 @@ int main(void) {
 	loadConfig();
 	log_inicial_consola();
 
+	pthread_mutex_init(&mutex_all, NULL);
 
-	create_tcp_server();
-	tcpserver_run(server, before_tpc_server_cycle, on_server_accept, on_server_read, on_server_command);
+	// HILO CONSOLA PLANIFICADOR
+	pthread_mutex_init(&mutex_planner_console, NULL);
+	pthread_create(&thread_planner_console, NULL, (void*) coordinate_planner_console, NULL);
 
+	// HILO PRINCIPAL
+	pthread_mutex_init(&mutex_principal, NULL);
+	pthread_create(&thread_principal, NULL, (void*) coordinate_principal_process, NULL);
 
+	pthread_join(thread_planner_console, NULL);
+	pthread_join(thread_principal, NULL);
 
 	print_goodbye();
 	exit_program(EXIT_SUCCESS);
