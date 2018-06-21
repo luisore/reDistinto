@@ -12,6 +12,9 @@ pthread_t console_thread;
 pthread_t operations_thread;
 int dump_timer_fd;
 
+pthread_mutex_t exit_mutex;
+bool should_terminate = false;
+
 #define DUMP_EPOLL_SIZE 10
 
 void print_header() {
@@ -25,6 +28,14 @@ void print_goodbye() {
 	printf("\n\t\e[31;1m=========================================\e[0m\n");
 	printf("\t.:: Gracias por utilizar ReDistinto ::.");
 	printf("\n\t\e[31;1m=========================================\e[0m\n\n");
+}
+
+void end_thread(int retVal){
+	pthread_mutex_lock(&exit_mutex);
+	should_terminate = true;
+	pthread_mutex_unlock(&exit_mutex);
+
+	pthread_exit(&retVal);
 }
 
 void exit_program(int retVal) {
@@ -42,6 +53,10 @@ void exit_program(int retVal) {
 	}
 
 	print_goodbye();
+
+	pthread_mutex_destroy(&operation_mutex);
+	pthread_mutex_destroy(&exit_mutex);
+
 	exit(retVal);
 }
 
@@ -183,7 +198,7 @@ coordinator_operation_type_e wait_for_signal_from_coordinator(){
 	if (recv(coordinator_socket, buffer, COORDINATOR_OPERATION_HEADER_SIZE, MSG_WAITALL) < COORDINATOR_OPERATION_HEADER_SIZE) {
 		log_error(console_log, "Error receiving handshake response. Aborting execution.");
 		free(buffer);
-		exit_program(EXIT_FAILURE);
+		end_thread(EXIT_FAILURE);
 	}
 
 	t_coordinator_operation_header* header = deserialize_coordinator_operation_header(buffer);
@@ -200,7 +215,7 @@ t_operation* receive_operation_from_coordinator(){
 	if (recv(coordinator_socket, buffer, OPERATION_REQUEST_SIZE, MSG_WAITALL) < OPERATION_REQUEST_SIZE) {
 		log_error(console_log, "Error receiving operation from Coordinator. Aborting execution.");
 		free(buffer);
-		exit_program(EXIT_FAILURE);
+		end_thread(EXIT_FAILURE);
 	}
 
 	t_operation_request* op_request = deserialize_operation_request(buffer);
@@ -221,7 +236,7 @@ t_operation* receive_operation_from_coordinator(){
 			log_error(console_log, "Error receiving payload from Coordinator. Aborting execution.");
 			free(value_buffer);
 			free(operation);
-			exit_program(EXIT_FAILURE);
+			end_thread(EXIT_FAILURE);
 		}
 		operation->value = value_buffer;
 	}
@@ -244,7 +259,7 @@ void send_response_to_coordinator(instance_status_e status, int payload_size){
 
 	if (result < INSTANCE_RESPONSE_SIZE) {
 		log_error(console_log, "Could not send response to Coordinator. Aborting execution.");
-		exit_program(EXIT_FAILURE);
+		end_thread(EXIT_FAILURE);
 	}
 }
 
@@ -255,7 +270,7 @@ void send_stored_value_to_coordinator(char* stored_value, int value_length){
 
 	if (result < value_length) {
 		log_error(console_log, "Could not send value to Coordinator. Aborting execution.");
-		exit_program(EXIT_FAILURE);
+		end_thread(EXIT_FAILURE);
 	}
 }
 
@@ -307,7 +322,7 @@ void handle_store(t_operation* operation){
 		return;
 	} else {
 		log_error(console_log, "Could not store key: %s. Aborting execution.", operation->key);
-		exit_program(EXIT_FAILURE);
+		end_thread(EXIT_FAILURE);
 	}
 }
 
@@ -347,6 +362,8 @@ void compact() {
 }
 
 void initialize_instance(){
+	entry_size = 5;
+	number_of_entries = 10;
 	redis = redis_init(entry_size, number_of_entries, console_log,
 			instance_setup.PUNTO_MONTAJE, instance_setup.ALGORITMO_REEMPLAZO);
 	if(redis == NULL){
@@ -355,10 +372,17 @@ void initialize_instance(){
 	}
 }
 
+bool must_keep_running(){
+	pthread_mutex_lock(&exit_mutex);
+	bool res = should_terminate;
+	pthread_mutex_unlock(&exit_mutex);
+	return res;
+}
+
 void run_operations(){
 	coordinator_operation_type_e coordinator_operation_type;
 
-	while(true){
+	while(must_keep_running()){
 		coordinator_operation_type = wait_for_signal_from_coordinator();
 
 		switch(coordinator_operation_type){
@@ -383,15 +407,14 @@ void init_dump_timer(){
 	dump_timer_fd = timerfd_create(CLOCK_REALTIME, 0);
 	if (dump_timer_fd == -1){
 		log_error(console_log, "Error creating dump timer");
-		exit_program(EXIT_FAILURE);
+		end_thread(EXIT_FAILURE);
 	}
 
 	if (timerfd_settime(dump_timer_fd, 0, &ts, NULL) == -1){
 		log_error(console_log, "Error creating dump timer");
-		exit_program(EXIT_FAILURE);
+		end_thread(EXIT_FAILURE);
 	}
 }
-
 
 void run_periodic_dump(){
 	ssize_t s;
@@ -400,7 +423,7 @@ void run_periodic_dump(){
 
 	init_dump_timer();
 
-	while(true) {
+	while(must_keep_running()) {
 		/* Read number of expirations on the timer, and then display
 		   time elapsed since timer was started, followed by number
 		   of expirations read and total expirations so far. */
@@ -442,6 +465,11 @@ void run_console(){
 	do {
 		printf("> ");
 		line = read_console_line();
+		if(string_is_empty(line)){
+			free(line);
+			continue;
+		}
+
 		args = string_split(line, " ");
 		//char* cmd = string_trim(&args[0]);
 
@@ -520,10 +548,15 @@ void run_console(){
 		}
 
 		free(line);
+		int i = 0;
+		while(args[i] != NULL){
+			free(args[i]);
+			i++;
+		}
 		free(args);
-	} while (!should_exit);
+	} while (!should_exit && must_keep_running());
 
-	exit_program(EXIT_SUCCESS);
+	end_thread(EXIT_SUCCESS);
 }
 
 int main(int argc, char **argv) {
@@ -536,7 +569,7 @@ int main(int argc, char **argv) {
 	create_log();
 	loadConfig();
 
-	connect_with_coordinator();
+	//connect_with_coordinator();
 
 	initialize_instance();
 
@@ -544,11 +577,11 @@ int main(int argc, char **argv) {
 
 	pthread_mutex_init(&operation_mutex, NULL);
 
-	pthread_create(&operations_thread, NULL, (void*) run_operations, NULL);
+	//pthread_create(&operations_thread, NULL, (void*) run_operations, NULL);
 	pthread_create(&dump_thread, NULL, (void*) run_periodic_dump, NULL);
 	pthread_create(&console_thread, NULL, (void*) run_console, NULL);
 
-	pthread_join(operations_thread, NULL);
+	//pthread_join(operations_thread, NULL);
 	pthread_join(dump_thread, NULL);
 	pthread_join(console_thread, NULL);
 

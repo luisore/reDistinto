@@ -29,27 +29,6 @@ int effective_position_for(t_redis* redis, int position){
  * Compaction may be needed afterwards to ensure that memory is contiguous.
  * PRE: the value_size must be less than the memory size.
  */
-void redis_replace_circular2(struct Redis* redis, unsigned int value_size){
-	int slot_cursor = redis->current_slot;
-
-	t_memory_position* mem_pos;
-	t_entry_data* entry_data;
-
-	int required_slots = slots_occupied_by(redis->entry_size, value_size);
-
-	while(redis->slots_available < required_slots &&  slot_cursor < redis->number_of_entries + redis->current_slot){
-		int pos = effective_position_for(redis, slot_cursor);
-
-		mem_pos = redis->occupied_memory_map[pos];
-		entry_data = dictionary_get(redis->key_dictionary, mem_pos->key);
-		if(mem_pos->used && entry_data->is_atomic){
-			redis_remove_key(redis, mem_pos->key, entry_data, 1); // 1 because it is atomic
-		}
-		slot_cursor++;
-	}
-}
-
-
 void redis_replace_necessary_positions(struct Redis* redis, unsigned int value_size){
 	t_entry_data* entry_data;
 	t_memory_position* mem_pos;
@@ -308,6 +287,10 @@ void redis_remove_key(t_redis* redis, char* key, t_entry_data* entry_data, int u
 		return string_equals_ignore_case(key, entry_key);
 	}
 
+	if(entry_data->is_atomic){
+		list_remove_by_condition(redis->atomic_entries, is_entry_for_key);
+	}
+
 	char * copied_key = string_duplicate(key);
 	int slot_index = entry_data->first_position;
 	int slots_to_free = used_slots;
@@ -317,10 +300,6 @@ void redis_remove_key(t_redis* redis, char* key, t_entry_data* entry_data, int u
 		slot_index++;
 		slots_to_free--;
 		redis->slots_available++;
-	}
-
-	if(entry_data->is_atomic){
-		list_remove_by_condition(redis->atomic_entries, is_entry_for_key);
 	}
 
 	dictionary_remove_and_destroy(redis->key_dictionary, copied_key, redis_entry_data_destroy);
@@ -704,6 +683,7 @@ bool redis_set_from_file(t_redis* redis, char* filename){
 	log_info(redis->log, "Memory mapping dump file: %s", file_path);
 	if(!create_and_map_file_for_entry(redis, &entry_data, filename)){
 		log_error(redis->log, "FATAL ERROR: Could not create memory mapped file for key: %s.", filename);
+		free(file_path);
 		return false;
 	}
 
@@ -711,6 +691,7 @@ bool redis_set_from_file(t_redis* redis, char* filename){
 			file_path, filename, entry_data.mapped_value, entry_data.size);
 	if(!redis_internal_set(redis, filename, entry_data.mapped_value, entry_data.size)){
 		log_error(redis->log, "FATAL ERROR: Could not perform set from dump for key: %s.", filename);
+		free(file_path);
 		return false;
 	}
 
@@ -719,6 +700,7 @@ bool redis_set_from_file(t_redis* redis, char* filename){
 	actual_entry->mapped_file = entry_data.mapped_file;
 	actual_entry->mapped_value = entry_data.mapped_value;
 
+	free(file_path);
 	return true;
 }
 
