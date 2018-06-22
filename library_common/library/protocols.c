@@ -295,3 +295,31 @@ t_coordinator_operation_header* deserialize_coordinator_operation_header(void* b
 }
 
 
+void* serialize_status_response_from_coordinator(status_response_from_coordinator *response){
+
+	void* buffer = malloc(STATUS_RESPONSE_FROM_COORDINATOR);
+	int lastIndex = 0;
+
+	serialize_data(&(response->payload_valor_size), 4, &buffer, &lastIndex);
+	serialize_data(&(response->nombre_intancia_actual), 41, &buffer, &lastIndex);
+	serialize_data(&(response->nombre_intancia_posible), 41, &buffer, &lastIndex);
+
+	return buffer;
+
+}
+
+status_response_from_coordinator* derialize_status_response_from_coordinator(void *buffer){
+
+	status_response_from_coordinator* response = malloc(sizeof(status_response_from_coordinator));
+	int lastIndex = 0;
+
+	deserialize_data(&(response->payload_valor_size), 4, buffer, &lastIndex);
+	deserialize_data(&(response->nombre_intancia_actual), 41, buffer, &lastIndex);
+	deserialize_data(&(response->nombre_intancia_posible), 41, buffer, &lastIndex);
+
+	return response;
+
+}
+
+
+
