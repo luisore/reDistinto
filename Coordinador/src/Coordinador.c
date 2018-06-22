@@ -484,6 +484,7 @@ bool send_store_operation(t_operation_request* esi_request, operation_type_e ope
 	t_operation_request operation;
 	strcpy(operation.key, esi_request->key);
 	operation.operation_type = operation_type;
+	operation.payload_size = 0;
 
 	bool response_status = false;
 	bool value_instance = false;
@@ -508,7 +509,6 @@ bool send_store_operation(t_operation_request* esi_request, operation_type_e ope
 	}
 	free(buffer);
 
-	// Must return value. Ignore in this case.
 	return response_status;
 
 }
@@ -576,7 +576,7 @@ bool send_set_operation(t_operation_request* esi_request, operation_type_e opera
 		return false;
 	}else{
 
-		int payload_size = strlen(payload_value);
+		int payload_size = operation.payload_size;
 
 		if( send(instance->socket_reference, payload_value, payload_size, 0) != payload_size){
 			log_warning(coordinador_log , "It was an error trying to send value to an Instance. Aborting execution");
