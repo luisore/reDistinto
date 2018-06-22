@@ -327,14 +327,14 @@ void handle_esi_request(t_operation_request* esi_request, t_connected_client* cl
 
 		cod_result = send_operation_to_planner(esi_request->key, planner, GET);
 
-		if(!send_operation_to_instance(instance)){
-			cod_result->operation_result = OP_ERROR;
-		}else{
-
-			if(!send_get_operation(esi_request, esi_request->operation_type, instance)){
-				cod_result->operation_result = OP_ERROR;
-			}
-		}
+//		if(!send_operation_to_instance(instance)){
+//			cod_result->operation_result = OP_ERROR;
+//		}else{
+//
+//			if(!send_get_operation(esi_request, esi_request->operation_type, instance)){
+//				cod_result->operation_result = OP_ERROR;
+//			}
+//		}
 
 		send_response_to_esi(socket, client, cod_result->operation_result);
 
@@ -386,7 +386,7 @@ void handle_esi_request(t_operation_request* esi_request, t_connected_client* cl
 				cod_result->operation_result = OP_ERROR;
 			}else{
 
-				if(!send_set_operation(esi_request, esi_request->operation_type, instance ,result )){
+				if(!send_set_operation(esi_request, esi_request->operation_type, instance ,payload_for_intance )){
 					cod_result->operation_result = OP_ERROR;
 				}
 			}
@@ -488,7 +488,7 @@ bool send_store_operation(t_operation_request* esi_request, operation_type_e ope
 	bool response_status = false;
 	bool value_instance = false;
 
-	log_info(coordinador_log , "Attemting to send SET OPERATION to Instance");
+	log_info(coordinador_log , "Attemting to send STORE OPERATION to Instance");
 
 	void *buffer = serialize_operation_request(&operation);
 
@@ -553,16 +553,17 @@ bool send_get_operation(t_operation_request* esi_request, operation_type_e opera
 
 bool send_set_operation(t_operation_request* esi_request, operation_type_e operation_type, t_connected_client *instance , char * payload_value){
 
-	t_operation_request *operation;
-	strcpy(operation->key, esi_request->key);
-	operation->operation_type = operation_type;
-	operation->payload_size = esi_request->payload_size;
+
+	t_operation_request operation;
+	strcpy(operation.key, esi_request->key);
+	operation.operation_type = operation_type;
+	operation.payload_size = esi_request->payload_size;
 
 	bool response_status = false;
 
-	log_info(coordinador_log , "Attemting to send STORE OPERATION to Instance");
+	log_info(coordinador_log , "Attemting to send SET OPERATION to Instance");
 
-	void *buffer = serialize_operation_request(operation);
+	void *buffer = serialize_operation_request(&operation);
 
 	if(send(instance->socket_reference, buffer, OPERATION_REQUEST_SIZE, 0) != OPERATION_REQUEST_SIZE){
 
@@ -572,7 +573,6 @@ bool send_set_operation(t_operation_request* esi_request, operation_type_e opera
 
 		// Verify free
 		free(instance);
-		free(operation);
 		return false;
 	}else{
 
@@ -584,7 +584,6 @@ bool send_set_operation(t_operation_request* esi_request, operation_type_e opera
 
 			// Verify free
 			free(instance);
-			free(operation);
 			return false;
 		}
 
@@ -592,7 +591,6 @@ bool send_set_operation(t_operation_request* esi_request, operation_type_e opera
 
 	}
 	free(buffer);
-	free(operation);
 
 	// Must return value. Ignore in this case.
 	return response_status;
