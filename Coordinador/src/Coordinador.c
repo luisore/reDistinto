@@ -157,6 +157,16 @@ void remove_client(server, socket_id){
 	list_remove_and_destroy_by_condition(connected_clients, is_linked_to_socket, destroy_connected_client);
 }
 
+void remove_instance(server, socket_id){
+	bool is_linked_to_socket(void* conn_client){
+		t_connected_client* connected_client = (t_connected_client*)conn_client;
+		return connected_client->socket_id == socket_id;
+	};
+
+	tcpserver_remove_client(server, socket_id);
+	list_remove_and_destroy_by_condition(connected_instances, is_linked_to_socket, destroy_connected_client);
+}
+
 t_operation_response * send_operation_to_planner(char * recurso, t_connected_client * planner, operation_type_e t){
 
 	t_coordinator_operation_request e;
@@ -496,7 +506,7 @@ bool send_store_operation(t_operation_request* esi_request, operation_type_e ope
 	if(send(instance->socket_reference, buffer, OPERATION_REQUEST_SIZE, 0) != OPERATION_REQUEST_SIZE){
 
 		// Conection to instance fails. Must be removed and replanify all instances.
-		log_warning(coordinador_log , "It was an error trying to send SET OPERATION to an Instance. Aborting execution");
+		log_warning(coordinador_log , "It was an error trying to send STORE OPERATION to an Instance. Aborting execution");
 		remove_client(server,instance->socket_id);
 
 		// Verify free
@@ -667,6 +677,20 @@ void planner_disconected(int socket_id){
 	}
 }
 
+void instance_disconected(int socket_id){
+
+	int buffer , aux_size ;
+
+	int valor = recv(socket, buffer, aux_size, MSG_WAITALL);
+
+	if (valor == -1) {
+
+		log_warning(coordinador_log , "INSTANCE has disconnected");
+		remove_instance(server,socket_id );
+	}
+
+}
+
 void on_server_read(tcp_server_t* server, int client_socket, int socket_id){
 
 	// Verifico que proceso estoy leyendo:
@@ -682,6 +706,7 @@ void on_server_read(tcp_server_t* server, int client_socket, int socket_id){
 		handle_esi_read(client, client_socket);
 		break;
 	case REDIS_INSTANCE:
+		instance_disconected(client->socket_id);
 		// TODO : Verificar desconexion. Ojo , puede pasar que se desconecte en el
 		//		  medio de una escucha de otro proceso. Se deberia contemplar.
 		//		  Ademas las instancias me devuelven un valor en el GET , por lo que
