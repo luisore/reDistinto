@@ -355,12 +355,19 @@ void handle_esi_request(t_operation_request* esi_request, t_connected_client* cl
 
 		cod_result =  send_operation_to_planner(esi_request->key, planner, STORE);
 
-		if(!send_operation_to_instance(instance)){
-			cod_result->operation_result = OP_ERROR;
-		}else{
 
-			if(!send_store_operation(esi_request, esi_request->operation_type, instance)){
+		if(instance == 0){
+			log_error(coordinador_log , "There ir no instance left. Aborting");
+			cod_result->operation_result = OP_ERROR;
+
+		}else{
+			if(!send_operation_to_instance(instance)){
 				cod_result->operation_result = OP_ERROR;
+			}else{
+
+				if(!send_store_operation(esi_request, esi_request->operation_type, instance)){
+					cod_result->operation_result = OP_ERROR;
+				}
 			}
 		}
 
@@ -392,12 +399,17 @@ void handle_esi_request(t_operation_request* esi_request, t_connected_client* cl
 
 			cod_result = send_operation_to_planner(esi_request->key, planner, SET);
 
-			if(!send_operation_to_instance(instance)){
+			if(instance == 0){
+				log_error(coordinador_log , "There ir no instance left. Aborting");
 				cod_result->operation_result = OP_ERROR;
 			}else{
-
-				if(!send_set_operation(esi_request, esi_request->operation_type, instance ,payload_for_intance )){
+				if(!send_operation_to_instance(instance)){
 					cod_result->operation_result = OP_ERROR;
+				}else{
+
+					if(!send_set_operation(esi_request, esi_request->operation_type, instance ,payload_for_intance )){
+						cod_result->operation_result = OP_ERROR;
+					}
 				}
 			}
 
@@ -417,6 +429,7 @@ bool receive_value_from_instance(t_connected_client * instance , int payload_siz
 		log_warning(coordinador_log, "Instance Disconnected: %s", instance->instance_name);
 		free(buffer);
 		remove_client(server, instance->socket_id);
+		remove_instance(server, instance->socket_id);
 		return false;
 	}
 
@@ -433,6 +446,7 @@ bool receive_response_from_instance(t_connected_client * instance ){
 		log_warning(coordinador_log, "Instance Disconnected: %s", instance->instance_name);
 		free(buffer);
 		remove_client(server, instance->socket_id);
+		remove_instance(server, instance->socket_id);
 		return false;
 	}
 
@@ -450,9 +464,11 @@ bool receive_response_from_instance(t_connected_client * instance ){
 		return false;
 		break;
 	case INSTANCE_COMPACT:
-		//TODO
 		log_warning(coordinador_log, "Receive status from Instance - COMPACT");
 		log_info(coordinador_log , "NEED TO COMPACT - STARTING COMPACT ALGORITHIM");
+
+		// TODO
+
 		free(response);
 		return true;
 		break;
@@ -508,7 +524,7 @@ bool send_store_operation(t_operation_request* esi_request, operation_type_e ope
 		// Conection to instance fails. Must be removed and replanify all instances.
 		log_warning(coordinador_log , "It was an error trying to send STORE OPERATION to an Instance. Aborting execution");
 		remove_client(server,instance->socket_id);
-
+		remove_instance(server , instance->socket_id);
 		// Verify free
 		free(instance);
 		return false;
@@ -543,7 +559,7 @@ bool send_get_operation(t_operation_request* esi_request, operation_type_e opera
 		// Conection to instance fails. Must be removed and replanify all instances.
 		log_warning(coordinador_log , "It was an error trying to send GET OPERATION to an Instance. Aborting execution");
 		remove_client(server,instance->socket_id);
-
+		remove_instance(server , instance->socket_id);
 		// Verify free
 		free(instance);
 		return false;
@@ -580,7 +596,7 @@ bool send_set_operation(t_operation_request* esi_request, operation_type_e opera
 		// Conection to instance fails. Must be removed and replanify all instances.
 		log_warning(coordinador_log , "It was an error trying to send SET OPERATION to an Instance. Aborting execution");
 		remove_client(server,instance->socket_id);
-
+		remove_instance(server , instance->socket_id);
 		// Verify free
 		free(instance);
 		return false;
@@ -591,7 +607,7 @@ bool send_set_operation(t_operation_request* esi_request, operation_type_e opera
 		if( send(instance->socket_reference, payload_value, payload_size, 0) != payload_size){
 			log_warning(coordinador_log , "It was an error trying to send value to an Instance. Aborting execution");
 			remove_client(server,instance->socket_id);
-
+			remove_instance(server , instance->socket_id);
 			// Verify free
 			free(instance);
 			return false;
@@ -707,11 +723,6 @@ void on_server_read(tcp_server_t* server, int client_socket, int socket_id){
 		break;
 	case REDIS_INSTANCE:
 		instance_disconected(client->socket_id);
-		// TODO : Verificar desconexion. Ojo , puede pasar que se desconecte en el
-		//		  medio de una escucha de otro proceso. Se deberia contemplar.
-		//		  Ademas las instancias me devuelven un valor en el GET , por lo que
-		// 		  no podria hacerlo tan parecido a la desconexion del planificador.
-		// 		  Se me ocurre un flag de utilizacion al esperar el SET.
 		break;
 	case PLANNER:
 		planner_disconected(client->socket_id);
@@ -720,20 +731,6 @@ void on_server_read(tcp_server_t* server, int client_socket, int socket_id){
 		break;
 	}
 
-}
-
-int serialize_data_instancia(void *object, int nBytes, void **buffer, int *lastIndex){
-    void * auxiliar = NULL;
-    auxiliar  = realloc(*buffer, nBytes+*lastIndex);
-    if(auxiliar  == NULL) {
-        return -1;
-    }
-    *buffer = auxiliar;
-    if (memcpy((*buffer + *lastIndex), object, nBytes) == NULL) {
-        return -2;
-    }
-    *lastIndex += nBytes;
-    return 0;
 }
 
 void on_server_command(tcp_server_t* server){
