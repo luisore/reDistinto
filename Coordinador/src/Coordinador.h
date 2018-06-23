@@ -32,6 +32,13 @@ t_list * lista_instancias;
 
 /*ESTRUCTURAS*/
 
+t_dictionary* key_instance_dictionary;
+
+
+
+
+
+
 /*SEMAFOROS - SINCRONIZACION*/
 
 pthread_t thread_planner_console;

@@ -27,6 +27,8 @@ void exit_program(int entero) {
 	pthread_mutex_destroy(&mutex_principal);
 	pthread_mutex_destroy(&mutex_all);
 
+	dictionary_destroy(key_instance_dictionary);
+
 	printf("\n\t\e[31;1m FINALIZA COORDINADOR \e[0m\n");
 	exit(entero);
 }
@@ -110,6 +112,7 @@ void create_tcp_server(){
 	connected_clients = list_create();
 	connected_instances = list_create();
 	instancia_actual=0;
+	key_instance_dictionary =  dictionary_create();
 
 	server = tcpserver_create(coordinador_setup.NOMBRE_INSTANCIA, coordinador_log,
 			coordinador_setup.CANTIDAD_MAXIMA_CLIENTES,
@@ -538,7 +541,6 @@ bool send_store_operation(t_operation_request* esi_request, operation_type_e ope
 	return response_status;
 
 }
-
 
 bool send_get_operation(t_operation_request* esi_request, operation_type_e operation_type, t_connected_client *instance){
 
