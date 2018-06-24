@@ -9,9 +9,44 @@ int create_log() {
 		return EXIT_FAILURE;
 	}
 
-	log_info(console_log, "Log creado correctamente");
+	info_log("Log creado correctamente");
 
 	return 0;
 }
 
+void info_log(char * message){
+	pthread_mutex_lock(&mutexLog);
+	log_info(console_log, message);
+	pthread_mutex_unlock(&mutexLog);
+}
+
+void info_log_param1(char * message, void * param1){
+	pthread_mutex_lock(&mutexLog);
+	log_info(console_log, message, param1);
+	pthread_mutex_unlock(&mutexLog);
+}
+
+void info_log_param2(char * message, void * param1, void * param2){
+	pthread_mutex_lock(&mutexLog);
+	log_info(console_log, message, param1, param2);
+	pthread_mutex_unlock(&mutexLog);
+}
+
+void error_log(char * message){
+	pthread_mutex_lock(&mutexLog);
+	log_error(console_log, message);
+	pthread_mutex_unlock(&mutexLog);
+}
+
+void error_log_param1(char * message, void * param1){
+	pthread_mutex_lock(&mutexLog);
+	log_error(console_log, message, param1);
+	pthread_mutex_unlock(&mutexLog);
+}
+
+void error_log_param2(char * message, void * param1, void * param2){
+	pthread_mutex_lock(&mutexLog);
+	log_error(console_log, message, param1, param2);
+	pthread_mutex_unlock(&mutexLog);
+}
 

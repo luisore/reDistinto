@@ -83,7 +83,7 @@ void aplicarSJF(bool p_hayDesalojo) {
 	// 0 - Si el esi actual termino bloqueado lo encolo
 	if(esiEjecutando != NULL && esiEjecutando->estado == ESI_BLOQUEADO)
 	{
-		log_info(console_log, "El esi actual esta bloqueado, lo mando a la lista de bloqueados");
+		info_log("El esi actual esta bloqueado, lo mando a la lista de bloqueados");
 		// Encolo el esi en la lista de bloqueados
 		list_add(listaEsiBloqueados, clonarEsi(esiEjecutando));
 		// Libero el esi actual
