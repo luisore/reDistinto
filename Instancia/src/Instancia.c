@@ -374,7 +374,7 @@ bool must_keep_running(){
 	pthread_mutex_lock(&exit_mutex);
 	bool res = should_terminate;
 	pthread_mutex_unlock(&exit_mutex);
-	return res;
+	return !res;
 }
 
 void run_operations(){
@@ -575,9 +575,10 @@ int main(int argc, char **argv) {
 
 	pthread_mutex_init(&operation_mutex, NULL);
 
-	pthread_create(&operations_thread, NULL, (void*) run_operations, NULL);
 	pthread_create(&dump_thread, NULL, (void*) run_periodic_dump, NULL);
 	pthread_create(&console_thread, NULL, (void*) run_console, NULL);
+	pthread_create(&operations_thread, NULL, (void*) run_operations, NULL);
+
 
 	pthread_join(operations_thread, NULL);
 	pthread_join(dump_thread, NULL);
