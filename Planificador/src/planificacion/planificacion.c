@@ -191,7 +191,7 @@ void chequearDesbloqueos(){
 			flagLiberar = 1;
 		}
 
-		if(estadoRecurso(infoBloqueo->recursoNecesitado) == RECURSO_LIBRE)
+		if(flagLiberar == 0 && estadoRecurso(infoBloqueo->recursoNecesitado) == RECURSO_LIBRE)
 			flagLiberar = 1;
 
 		if(flagLiberar == 1)
