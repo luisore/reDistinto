@@ -33,6 +33,8 @@ bool sonIguales(ESI_STRUCT * esi1, ESI_STRUCT * esi2);
 void liberarRecursosEsi();
 void liberarEsi(ESI_STRUCT * esi);
 
+void liberarRecursosDeEsiFinalizado(ESI_STRUCT * esi);
+
 
 int cantidadEsiTotales();
 

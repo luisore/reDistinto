@@ -129,6 +129,9 @@ void ejecutarPlanificacion() {
 				break;
 			case ESI_FINISHED:
 				info_log("El ESI termino");
+
+				liberarRecursosDeEsiFinalizado(esiEjecutando);
+
 				tcpserver_remove_client(server, esiEjecutando->socket_id);
 				terminarEsiActual();
 				break;

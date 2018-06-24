@@ -414,7 +414,12 @@ void comando_listar_recursos()
 
 void _list_recursos(RECURSO *r)
 {
-	printf("%s\n", r->nombre_recurso);
+	printf("%s", r->nombre_recurso);
+	if(r->estado == RECURSO_LIBRE)
+		printf("\tLIBRE");
+	if(r->estado == RECURSO_BLOQUEADO)
+		printf("\tBLOQUEADO");
+	printf("\n");
 }
 
 void _obtener_todos_los_esis()
