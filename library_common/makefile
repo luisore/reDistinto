@@ -1,43 +1,37 @@
-################################################################################
-# Automatically-generated file. Do not edit!
-################################################################################
+RM=rm -rf
+CC=gcc
 
--include ../makefile.init
+C_SRCS=$(shell find . -iname "*.c" | tr '\n' ' ')
+H_SRCS=$(shell find . -iname "*.h" | tr '\n' ' ')
+OBJS=$(C_SRCS:./%.c=%.o)
 
-RM := rm -rf
+LIBS = -lcommons -lreadline -lcrypto -lpthread 
 
-# All of the sources participating in the build are defined here
--include sources.mk
--include library/subdir.mk
--include subdir.mk
--include objects.mk
+# Clean and compile .so
+all: build/liblibrary_commons.so
 
-ifneq ($(MAKECMDGOALS),clean)
-ifneq ($(strip $(C_DEPS)),)
--include $(C_DEPS)
-endif
-endif
+create-dirs:
+	mkdir -p build
 
--include ../makefile.defs
+build/library/%.o: library/%.c
+	$(CC) -c -fmessage-length=0 -fPIC -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -o "$@" "$<"
 
-# Add inputs and outputs from these tool invocations to the build variables 
+build/liblibrary_commons.so: create-dirs $(OBJS)
+	$(CC) -shared -o "build/liblibrary_commons.so" $(OBJS) $(LIBS)
 
-# All Target
-all: liblibrary_common.so
+# Add debug parameters and compile
+debug: CC += -DDEBUG -g
+debug: all
 
-# Tool invocations
-liblibrary_common.so: $(OBJS) $(USER_OBJS)
-	@echo 'Building target: $@'
-	@echo 'Invoking: GCC C Linker'
-	gcc -shared -o "liblibrary_common.so" $(OBJS) $(USER_OBJS) $(LIBS)
-	@echo 'Finished building target: $@'
-	@echo ' '
-
-# Other Targets
+# Clean build files
 clean:
-	-$(RM) $(LIBRARIES)$(OBJS)$(C_DEPS) liblibrary_common.so
-	-@echo ' '
+	$(RM) build
 
-.PHONY: all clean dependents
+install: all
+	cp -u build/liblibrary_commons.so /usr/lib
+	cp --parents -u $(H_SRCS) /usr/include
 
--include ../makefile.targets
+uninstall:
+	rm -f /usr/lib/liblibrary_commons.so
+
+.PHONY: all create-dirs clean install uninstall

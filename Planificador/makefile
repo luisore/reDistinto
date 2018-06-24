@@ -10,7 +10,6 @@ RM := rm -rf
 -include sources.mk
 -include src/planificacion/subdir.mk
 -include src/commons/subdir.mk
--include src/libs/subdir.mk
 -include src/configuracion/subdir.mk
 -include src/esi/subdir.mk
 -include src/consola/subdir.mk
@@ -43,7 +42,7 @@ endif
 -include ../makefile.defs
 
 # Add inputs and outputs from these tool invocations to the build variables 
-LIBS =  -lcommons -lreadline -lcrypto -lpthread 
+LIBS =  -llibrary_common -lcommons -lreadline -lcrypto -lpthread 
 # All Target
 all: Planificador
 
@@ -51,7 +50,7 @@ all: Planificador
 Planificador: $(OBJS) $(USER_OBJS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: GCC C++ Linker'
-	g++  -o "Planificador" $(OBJS) $(USER_OBJS) $(LIBS)
+	gcc  -o "Planificador" $(OBJS) $(USER_OBJS) $(LIBS)
 	@echo 'Finished building target: $@'
 	@echo ' '
 
