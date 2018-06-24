@@ -67,7 +67,8 @@ void escucharConsola() {
 }
 
 void iniciarPlanificador() {
-	conectarseConCoordinador();
+	if (conectarseConCoordinador() == EXIT_FAILURE)
+		exit_gracefully(EXIT_FAILURE);
 
 	create_tcp_server();
 
@@ -90,14 +91,6 @@ void ejecutarPlanificacion() {
 		}
 
 		log_info(console_log, "\n\n **************** HAY ESI *******************\n");
-
-		/*if(list_size(listaEsiNuevos) == 0 && list_size(listaEsiListos) == 0)
-		{
-			if(list_size(listaEsiBloqueados) != 0)
-			{
-				// Tengo que analizar si esto es lo que mas conviene
-			}
-		}*/
 
 		aplicar_algoritmo_planificacion();
 
@@ -136,6 +129,9 @@ void ejecutarPlanificacion() {
 				break;
 			case ESI_FINISHED:
 				log_info(console_log, "El ESI termino");
+
+				liberarRecursosDeEsiFinalizado(esiEjecutando);
+
 				tcpserver_remove_client(server, esiEjecutando->socket_id);
 				terminarEsiActual();
 				break;

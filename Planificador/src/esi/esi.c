@@ -258,6 +258,20 @@ void bloquearEsi(int id_esi, char* clave)
 	}
 }
 
+void liberarRecursosDeEsiFinalizado(ESI_STRUCT * esi)
+{
+	int i;
+	for(i = 0; i < list_size(listaRecursos); i++){
+		RECURSO* r = list_get(listaRecursos, i);
+
+		if(sonIguales(r->esi_bloqueante, esi))
+		{
+			r->esi_bloqueante = NULL;
+			r->estado = RECURSO_LIBRE;
+		}
+	}
+}
+
 void liberarEsi(ESI_STRUCT * esi) {
 	free(esi);
 }

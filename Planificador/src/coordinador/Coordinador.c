@@ -17,7 +17,7 @@ int conectarseConCoordinador() {
 		return EXIT_FAILURE;
 	}
 	log_info(console_log, "Conexion exitosa al Coordinador.");
-	return 0;
+	return EXIT_SUCCESS;
 }
 
 void escucharCoordinador(){
