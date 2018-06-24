@@ -639,7 +639,7 @@ t_queue* redis_get_dump_dir_file_names(t_redis* redis){
 	d = opendir(redis->mount_dir);
 
 	if(!d){
-		log_error(redis->log, "Invalid dump directory: %s. Aborting execution.", redis->mount_dir);
+		log_error(redis->log, "Invalid dump directory: %.", redis->mount_dir);
 		return NULL;
 	}
 
