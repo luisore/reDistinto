@@ -584,7 +584,6 @@ int main(int argc, char **argv) {
 	pthread_join(dump_thread, NULL);
 	pthread_join(console_thread, NULL);
 
-	exit(EXIT_SUCCESS);
-	return 0;
+	exit_program(EXIT_SUCCESS);
 }
 
