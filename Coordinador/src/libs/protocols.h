@@ -124,6 +124,16 @@ typedef struct {
 
 static const int COORDINATOR_OPERATION_HEADER_SIZE = 4;
 
+
+typedef struct{
+	int payload_valor_size;
+	char nombre_intancia_actual[40];
+	char nombre_intancia_posible[40];
+} status_response_from_coordinator;
+
+
+static const int STATUS_RESPONSE_FROM_COORDINATOR = 4 + 41 + 41;
+
 // Connection Messages
 int connect_to_server(char *ip, int port, t_log *logger);
 bool perform_connection_handshake(int server_socket, char* instance_name,
@@ -166,5 +176,8 @@ t_coordinator_operation_header* deserialize_coordinator_operation_header(void* b
 
 void* serialize_init_instancia_message(t_instance_init_values *init_values_message);
 t_instance_init_values* deserialize_init_instancia_message(void* buffer);
+
+void* serialize_status_response_from_coordinator(status_response_from_coordinator *response);
+status_response_from_coordinator* derialize_status_response_from_coordinator(void *buffer);
 
 #endif /* _PROTOCOLS_H_ */
