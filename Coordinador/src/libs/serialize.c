@@ -1,4 +1,4 @@
-#include "../library/serialize.h"
+#include "../libs/serialize.h"
 
 /*
  * Serializa una cantidad de bytes de un objeto dentro de un buffer.

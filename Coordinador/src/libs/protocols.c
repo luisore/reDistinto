@@ -4,7 +4,7 @@
  *  Created on: 20 abr. 2018
  *      Author: avinocur
  */
-#include "../library/protocols.h"
+#include "../libs/protocols.h"
 
 #include <sys/socket.h>
 #include <netdb.h> // Para getaddrinfo

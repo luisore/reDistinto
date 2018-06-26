@@ -6,9 +6,9 @@
 #include <netdb.h>
 #include <unistd.h>
 
-#include <library/serialize.h>
-#include <library/tcpserver.h>
-#include <library/protocols.h>
+#include "../libs/serialize.h"
+#include "../libs/tcpserver.h"
+#include "../libs/protocols.h"
 
 #include "../configuracion/configuracion.h"
 #include "../esi/esi.h"

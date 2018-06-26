@@ -10,7 +10,7 @@
 #include <stdbool.h>
 #include <commons/log.h>
 
-#include "../library/serialize.h"
+#include "../libs/serialize.h"
 
 typedef enum {
 	ESI = 1, COORDINATOR = 2, PLANNER = 3, REDIS_INSTANCE = 4
@@ -137,10 +137,10 @@ static const int COORDINATOR_OPERATION_HEADER_SIZE = 4;
 
 
 typedef struct{
-	int payload_valor_size,
-	char nombre_intancia_actual[40],
-	char nombre_intancia_posible[40]
-} status_response_from_coordinator
+	int payload_valor_size;
+	char nombre_intancia_actual[40];
+	char nombre_intancia_posible[40];
+} status_response_from_coordinator;
 
 static const int STATUS_RESPONSE_FROM_COORDINATOR = 4 + 41 + 41;
 

@@ -6,7 +6,7 @@
  *      Author: avinocur
  */
 
-#include "../library/tcpserver.h"
+#include "../libs/tcpserver.h"
 
 tcp_server_t* tcpserver_create(char* server_name, t_log* log, int max_clients,
 		int connection_queue_size, int port, bool listen_console) {

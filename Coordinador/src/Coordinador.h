@@ -2,9 +2,9 @@
 #include <commons/log.h>
 #include <stdio.h> //printf
 #include <commons/collections/list.h>
-#include <library/serialize.h>
-#include <library/tcpserver.h>
-#include <library/protocols.h>
+#include "libs/serialize.h"
+#include "libs/tcpserver.h"
+#include "libs/protocols.h"
 
 #ifndef SRC_COORDINADOR_H_
 #define SRC_COORDINADOR_H_

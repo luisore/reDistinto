@@ -48,7 +48,7 @@ void comando_kill_proceso_esi_por_id(char* id_esi);
  * 1-Valor, en caso de no poseer valor un mensaje que lo indique.
  *
  * 2-Instancia actual en la cual se encuentra la clave.
- * (En caso de que la clave no exista, la Instancia actual debería)
+ * (En caso de que la clave no se encuentre en una instancia, no se debe mostrar este valor)
  *
  * 3-Instancia en la cual se guardaría actualmente la clave.
  * (Calcula el valor mediante el algoritmo de distribución,
