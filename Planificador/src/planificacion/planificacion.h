@@ -10,6 +10,7 @@
  */
 void nuevoCicloDeCPU();
 
+void setAlgoritmo(int p_algoritmo);
 
 /********** SJF **********/
 void setAlpha(float p_alpha);

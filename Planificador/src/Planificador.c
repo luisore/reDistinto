@@ -53,6 +53,8 @@ int inicializar() {
 
 	setEstimacionInicial(planificador_setup.ESTIMACION_INICIAL);
 
+	setAlgoritmo(planificador_setup.ALGORITMO_PLANIFICACION);
+
 	return 0;
 }
 
@@ -117,9 +119,13 @@ void ejecutarPlanificacion() {
 
 				// Aumento contadores esi actual
 				esiEjecutando->tiempoRafagaActual++;
-				esiEjecutando->tiempoEstimado--;
+
+				// Por ahora no decremento el tiempo estimado.
+				// No estoy seguro de que este bien
+				/*esiEjecutando->tiempoEstimado--;
+
 				if(esiEjecutando->tiempoEstimado < 0)
-					esiEjecutando->tiempoEstimado = 0;
+					esiEjecutando->tiempoEstimado = 0;*/
 
 				break;
 			case ESI_BLOCKED:
