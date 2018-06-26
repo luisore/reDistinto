@@ -280,6 +280,21 @@ void send_message_clients(t_connection_header *connection_header, int client_soc
 
 }
 
+void send_message_planner_console(t_connection_header *connection_header, int client_socket, int socket_id){
+
+	t_ack_message ack_message;
+	strcpy(ack_message.instance_name, coordinador_setup.NOMBRE_INSTANCIA);
+	void *ack_buffer = serialize_ack_message(&ack_message);
+
+	if( send(client_socket, ack_buffer, ACK_MESSAGE_SIZE, 0) != ACK_MESSAGE_SIZE)
+	{
+		log_error(coordinador_log, "Could not send handshake acknowledge to TCP client.");
+	} else {
+		log_info(coordinador_log, "Successfully connected to TCP Client: %s", connection_header->instance_name);
+	}
+
+}
+
 t_connected_client* find_connected_client(int socket_id){
 	bool is_linked_to_socket(void* conn_client){
 		t_connected_client* connected_client = (t_connected_client*)conn_client;
@@ -721,6 +736,13 @@ void destroy_connected_client(t_connected_client* connected_client){
 }
 
 
+void handle_planner_console_request(char * key){
+
+	log_info(coordinador_log , "CONSOLE_PLANNER: Receive key from console: %s" , key );
+
+
+}
+
 
 void server_planner_console_accept(tcp_server_t* server, int client_socket, int socket_id){
 
@@ -729,38 +751,35 @@ void server_planner_console_accept(tcp_server_t* server, int client_socket, int 
 	int res = recv(client_socket, header_buffer, CONNECTION_HEADER_SIZE, MSG_WAITALL);
 	if (res <= 0) {
 		log_error(coordinador_log, "Error receiving handshake request from PLANNER CONSOLE");
-		tcpserver_remove_client(server, socket_id);
+		tcpserver_remove_client(server_planner_console, socket_id);
 		free(header_buffer);
 		return;
 	}
 
 	t_connection_header *connection_header = deserialize_connection_header(header_buffer);
 
-	send_message_clients(connection_header, client_socket, socket_id);
+	send_message_planner_console(connection_header, client_socket, socket_id);
 
 }
 
 void server_planner_console_read(tcp_server_t* server, int client_socket, int socket_id){
 
-	// Handle PLANNER CONSOLE REQUEST
+	// Define size of key.
+	char* key_buffer = malloc(41);
+	int key_size = 41;
 
-	// DEFINE PROTOCOL WITH PLANNER CONSOLE.
+	if (recv(socket, key_buffer, key_size, MSG_WAITALL) < key_size) {
 
-//	char* buffer = malloc(OPERATION_REQUEST_SIZE);
-//
-//	if (recv(socket, buffer, OPERATION_REQUEST_SIZE, MSG_WAITALL) < OPERATION_REQUEST_SIZE) {
-//		log_warning(coordinador_log, "ESI Disconnected: %s", client->instance_name);
-//		free(buffer);
-//		remove_client(server, client->socket_id); //TODO: NO HACE FALTA EL FIND PORQUE YA LO TENGO. SE PUEDE MEJORAR
-//		return;
-//	}
-//
-//	t_operation_request* esi_request = deserialize_operation_request(buffer);
-//
-//	handle_esi_request(esi_request, client, socket);
-//
-//	free(esi_request);
-//	free(buffer);
+		log_error(coordinador_log, "CONSOLE_PLANNER: Cannot receive key");
+		free(key_buffer);
+		tcpserver_remove_client(server_planner_console, socket_id);
+		return;
+
+	}
+
+	handle_planner_console_request(key_buffer);
+
+	free(key_buffer);
 }
 
 
