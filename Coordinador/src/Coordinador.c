@@ -736,10 +736,74 @@ void destroy_connected_client(t_connected_client* connected_client){
 }
 
 
-void handle_planner_console_request(char * key){
+status_response_from_coordinator * retrieve_instance_value(char * key){
+
+	status_response_from_coordinator  * response = malloc(STATUS_RESPONSE_FROM_COORDINATOR);
+
+	strcpy(response->nombre_intancia_actual ,"Instancia3");
+	strcpy(response->nombre_intancia_posible , "NO_VALOR");
+	response->payload_valor_size = 0;
+
+	// TODO
+
+	// MUST STOP INSTRUCTION CICLE IN A SAFE MODE ( INSTANCES MUST NO BE EXPECTING A VALUE OR SENDING SOMETHING)
+
+	// 1 . Search if key exists in dictionary
+	//     IF NOT ->  nombre_intancia_actual = "NO_VALOR" -> GO to step 2
+	// 	   IF YES ->  nombre_intancia_actual = dictionary_get - > Go to step 3
+
+	// 2. Simulates selected algorithim and retrieve Instance name ( Must storage instance name on connected_instances list)
+
+	// 3. Set nombre_intancia_posible = "NO_VALOR"
+
+	return response;
+
+}
+
+void handle_planner_console_request(char * key , int planner_socket){
 
 	log_info(coordinador_log , "CONSOLE_PLANNER: Receive key from console: %s" , key );
+	log_info(coordinador_log , "Retrieving value from INSTANCE");
 
+	status_response_from_coordinator * response =  retrieve_instance_value(key);
+
+	log_info(coordinador_log , "Sending status_struct to PLANNER");
+
+	void *buffer = serialize_status_response_from_coordinator(response);
+
+	int send_data = send(planner_socket, buffer, STATUS_RESPONSE_FROM_COORDINATOR, 0);
+
+	if(send_data < STATUS_RESPONSE_FROM_COORDINATOR){
+		log_error(coordinador_log, "It was an Error trying to send status_response to Planner. Aborting conection");
+		tcpserver_remove_client(server_planner_console, planner_socket);
+		free(buffer);
+		return;
+	}
+
+	// Sends value if exists
+
+	if (response->payload_valor_size > 0){
+		log_info(coordinador_log , "Sending explicit value from associated key");
+
+		// HARDCODE
+		void *buffer = malloc(40);
+		strcpy(buffer , "HOLAA");
+		int payload_size = strlen(buffer);
+
+
+		int send_value = send(planner_socket, buffer,payload_size, 0);
+
+		if(send_value < payload_size){
+			log_error(coordinador_log, "It was an Error trying to send payload value to Planner. Aborting conection");
+			tcpserver_remove_client(server_planner_console, planner_socket);
+			free(buffer);
+			return;
+		}
+	}
+
+	log_info(coordinador_log , "Sended OK.");
+
+	free(buffer);
 
 }
 
@@ -764,11 +828,23 @@ void server_planner_console_accept(tcp_server_t* server, int client_socket, int 
 
 void server_planner_console_read(tcp_server_t* server, int client_socket, int socket_id){
 
-	// Define size of key.
-	char* key_buffer = malloc(41);
-	int key_size = 41;
+	// First must receive key_size
 
-	if (recv(socket, key_buffer, key_size, MSG_WAITALL) < key_size) {
+	int key_size;
+
+	if (recv(client_socket, &key_size,sizeof(key_size), MSG_WAITALL) == -1) {
+
+		log_error(coordinador_log, "CONSOLE_PLANNER: Cannot receive key_size");
+		tcpserver_remove_client(server_planner_console, socket_id);
+		return;
+
+	}
+	log_info(coordinador_log , "Receive key size. Attempting to receive key_value");
+
+	// Define size of key.
+	char* key_buffer = malloc(key_size);
+
+	if (recv(client_socket, key_buffer, key_size, MSG_WAITALL) < key_size) {
 
 		log_error(coordinador_log, "CONSOLE_PLANNER: Cannot receive key");
 		free(key_buffer);
@@ -777,7 +853,7 @@ void server_planner_console_read(tcp_server_t* server, int client_socket, int so
 
 	}
 
-	handle_planner_console_request(key_buffer);
+	handle_planner_console_request(key_buffer , client_socket );
 
 	free(key_buffer);
 }
