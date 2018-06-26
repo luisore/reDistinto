@@ -137,6 +137,26 @@ t_ack_message* deserialize_ack_message(void* buffer){
 	return message;
 }
 
+void* serialize_init_instancia_message(t_instance_init_values *init_values_message){
+	void* buffer = malloc(INSTANCE_INIT_VALUES_SIZE);
+	int lastIndex = 0;
+
+	serialize_data(&(init_values_message->entry_size), 4, &buffer, &lastIndex);
+	serialize_data(&(init_values_message->number_of_entries), 4, &buffer, &lastIndex);
+
+	return buffer;
+}
+
+t_instance_init_values* deserialize_init_instancia_message(void* buffer){
+	t_instance_init_values* message = malloc(sizeof(t_instance_init_values));
+	int lastIndex = 0;
+
+	deserialize_data(&(message->entry_size), 4, buffer, &lastIndex);
+	deserialize_data(&(message->number_of_entries), 4, buffer, &lastIndex);
+
+	return message;
+}
+
 void* serialize_operation_request(t_operation_request *request){
 	void* buffer = malloc(OPERATION_REQUEST_SIZE);
 	int lastIndex = 0;
@@ -293,4 +313,29 @@ t_coordinator_operation_header* deserialize_coordinator_operation_header(void* b
 	return header;
 }
 
+void* serialize_status_response_from_coordinator(status_response_from_coordinator *response){
+
+	void* buffer = malloc(STATUS_RESPONSE_FROM_COORDINATOR);
+	int lastIndex = 0;
+
+	serialize_data(&(response->payload_valor_size), 4, &buffer, &lastIndex);
+	serialize_data(&(response->nombre_intancia_actual), 41, &buffer, &lastIndex);
+	serialize_data(&(response->nombre_intancia_posible), 41, &buffer, &lastIndex);
+
+	return buffer;
+
+}
+
+status_response_from_coordinator* derialize_status_response_from_coordinator(void *buffer){
+
+	status_response_from_coordinator* response = malloc(sizeof(status_response_from_coordinator));
+	int lastIndex = 0;
+
+	deserialize_data(&(response->payload_valor_size), 4, buffer, &lastIndex);
+	deserialize_data(&(response->nombre_intancia_actual), 41, buffer, &lastIndex);
+	deserialize_data(&(response->nombre_intancia_posible), 41, buffer, &lastIndex);
+
+	return response;
+
+}
 
