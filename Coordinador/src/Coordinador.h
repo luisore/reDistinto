@@ -45,7 +45,7 @@ typedef enum {
 	LSU = 1, EL = 2, KE = 3
 } dist_algo_e;
 
-struct {
+typedef struct {
 	char * NOMBRE_INSTANCIA;
 	int PUERTO_ESCUCHA_CONEXIONES;
 	int CANTIDAD_MAXIMA_CLIENTES;
@@ -56,6 +56,8 @@ struct {
 	int RETARDO_MS;
 	int PUERTO_ESCUCHA_CONEXION_CONSOLA;
 } coordinador_setup;
+
+coordinador_setup coordinador_config;
 
 typedef struct {
 	char instance_name[30];

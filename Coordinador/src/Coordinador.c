@@ -55,15 +55,17 @@ void loadConfig() {
 	}
 
 	if (config != NULL) {
-		coordinador_setup.NOMBRE_INSTANCIA = string_duplicate(config_get_string_value(config,"NOMBRE_INSTANCIA"));
-		coordinador_setup.PUERTO_ESCUCHA_CONEXIONES = config_get_int_value(	config, "PUERTO_ESCUCHA_CONEXIONES");
-		coordinador_setup.CANTIDAD_MAXIMA_CLIENTES = config_get_int_value(config,"CANTIDAD_MAXIMA_CLIENTES");
-		coordinador_setup.TAMANIO_COLA_CONEXIONES = config_get_int_value(config,"TAMANIO_COLA_CONEXIONES");
-		coordinador_setup.ALGORITMO_DISTRIBUCION = config_get_int_value(config,	"ALGORITMO_DISTRIBUCION");
-		coordinador_setup.CANTIDAD_ENTRADAS = config_get_int_value(config,"CANTIDAD_ENTRADAS");
-		coordinador_setup.TAMANIO_ENTRADA_BYTES = config_get_int_value(config,"TAMANIO_ENTRADA_BYTES");
-		coordinador_setup.RETARDO_MS = config_get_int_value(config,	"RETARDO_MS");
-		coordinador_setup.PUERTO_ESCUCHA_CONEXION_CONSOLA = config_get_int_value(	config, "PUERTO_ESCUCHA_CONEXION_CONSOLA");
+		coordinador_config.NOMBRE_INSTANCIA = malloc(30);
+		strcpy(coordinador_config.NOMBRE_INSTANCIA,
+				config_get_string_value(config, "NOMBRE_INSTANCIA"));
+		coordinador_config.PUERTO_ESCUCHA_CONEXIONES = config_get_int_value(	config, "PUERTO_ESCUCHA_CONEXIONES");
+		coordinador_config.CANTIDAD_MAXIMA_CLIENTES = config_get_int_value(config,"CANTIDAD_MAXIMA_CLIENTES");
+		coordinador_config.TAMANIO_COLA_CONEXIONES = config_get_int_value(config,"TAMANIO_COLA_CONEXIONES");
+		coordinador_config.ALGORITMO_DISTRIBUCION = config_get_int_value(config,	"ALGORITMO_DISTRIBUCION");
+		coordinador_config.CANTIDAD_ENTRADAS = config_get_int_value(config,"CANTIDAD_ENTRADAS");
+		coordinador_config.TAMANIO_ENTRADA_BYTES = config_get_int_value(config,"TAMANIO_ENTRADA_BYTES");
+		coordinador_config.RETARDO_MS = config_get_int_value(config,	"RETARDO_MS");
+		coordinador_config.PUERTO_ESCUCHA_CONEXION_CONSOLA = config_get_int_value(config, "PUERTO_ESCUCHA_CONEXION_CONSOLA");
 	}
 	config_destroy(config);
 }
@@ -72,7 +74,7 @@ void liberar_memoria() {
 	if(connected_clients != NULL) list_destroy_and_destroy_elements(connected_clients, destroy_connected_client);
 	if(connected_instances != NULL) list_destroy_and_destroy_elements(connected_instances, destroy_connected_client);
 	if(server != NULL) tcpserver_destroy(server);
-	if(coordinador_setup.NOMBRE_INSTANCIA != NULL) free(coordinador_setup.NOMBRE_INSTANCIA);
+	if(coordinador_config.NOMBRE_INSTANCIA != NULL) free(coordinador_config.NOMBRE_INSTANCIA);
 }
 
 void log_inicial_consola() {
@@ -80,7 +82,7 @@ void log_inicial_consola() {
 
 	log_info(coordinador_log, "Se muestran los datos del coordinador");
 
-	switch (coordinador_setup.ALGORITMO_DISTRIBUCION) {
+	switch (coordinador_config.ALGORITMO_DISTRIBUCION) {
 	case LSU:
 		log_info(coordinador_log, "\tAlgoritmo de distribucion: LSU");
 		break;
@@ -92,14 +94,14 @@ void log_inicial_consola() {
 		break;
 	}
 
-	log_info(coordinador_log, "\tNombre de instancia: %s",	coordinador_setup.NOMBRE_INSTANCIA);
-	log_info(coordinador_log, "\tPuerto de escucha conexiones: %d",	coordinador_setup.PUERTO_ESCUCHA_CONEXIONES);
-	log_info(coordinador_log, "\tCantidad maxima de clientes: %d",	coordinador_setup.CANTIDAD_MAXIMA_CLIENTES);
-	log_info(coordinador_log, "\tTamanio cola conexiones: %d",	coordinador_setup.TAMANIO_COLA_CONEXIONES);
-	log_info(coordinador_log, "\tCantidad de entradas: %d",	coordinador_setup.CANTIDAD_ENTRADAS);
-	log_info(coordinador_log, "\tTamanio de entrada en bytes: %d", coordinador_setup.TAMANIO_ENTRADA_BYTES);
-	log_info(coordinador_log, "\tRetardo en milis: %d", coordinador_setup.RETARDO_MS);
-	log_info(coordinador_log, "\tPuerto de escucha conexion con consola de planificador : %d",	coordinador_setup.PUERTO_ESCUCHA_CONEXION_CONSOLA);
+	log_info(coordinador_log, "\tNombre de instancia: %s",	coordinador_config.NOMBRE_INSTANCIA);
+	log_info(coordinador_log, "\tPuerto de escucha conexiones: %d",	coordinador_config.PUERTO_ESCUCHA_CONEXIONES);
+	log_info(coordinador_log, "\tCantidad maxima de clientes: %d",	coordinador_config.CANTIDAD_MAXIMA_CLIENTES);
+	log_info(coordinador_log, "\tTamanio cola conexiones: %d",	coordinador_config.TAMANIO_COLA_CONEXIONES);
+	log_info(coordinador_log, "\tCantidad de entradas: %d",	coordinador_config.CANTIDAD_ENTRADAS);
+	log_info(coordinador_log, "\tTamanio de entrada en bytes: %d", coordinador_config.TAMANIO_ENTRADA_BYTES);
+	log_info(coordinador_log, "\tRetardo en milis: %d", coordinador_config.RETARDO_MS);
+	log_info(coordinador_log, "\tPuerto de escucha conexion con consola de planificador : %d",	coordinador_config.PUERTO_ESCUCHA_CONEXION_CONSOLA);
 
 }
 
@@ -111,10 +113,10 @@ void create_tcp_server(){
 	connected_instances = list_create();
 	instancia_actual=0;
 
-	server = tcpserver_create(coordinador_setup.NOMBRE_INSTANCIA, coordinador_log,
-			coordinador_setup.CANTIDAD_MAXIMA_CLIENTES,
-			coordinador_setup.TAMANIO_COLA_CONEXIONES,
-			coordinador_setup.PUERTO_ESCUCHA_CONEXIONES, true);
+	server = tcpserver_create(coordinador_config.NOMBRE_INSTANCIA, coordinador_log,
+			coordinador_config.CANTIDAD_MAXIMA_CLIENTES,
+			coordinador_config.TAMANIO_COLA_CONEXIONES,
+			coordinador_config.PUERTO_ESCUCHA_CONEXIONES, true);
 
 	if(server == NULL){
 		log_error(coordinador_log, "Could not create TCP server. Aborting execution.");
@@ -132,7 +134,7 @@ void create_tcp_server_console(){
 	server_planner_console = tcpserver_create("CONSOLE PLANNER", coordinador_log,
 							1,
 							1,
-							coordinador_setup.PUERTO_ESCUCHA_CONEXION_CONSOLA, true);
+							coordinador_config.PUERTO_ESCUCHA_CONEXION_CONSOLA, true);
 
 	if(server_planner_console == NULL){
 		log_error(coordinador_log, "Could not create TCP server for PLANNER CONSOLE. Aborting execution.");
@@ -251,8 +253,8 @@ void on_server_accept(tcp_server_t* server, int client_socket, int socket_id){
 
 void send_message_instance(t_connection_header *connection_header, int client_socket, int socket_id){
 	t_instance_init_values init_values_message;
-			init_values_message.entry_size = coordinador_setup.TAMANIO_ENTRADA_BYTES;
-			init_values_message.number_of_entries = coordinador_setup.CANTIDAD_ENTRADAS;
+			init_values_message.entry_size = coordinador_config.TAMANIO_ENTRADA_BYTES;
+			init_values_message.number_of_entries = coordinador_config.CANTIDAD_ENTRADAS;
 			void *init_value_instance_buffer = serialize_init_instancia_message(&init_values_message);
 
 			if( send(client_socket, init_value_instance_buffer, INSTANCE_INIT_VALUES_SIZE, 0) != INSTANCE_INIT_VALUES_SIZE)
@@ -267,7 +269,7 @@ void send_message_instance(t_connection_header *connection_header, int client_so
 
 void send_message_clients(t_connection_header *connection_header, int client_socket, int socket_id){
 	t_ack_message ack_message;
-	strcpy(ack_message.instance_name, coordinador_setup.NOMBRE_INSTANCIA);
+	strcpy(ack_message.instance_name, coordinador_config.NOMBRE_INSTANCIA);
 	void *ack_buffer = serialize_ack_message(&ack_message);
 
 	if( send(client_socket, ack_buffer, ACK_MESSAGE_SIZE, 0) != ACK_MESSAGE_SIZE)
@@ -283,7 +285,7 @@ void send_message_clients(t_connection_header *connection_header, int client_soc
 void send_message_planner_console(t_connection_header *connection_header, int client_socket, int socket_id){
 
 	t_ack_message ack_message;
-	strcpy(ack_message.instance_name, coordinador_setup.NOMBRE_INSTANCIA);
+	strcpy(ack_message.instance_name, coordinador_config.NOMBRE_INSTANCIA);
 	void *ack_buffer = serialize_ack_message(&ack_message);
 
 	if( send(client_socket, ack_buffer, ACK_MESSAGE_SIZE, 0) != ACK_MESSAGE_SIZE)
@@ -635,7 +637,7 @@ t_connected_client* select_intance_KE(){
 t_connected_client* select_instancia(){
 
 	// MEJORAR COMO ESTA EN INSTANCIA
-	switch(coordinador_setup.ALGORITMO_DISTRIBUCION){
+	switch(coordinador_config.ALGORITMO_DISTRIBUCION){
 	case LSU:
 		return select_intance_LSU();
 		break;
