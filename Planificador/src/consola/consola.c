@@ -82,6 +82,7 @@ void _obtener_esis_nuevos();
 void _obtener_esis_terminados();
 ESI_STRUCT* obtener_esi_por_id(char* id_esi);
 ESI_STRUCT* obtener_esi_por_clave_recurso(char* clave);
+void* enviar_status_a_coordinador_por_clave(char* clave);
 
 void _finalizar_cadena(char *entrada);
 char *_obtener_comando(char** split_comandos);
@@ -181,7 +182,7 @@ void _validar_parametro(char* cadena)
 {
 	if(_estaVacia(cadena))
 	{
-		printf("El parametro no esta vacio o no es correcto\n");
+		printf("El parametro esta vacio o no es correcto\n");
 		log_info(console_log, "El parametro ingresado es invalido: %s\n", cadena);
 		return;
 	}
@@ -429,6 +430,7 @@ void comando_status_instancias_por_clave(char* clave)
 		free(estado);
 	}
 
+	enviar_status_a_coordinador_por_clave(clave);
 	t_list* esis_filtrados = list_filter(listaEsis, (void*) _espera_por_recurso);
 	if(!list_is_empty(esis_filtrados)) {
 		list_iterate(esis_filtrados, (void*) _list_estatus_intancias);
@@ -438,6 +440,11 @@ void comando_status_instancias_por_clave(char* clave)
 	}
 	list_destroy(esis_filtrados);
 	list_clean(listaEsis);
+}
+
+void* enviar_status_a_coordinador_por_clave(char* clave)
+{
+	return NULL;
 }
 
 void comando_exit()
