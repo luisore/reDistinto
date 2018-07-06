@@ -2,6 +2,7 @@
 #define SRC_CONSOLA_CONSOLA_H_
 
 #include "../commons/commons.h"
+#include "../libs/protocols.h"
 
 #define CONSOLA_COMANDO_DESCONOCIDO -1
 #define CONSOLA_COMANDO_SHOW 1
