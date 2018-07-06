@@ -82,7 +82,7 @@ void _obtener_esis_nuevos();
 void _obtener_esis_terminados();
 ESI_STRUCT* obtener_esi_por_id(char* id_esi);
 ESI_STRUCT* obtener_esi_por_clave_recurso(char* clave);
-void* enviar_status_a_coordinador_por_clave(char* clave);
+status_response_from_coordinator* enviar_status_a_coordinador_por_clave(char* clave);
 
 void _finalizar_cadena(char *entrada);
 char *_obtener_comando(char** split_comandos);
@@ -276,7 +276,7 @@ void comando_desbloquear_primer_esi_por_clave(char* clave)
 		pthread_mutex_lock(&mutexPrincipal);
 		desbloquearEsi(esi);
 		pthread_mutex_unlock(&mutexPrincipal);
-		printf("Se ha desbloqueado el ESI con id_esi: %s para la clave: %s\n", esi->id, clave);
+		printf("Se ha desbloqueado el ESI con id_esi: %d para la clave: %s\n", esi->id, clave);
 	} else {
 		printf("No se encontro nignun proceso esi bloquedo por la clave: %s especificada\n", clave);
 		log_info(console_log, "No existe proceso esi bloquedo por la clave: %s\n", clave);
@@ -383,7 +383,7 @@ void comando_kill_proceso_esi_por_id(char* id_esi) {
 
 	if(esi != NULL)
 	{
-		printf("Se ha elimiando el ESI con id_esi: %s\n", esi->id);
+		printf("Se ha elimiando el ESI con id_esi: %d\n", esi->id);
 	} else {
 		printf("No se encontro proceso esi con id: %s especificado \n", id_esi);
 		log_info(console_log, "No existe proceso esi con el id: %s\n", id_esi);
@@ -430,7 +430,7 @@ void comando_status_instancias_por_clave(char* clave)
 		free(estado);
 	}
 
-	enviar_status_a_coordinador_por_clave(clave);
+	status_response_from_coordinator* response = enviar_status_a_coordinador_por_clave(clave);
 	t_list* esis_filtrados = list_filter(listaEsis, (void*) _espera_por_recurso);
 	if(!list_is_empty(esis_filtrados)) {
 		list_iterate(esis_filtrados, (void*) _list_estatus_intancias);
@@ -442,9 +442,10 @@ void comando_status_instancias_por_clave(char* clave)
 	list_clean(listaEsis);
 }
 
-void* enviar_status_a_coordinador_por_clave(char* clave)
+status_response_from_coordinator* enviar_status_a_coordinador_por_clave(char* clave)
 {
-	return NULL;
+	status_response_from_coordinator* response = NULL;
+	return response;
 }
 
 void comando_exit()
