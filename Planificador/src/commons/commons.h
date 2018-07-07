@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+#include <semaphore.h>
 #include <commons/config.h>
 #include <commons/collections/list.h>
 #include <commons/collections/queue.h>
@@ -53,7 +54,8 @@ t_log *console_log;
 pthread_mutex_t mutexConsola;
 pthread_mutex_t mutexLog;
 pthread_mutex_t mutexPrincipal;
-pthread_mutex_t mutexPlanificacion;
+
+sem_t sem_esis;
 
 int create_log();
 

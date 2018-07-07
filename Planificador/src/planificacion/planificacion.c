@@ -277,6 +277,9 @@ void chequearDesbloqueos(){
 			list_remove(listaEsiBloqueados, i);
 			i--;
 			list_add(listaEsiListos, esi);
+
+			// Ahora hay un esi mas que esta listo para ejecutar
+			sem_post(&sem_esis);
 		}
 	}
 }

@@ -11,10 +11,11 @@ int main(void) {
 		return -1;
 	}
 
+	sem_init(&sem_esis, 0, 0);
+
 	pthread_mutex_init(&mutexConsola, NULL);
 	pthread_mutex_init(&mutexLog, NULL);
 	pthread_mutex_init(&mutexPrincipal, NULL);
-	pthread_mutex_init(&mutexPlanificacion, NULL);
 
 	pthread_create(&hiloConsola, NULL, (void*) escucharConsola, NULL);
 	pthread_create(&hiloPrincipal, NULL, (void*) iniciarPlanificador, NULL);
@@ -82,15 +83,15 @@ void iniciarPlanificador() {
 
 void ejecutarPlanificacion() {
 	while (true) {
-		pthread_mutex_lock(&mutexPlanificacion);
-
-		// Hay algun esi conectado?
-		if (cantidadEsiTotales() == 0) {
+		int cantidadDeEsis;
+		sem_getvalue(&sem_esis, &cantidadDeEsis);
+		
+		// Hay algun esi listo para ejecutar?
+		if (cantidadDeEsis == 0) {
 			info_log("\n\n **************** NO HAY ESI *******************\n");
-
-			// Espero a que se conecte algun esi, para que esto no itere infinitamente
-			pthread_mutex_lock(&mutexPlanificacion);
 		}
+
+		sem_wait(&sem_esis);
 
 		info_log("\n\n **************** HAY ESI *******************\n");
 
@@ -127,11 +128,18 @@ void ejecutarPlanificacion() {
 				if(esiEjecutando->tiempoEstimado < 0)
 					esiEjecutando->tiempoEstimado = 0;*/
 
+				//Incremento el contador porque este esi todavia no salio del programa
+				sem_post(&sem_esis);
+
 				break;
 			case ESI_BLOCKED:
 				// En un bloqueo se supone que el esi no pudo ejecutar
 				// por eso no hago el incremento de contadores
 				info_log("El ESI esta bloqueado");
+
+				// Un esi menos para ejecutar
+				sem_wait(&sem_esis);
+
 				break;
 			case ESI_FINISHED:
 				info_log("El ESI termino");
@@ -140,14 +148,13 @@ void ejecutarPlanificacion() {
 
 				tcpserver_remove_client(server, esiEjecutando->socket_id);
 				terminarEsiActual();
+
 				break;
 			}
 		}
 
 		// Realizar incrementos de contadores
 		nuevoCicloDeCPU();
-
-		pthread_mutex_unlock(&mutexPlanificacion);
 	}
 	pthread_exit(0);
 }
@@ -276,9 +283,6 @@ void on_server_accept(tcp_server_t* server, int client_socket, int socket_id) {
 		int id_esi = generarId();
 		ESI_STRUCT * esi = nuevoESI(id_esi, client_socket, socket_id);
 		agregarNuevoEsi(esi);
-
-		// Nuevo esi => libero el hilo de planificacion
-		pthread_mutex_unlock(&mutexPlanificacion);
 	}
 
 	free(header_buffer);
@@ -427,7 +431,8 @@ void liberarRecursos(int tipoSalida) {
 
 	pthread_mutex_destroy(&mutexConsola);
 	pthread_mutex_destroy(&mutexPrincipal);
-	pthread_mutex_destroy(&mutexPlanificacion);
+
+	sem_destroy(&sem_esis);
 
 	liberarRecursosEsi();
 	liberarRecursosConfiguracion();
