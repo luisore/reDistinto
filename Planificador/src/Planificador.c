@@ -59,6 +59,10 @@ int inicializar() {
 void escucharConsola() {
 	info_log("Se inicio hilo con la consola");
 
+	// Se debe conectar con el Coordinador
+
+	conectarseConCoordinadorConsola();
+
 	while (true) {
 		if (consolaLeerComando(console_log) == TERMINAR_CONSOLA) {
 			pthread_exit(0);
@@ -172,6 +176,25 @@ void conectarseConCoordinador() {
 		exit_gracefully(EXIT_FAILURE);
 	}
 	info_log("Conexion exitosa al Coordinador.");
+}
+
+void conectarseConCoordinadorConsola() {
+		info_log("Conectando al Coordinador mediante consola");
+
+		coordinator_socket_console = 0;
+
+		coordinator_socket_console = connect_to_server(planificador_setup.IP_COORDINADOR,
+				planificador_setup.PUERTO_COORDINADOR_CONSOLA , console_log);
+
+		if (coordinator_socket_console <= 0) {
+			exit_gracefully(EXIT_FAILURE);
+		}
+
+		if (!perform_connection_handshake(coordinator_socket_console,
+				planificador_setup.NOMBRE_INSTANCIA, PLANNER, console_log)) {
+			exit_gracefully(EXIT_FAILURE);
+		}
+		info_log("Conexion exitosa al Coordinador mediante la consola");
 }
 
 void ejecutarSiguienteESI(int esi_socket, int socket_id) {

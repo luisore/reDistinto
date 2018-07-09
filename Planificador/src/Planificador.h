@@ -2,7 +2,7 @@
 #define PLANIFICADOR_SRC_PLANIFICADOR_H_
 
 #include <signal.h>
-#include <sys/socket.h>
+
 #include <netdb.h>
 #include <unistd.h>
 
@@ -18,6 +18,7 @@
 #define PLANNER_CFG_FILE "planificador.config"
 
 int coordinator_socket = 0;
+
 int esi_id = 0;
 
 tcp_server_t* server;
@@ -41,6 +42,7 @@ void aplicar_algoritmo_planificacion();
 
 //Comunicacion con el coordinador
 void conectarseConCoordinador();
+voidconectarseConCoordinadorConsola();
 
 // TCP Server handlers
 void create_tcp_server();

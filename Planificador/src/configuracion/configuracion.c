@@ -52,6 +52,8 @@ int leerArchivoConfiguracion(char* archivoConfiguracion) {
 	planificador_setup.TAMANIO_COLA_CONEXIONES = config_get_int_value(
 			configFile, "TAMANIO_COLA_CONEXIONES");
 	planificador_setup.ALPHA = config_get_int_value(configFile, "ALPHA");
+	planificador_setup.PUERTO_COORDINADOR_CONSOLA = config_get_int_value(
+				configFile, "PUERTO_COORDINADOR_CONSOLA");
 
 	config_destroy(configFile);
 
