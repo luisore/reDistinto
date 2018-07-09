@@ -672,13 +672,15 @@ t_connected_client* select_intance_EL(char* key){
 	return selectedInstance;
 }
 
-t_connected_client* select_intance_KE(){
+t_connected_client* select_intance_KE(bool simulation_flag){
 
 	if(instancia_actual == list_size(connected_instances)){
 		instancia_actual=0;
 	}
 	t_connected_client* selectedInstance = list_get(connected_instances, instancia_actual);
-	instancia_actual++;
+
+	if(!simulation_flag) instancia_actual++; // If it is a simulation must no increase value
+
 	return selectedInstance;
 }
 
@@ -693,7 +695,26 @@ t_connected_client* select_instancia(t_operation_request* esi_request){
 		return select_intance_EL(esi_request->key);
 		break;
 	case KE:
-		return select_intance_KE();
+		return select_intance_KE(false);
+		break;
+	}
+
+	return NULL;
+
+}
+
+t_connected_client* select_simulated_instance(char * key){
+
+	// MEJORAR COMO ESTA EN INSTANCIA
+	switch(coordinador_config.ALGORITMO_DISTRIBUCION){
+	case LSU:
+		return select_intance_LSU();
+		break;
+	case EL:
+		return select_intance_EL(key);
+		break;
+	case KE:
+		return select_intance_KE(true);
 		break;
 	}
 
@@ -748,6 +769,8 @@ void instance_disconected(int socket_id){
 
 void on_server_read(tcp_server_t* server, int client_socket, int socket_id){
 
+	pthread_mutex_lock(&mutex_all);
+
 	// Verifico que proceso estoy leyendo:
 	t_connected_client* client = find_connected_client(socket_id);
 
@@ -770,6 +793,8 @@ void on_server_read(tcp_server_t* server, int client_socket, int socket_id){
 		break;
 	}
 
+	pthread_mutex_unlock(&mutex_all);
+
 }
 
 void on_server_command(tcp_server_t* server){
@@ -781,26 +806,67 @@ void destroy_connected_client(t_connected_client* connected_client){
 	free(connected_client);
 }
 
+void * simulated_instance_with_algorithim(char * key){
 
-status_response_from_coordinator * retrieve_instance_value(char * key){
+	void * instance_retrieve = NULL;
+
+	t_connected_client * simulated_instance = select_simulated_instance(key);
+
+	// MUST TRANSFORM
+
+	return instance_retrieve;
+
+}
+
+
+status_response_from_coordinator * retrieve_instance_value(char * key , char * key_value){
 
 	status_response_from_coordinator  * response = malloc(STATUS_RESPONSE_FROM_COORDINATOR);
 
+
+	// HARDCODE
 	strcpy(response->nombre_intancia_actual ,"Instancia3");
 	strcpy(response->nombre_intancia_posible , "NO_VALOR");
 	response->payload_valor_size = 0;
 
-	// TODO
 
-	// MUST STOP INSTRUCTION CICLE IN A SAFE MODE ( INSTANCES MUST NO BE EXPECTING A VALUE OR SENDING SOMETHING)
+	void * instance_structure = dictionary_get(key_instance_dictionary , key ); // CAMBIAR CUANDO SEBAS ARME LA ESTRUCTURA
 
-	// 1 . Search if key exists in dictionary
-	//     IF NOT ->  nombre_intancia_actual = "NO_VALOR" -> GO to step 2
-	// 	   IF YES ->  nombre_intancia_actual = dictionary_get - > Go to step 3
+	if( dictionary_size(key_instance_dictionary) > 0 && instance_structure != NULL ){
 
-	// 2. Simulates selected algorithim and retrieve Instance name ( Must storage instance name on connected_instances list)
+		// EN ESTE CASO DEBERIA PASARLE EL NOOMBRE DE LA INSTANCIA COMO ESTRUCTURA.
+		strcpy(response->nombre_intancia_actual , "Instancia3");
+		strcpy(response->nombre_intancia_posible , "NO_VALOR");
 
-	// 3. Set nombre_intancia_posible = "NO_VALOR"
+	}else{
+
+		// IF NOT
+		strcpy(response->nombre_intancia_actual ,"NO_VALOR");
+
+		// CAMBIAR POR ESTRUCTURA DE SEBAS
+		void * simulated_instance = simulated_instance_with_algorithim( key );
+
+		// EN ESTE CASO DEBERIA PASARLE EL NOOMBRE DE LA INSTANCIA COMO ESTRUCTURA.
+		strcpy(response->nombre_intancia_posible , "Instancia2");
+
+	}
+
+	// Send GET OPERATION to Instance to retrieve value.
+
+
+	if(!send_operation_to_instance(instance)){
+		cod_result->operation_result = OP_ERROR;
+
+	}else{
+
+		if(!send_get_operation(esi_request, esi_request->operation_type, instance)){
+			cod_result->operation_result = OP_ERROR;
+		}
+
+	}
+
+
+	key_value = asdfasdf
 
 	return response;
 
@@ -811,7 +877,14 @@ void handle_planner_console_request(char * key , int planner_socket){
 	log_info(coordinador_log , "CONSOLE_PLANNER: Receive key from console: %s" , key );
 	log_info(coordinador_log , "Retrieving value from INSTANCE");
 
-	status_response_from_coordinator * response =  retrieve_instance_value(key);
+	char * key_value;
+
+	status_response_from_coordinator * response =  retrieve_instance_value(key , &key_value);
+
+
+
+
+
 
 	log_info(coordinador_log , "Sending status_struct to PLANNER");
 
@@ -876,6 +949,8 @@ void server_planner_console_read(tcp_server_t* server, int client_socket, int so
 
 	// First must receive key_size
 
+	pthread_mutex_lock(&mutex_all);
+
 	int key_size;
 
 	if (recv(client_socket, &key_size,sizeof(key_size), MSG_WAITALL) == -1) {
@@ -888,7 +963,7 @@ void server_planner_console_read(tcp_server_t* server, int client_socket, int so
 	log_info(coordinador_log , "Receive key size. Attempting to receive key_value");
 
 	// Define size of key.
-	char* key_buffer = malloc(key_size);
+	char* key_buffer = malloc(key_size - 1);
 
 	if (recv(client_socket, key_buffer, key_size, MSG_WAITALL) < key_size) {
 
@@ -902,6 +977,8 @@ void server_planner_console_read(tcp_server_t* server, int client_socket, int so
 	handle_planner_console_request(key_buffer , client_socket );
 
 	free(key_buffer);
+
+	pthread_mutex_unlock(&mutex_all);
 }
 
 

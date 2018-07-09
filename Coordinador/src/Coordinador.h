@@ -112,8 +112,8 @@ bool receive_value_from_instance(t_connected_client * instance , int payload_siz
 /*ALGORITHIMS*/
 
 t_connected_client* select_intance_LSU();
-t_connected_client* select_intance_EL();
-t_connected_client* select_intance_KE();
+t_connected_client* select_intance_EL(char * key);
+t_connected_client* select_intance_KE(bool flag_simulation);
 
 
 #endif /* SRC_COORDINADOR_H_ */
