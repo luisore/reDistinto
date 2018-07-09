@@ -10,6 +10,7 @@
 #include <commons/collections/list.h>
 #include <commons/collections/queue.h>
 #include <commons/log.h>
+#include <sys/socket.h>
 #include <commons/string.h>
 #include <pthread.h>
 
@@ -50,6 +51,8 @@ typedef struct {
 
 // El log lo hago comun para todos los archivos
 t_log *console_log;
+
+int coordinator_socket_console ;
 
 pthread_mutex_t mutexConsola;
 pthread_mutex_t mutexLog;
