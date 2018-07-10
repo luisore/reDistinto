@@ -8,6 +8,7 @@ t_list* listaEsiListos;
 t_list* listaEsiBloqueados;
 t_list* listaEsiTerminados;
 t_list* listaEsis;
+t_list* listaEsiEnDeadlock;
 
 t_list* listaRecursos;
 
@@ -23,6 +24,7 @@ void listarEsi();
 void agregarNuevoEsi(ESI_STRUCT * esi);
 void terminarEsiActual();
 void bloquearEsi(int id_esi, char* clave);
+void matarEsi(ESI_STRUCT* esi);
 
 //Funciones para la administracion de los ESI
 void bloquearEsiActual(char * recursoEsperado);

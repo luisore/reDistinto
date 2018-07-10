@@ -83,6 +83,10 @@ void _obtener_esis_terminados();
 ESI_STRUCT* obtener_esi_por_id(char* id_esi);
 ESI_STRUCT* obtener_esi_por_clave_recurso(char* clave);
 status_response_from_coordinator* enviar_status_a_coordinador_por_clave(char* clave);
+void _verificar_si_alguien_tiene_el_recurso(char* clave);
+bool _verificar_si_hay_circulo();
+bool _list_element_repeats(t_list* self, bool (*comparator)(void *,void *));
+
 
 void _finalizar_cadena(char *entrada);
 char *_obtener_comando(char** split_comandos);
@@ -251,10 +255,16 @@ void comando_bloquear_esi_por_id_y_recurso_de_clave(char* id_esi, char* clave)
 
 	if(esi != NULL)
 	{
-		pthread_mutex_lock(&mutexPrincipal);
-		bloquearEsi(esi->id, clave);
-		pthread_mutex_unlock(&mutexPrincipal);
-		printf("Se ha bloqueado el ESI con id_esi: %s para la clave: %s\n", id_esi, clave);
+		if(esi->id == esiEjecutando->id)
+		{
+			printf("No se puede bloquear el ESI en ejecucion\n");
+		} else
+		{
+			pthread_mutex_lock(&mutexPrincipal);
+			bloquearEsi(esi->id, clave);
+			pthread_mutex_unlock(&mutexPrincipal);
+			printf("Se ha bloqueado el ESI con id_esi: %s para la clave: %s\n", id_esi, clave);
+		}
 	} else {
 		printf("No se encontro nignun proceso esi para bloquear con id_esi: %s para la clave: %s\n", id_esi, clave);
 		log_info(console_log, "No existe proceso esi para bloquear con id_esi: %s para la clave: %s\n", id_esi, clave);
@@ -295,7 +305,7 @@ ESI_STRUCT* obtener_esi_por_clave_recurso(char* clave)
 	ESI_STRUCT* esi = list_find(listaEsis, (void*) _espera_por_recurso);
 	return esi;
 }
-//TODO
+
 void comando_listar_procesos_por_recurso(char* recurso)
 {
 	log_info(console_log, "Consola: Listar %s\n", recurso);
@@ -303,31 +313,10 @@ void comando_listar_procesos_por_recurso(char* recurso)
 	_validar_parametro(recurso);
 	_obtener_todos_los_esis();
 
-	void _list_esis_por_recursos(ESI_STRUCT *e)
-	{
-		char * estado = malloc(sizeof(char*));
-		switch (e->estado)
-		{
-		case ESI_LISTO:
-			strcpy(estado, "LISTO\0");
-			break;
-		case ESI_EJECUTANDO:
-			strcpy(estado, "EJECUTANDO\0");
-			break;
-		case ESI_BLOQUEADO:
-			strcpy(estado, "BLOQUEADO\0");
-			break;
-		case ESI_TERMINADO:
-			strcpy(estado, "TERMINADO\0");
-			break;
-		}
-		printf("%d\t| %s\n", e->id, estado);
-		free(estado);
-	}
-
 	t_list* esis_filtrados = list_filter(listaEsis, (void*) _espera_por_recurso);
 	if(!list_is_empty(esis_filtrados)) {
-		list_iterate(esis_filtrados, (void*) _list_esis_por_recursos);
+		printf("ID_ESI\t| ESTADO\n");
+		list_iterate(esis_filtrados, (void*) _list_esis);
 	} else {
 		printf("No se encuentran procesos esi esperando por el recurso: %s\n", recurso);
 		log_info(console_log, "Sin procesos esi esperando por el recurso: %s\n", recurso);
@@ -335,42 +324,96 @@ void comando_listar_procesos_por_recurso(char* recurso)
 	list_destroy(esis_filtrados);
 	list_clean(listaEsis);
 }
-//TODO
-void comando_deadlock()
+
+void comando_deadlock() 
 {
 	log_info(console_log, "Consola: Deadlock\n");
-	void _list_esis_deadlock(ESI_STRUCT *e)
-	{
-		char * estado = malloc(sizeof(char*));
-		switch (e->estado)
-		{
-		case ESI_LISTO:
-			strcpy(estado, "LISTO\0");
-			break;
-		case ESI_EJECUTANDO:
-			strcpy(estado, "EJECUTANDO\0");
-			break;
-		case ESI_BLOQUEADO:
-			strcpy(estado, "BLOQUEADO\0");
-			break;
-		case ESI_TERMINADO:
-			strcpy(estado, "TERMINADO\0");
-			break;
+	int i;
+	int cantidad_de_bloqueados = list_size(listaEsiBloqueados);
+	listaEsiEnDeadlock = list_create();
+
+	if (cantidad_de_bloqueados < 2) {
+		printf("No se encontro ningun Deadlock.\n");
+		return;
+	}
+
+	for (i = 0; i < cantidad_de_bloqueados; i++) {
+		ESI_STRUCT* esi_actual = (ESI_STRUCT*) list_get(listaEsiBloqueados, i);
+		char* clave_que_necesita = malloc(
+				strlen(esi_actual->informacionDeBloqueo->recursoNecesitado)
+						+ 1);
+		strcpy(clave_que_necesita,
+				esi_actual->informacionDeBloqueo->recursoNecesitado);
+
+		if (!_verificar_si_hay_circulo()) {
+			list_clean(listaEsiEnDeadlock);
+			_verificar_si_alguien_tiene_el_recurso(clave_que_necesita);
 		}
-		printf("%d\t| %s\n", e->id, estado);
-		free(estado);
-	}
 
-	t_list* esis_filtrados = list_filter(listaEsis, (void*) _espera_por_recurso);
-	if(!list_is_empty(esis_filtrados)) {
-		list_iterate(esis_filtrados, (void*) _list_esis_deadlock);
-	} else {
-		printf("No se encuentran procesos esi esperando por el recurso\n");
-		log_info(console_log, "Sin procesos esi esperando por el recurso\n");
-	}
-	list_destroy(esis_filtrados);
-	list_clean(listaEsis);
+		free(clave_que_necesita);
 
+		if (_verificar_si_hay_circulo()) {
+			list_remove(listaEsiEnDeadlock, list_size(listaEsiEnDeadlock) - 1);
+			if (list_size(listaEsiEnDeadlock) == 1) {
+				printf("No se encontro ningun Deadlock.\n");
+				return;
+			}
+		} else {
+			printf("No se encontro ningun Deadlock.\n");
+			return;
+		}
+
+	}
+	printf("Los siguientes esis estan en deadlock: ");
+	int j;
+	for (j = 0; j < list_size(listaEsiEnDeadlock); j++) {
+		ESI_STRUCT* aux = (ESI_STRUCT*) list_get(listaEsiEnDeadlock, j);
+		if (j == list_size(listaEsiEnDeadlock) - 1) {
+			printf("%d.\n ", aux->id);
+		} else {
+			printf("%d, ", aux->id);
+		}
+	}
+	list_destroy(listaEsiEnDeadlock);
+
+}
+
+void _verificar_si_alguien_tiene_el_recurso(char* clave)
+{
+	int k;
+	int cantidad_de_bloqueados = list_size(listaEsiBloqueados);
+	for (k = 0; k < cantidad_de_bloqueados ; k++) {
+		ESI_STRUCT* esi_actual = (ESI_STRUCT*) list_get(listaEsiBloqueados,k);
+
+		if(_espera_por_recurso(esi_actual,clave)){
+			list_add(listaEsiEnDeadlock, esi_actual);
+			if(!_verificar_si_hay_circulo()){
+				_verificar_si_alguien_tiene_el_recurso(esi_actual->informacionDeBloqueo->recursoNecesitado);
+			}
+		}
+	}
+}
+
+bool _verificar_si_hay_circulo()
+{
+	return _list_element_repeats(listaEsiEnDeadlock,(void*)sonIguales);
+}
+
+
+bool _list_element_repeats(t_list* self, bool (*comparator)(void *,void *))
+{
+	int longitud_de_lista = list_size(self);
+	int i,j;
+	if(longitud_de_lista > 1){
+		for(i = 0; i < longitud_de_lista; i++ ){
+			for(j = 0; j < longitud_de_lista; j++ ){
+				if( (comparator(list_get(self,i),list_get(self,j))) && i != j ){
+					return true;
+				}
+			}
+		}
+	}
+	return false;
 }
 
 void comando_kill_proceso_esi_por_id(char* id_esi) {
@@ -383,7 +426,14 @@ void comando_kill_proceso_esi_por_id(char* id_esi) {
 
 	if(esi != NULL)
 	{
-		printf("Se ha elimiando el ESI con id_esi: %d\n", esi->id);
+		if(esi->id == esiEjecutando->id)
+		{
+			printf("No se puede bloquear el ESI en ejecucion\n");
+		} else
+		{
+			matarEsi(esi);
+			printf("Se ha elimiando el ESI con id_esi: %d\n", esi->id);
+		}
 	} else {
 		printf("No se encontro proceso esi con id: %s especificado \n", id_esi);
 		log_info(console_log, "No existe proceso esi con el id: %s\n", id_esi);
@@ -434,20 +484,14 @@ void comando_status_instancias_por_clave(char* clave)
 
 	// Valido que la respuesta no sea nula como tal.
 	if (response != NULL){
-
 		// Debo esperar al valor de la clave , ya que existe
 		if (response->payload_valor_size > 0){
-
 			char * valor_clave = malloc(response->payload_valor_size);
-
-
 			if (recv(coordinator_socket_console, valor_clave, response->payload_valor_size, MSG_WAITALL) < response->payload_valor_size) {
 				free(valor_clave);
 				// TODO - Verificar con Pablo que se debe hacer aqui.
 			}
-
 			// Aqui ya deberiamos tener el valor
-
 		}
 
 	}else{
@@ -457,6 +501,7 @@ void comando_status_instancias_por_clave(char* clave)
 
 	t_list* esis_filtrados = list_filter(listaEsis, (void*) _espera_por_recurso);
 	if(!list_is_empty(esis_filtrados)) {
+		printf("VALOR\t| INSTANCIA_ACTUAL\t| INSTANCIA_A_GUARDAR\t| ESIS_BLOQUEADOS_POR_CLAVE\n");
 		list_iterate(esis_filtrados, (void*) _list_estatus_intancias);
 	} else {
 		printf("No se encuentran procesos esi esperando por el recurso\n");
@@ -466,39 +511,11 @@ void comando_status_instancias_por_clave(char* clave)
 	list_clean(listaEsis);
 }
 
-status_response_from_coordinator* enviar_status_a_coordinador_por_clave(char* clave){
-
-	// Debo enviar la clave al Coordinador
+status_response_from_coordinator* enviar_status_a_coordinador_por_clave(char* clave)
+{
 	status_response_from_coordinator* response = NULL;
 
-	int payload_size = strlen(clave);
-
-
-	// Envio tamanio de la clave
-	if( send(coordinator_socket_console, &payload_size, sizeof(payload_size), 0) != 4){
-		printf("FALLO AL ENVIAR TAMANIO KEY");
-	}
-
-	// Envio clave
-	if( send(coordinator_socket_console, clave, payload_size, 0) != payload_size){
-		printf("FALLO AL ENVIAR");
-	}
-
-	// Espero la respuesta
-
-	void *status_buffer = malloc(STATUS_RESPONSE_FROM_COORDINATOR);
-
-	int res = recv(coordinator_socket_console, status_buffer, STATUS_RESPONSE_FROM_COORDINATOR, MSG_WAITALL);
-	if (res < STATUS_RESPONSE_FROM_COORDINATOR) {
-		printf("OCURRIO UN ERROR AL RECIBIR LA RESPUESTA. SE DEBE ABORTAR ESTE COMANDO");
-		// TODO  - Validar con pablo que de debe hacer
-		return response;
-	}
-
-	status_response_from_coordinator * coordinator_response =  derialize_status_response_from_coordinator(status_buffer);
-
-	return coordinator_response;
-
+	return response;
 }
 
 void comando_exit()

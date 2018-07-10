@@ -38,6 +38,13 @@ void terminarEsiActual(){
 	esiEjecutando = NULL;
 }
 
+void matarEsi(ESI_STRUCT* esi){
+	esi->estado = ESI_TERMINADO;
+	list_add(listaEsiTerminados, clonarEsi(esi));
+	esi = NULL;
+	sem_wait(&sem_esis);
+}
+
 /**
  * Encola un ESI en la lista de bloqueados
  */
