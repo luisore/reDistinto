@@ -17,7 +17,7 @@ t_log * coordinador_log;
 t_config *config;
 t_list* connected_clients;
 t_list* connected_instances;
-int instancia_actual;
+int instancia_actual=0;
 
 tcp_server_t* server;
 tcp_server_t* server_planner_console;
