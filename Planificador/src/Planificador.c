@@ -11,9 +11,11 @@ int main(void) {
 		return -1;
 	}
 
+	sem_init(&sem_esis, 0, 0);
+
 	pthread_mutex_init(&mutexConsola, NULL);
+	pthread_mutex_init(&mutexLog, NULL);
 	pthread_mutex_init(&mutexPrincipal, NULL);
-	pthread_mutex_init(&mutexPlanificacion, NULL);
 
 	pthread_create(&hiloConsola, NULL, (void*) escucharConsola, NULL);
 	pthread_create(&hiloPrincipal, NULL, (void*) iniciarPlanificador, NULL);
@@ -43,7 +45,7 @@ int inicializar() {
 		exit_gracefully(EXIT_FAILURE);
 
 	if (cargarConfiguracion(PLANNER_CFG_FILE) < 0) {
-		log_error(console_log, "No se encontró el archivo de configuración");
+		error_log("No se encontró el archivo de configuración");
 		return -1;
 	}
 
@@ -52,11 +54,13 @@ int inicializar() {
 
 	setEstimacionInicial(planificador_setup.ESTIMACION_INICIAL);
 
+	setAlgoritmo(planificador_setup.ALGORITMO_PLANIFICACION);
+
 	return 0;
 }
 
 void escucharConsola() {
-	log_error(console_log, "Se inicio hilo con la consola");
+	info_log("Se inicio hilo con la consola");
 
 	while (true) {
 		if (consolaLeerComando(console_log) == TERMINAR_CONSOLA) {
@@ -79,22 +83,22 @@ void iniciarPlanificador() {
 
 void ejecutarPlanificacion() {
 	while (true) {
-		pthread_mutex_lock(&mutexPlanificacion);
-
-		// Hay algun esi conectado?
-		if (cantidadEsiTotales() == 0) {
-			log_info(console_log, "\n\n **************** NO HAY ESI *******************\n");
-
-			// Espero a que se conecte algun esi, para que esto no itere infinitamente
-			pthread_mutex_lock(&mutexPlanificacion);
+		int cantidadDeEsis;
+		sem_getvalue(&sem_esis, &cantidadDeEsis);
+		
+		// Hay algun esi listo para ejecutar?
+		if (cantidadDeEsis == 0) {
+			info_log("\n\n **************** NO HAY ESI *******************\n");
 		}
 
-		log_info(console_log, "\n\n **************** HAY ESI *******************\n");
+		sem_wait(&sem_esis);
+
+		info_log("\n\n **************** HAY ESI *******************\n");
 
 		aplicar_algoritmo_planificacion();
 
 		if (esiEjecutando != NULL) {
-			log_info(console_log, "ESI actual\tid: %d \tTiempo estimado: %d\n",
+			log_info(console_log,"ESI actual\tid: %d \tTiempo estimado: %d\n",
 					esiEjecutando->id, esiEjecutando->tiempoEstimado);
 
 			ejecutarSiguienteESI(esiEjecutando->client_socket, esiEjecutando->socket_id);
@@ -108,36 +112,49 @@ void ejecutarPlanificacion() {
 
 			switch (estado) {
 			case -1:
-				log_info(console_log, "Error al pedir el estado del ESI. Abortando ESI");
+				info_log("Error al pedir el estado del ESI. Abortando ESI");
 				terminarEsiActual();
 				break;
 			case ESI_IDLE:
-				log_info(console_log, "El ESI puede seguir ejecutando");
+				info_log("El ESI puede seguir ejecutando");
 
 				// Aumento contadores esi actual
 				esiEjecutando->tiempoRafagaActual++;
-				esiEjecutando->tiempoEstimado--;
+
+				// Por ahora no decremento el tiempo estimado.
+				// No estoy seguro de que este bien
+				/*esiEjecutando->tiempoEstimado--;
+
 				if(esiEjecutando->tiempoEstimado < 0)
-					esiEjecutando->tiempoEstimado = 0;
+					esiEjecutando->tiempoEstimado = 0;*/
+
+				//Incremento el contador porque este esi todavia no salio del programa
+				sem_post(&sem_esis);
 
 				break;
 			case ESI_BLOCKED:
 				// En un bloqueo se supone que el esi no pudo ejecutar
 				// por eso no hago el incremento de contadores
-				log_info(console_log, "El ESI esta bloqueado");
+				info_log("El ESI esta bloqueado");
+
+				// Un esi menos para ejecutar
+				sem_wait(&sem_esis);
+
 				break;
 			case ESI_FINISHED:
-				log_info(console_log, "El ESI termino");
+				info_log("El ESI termino");
+
+				liberarRecursosDeEsiFinalizado(esiEjecutando);
+
 				tcpserver_remove_client(server, esiEjecutando->socket_id);
 				terminarEsiActual();
+
 				break;
 			}
 		}
 
 		// Realizar incrementos de contadores
 		nuevoCicloDeCPU();
-
-		pthread_mutex_unlock(&mutexPlanificacion);
 	}
 	pthread_exit(0);
 }
@@ -148,14 +165,13 @@ void create_tcp_server() {
 			planificador_setup.TAMANIO_COLA_CONEXIONES,
 			planificador_setup.PUERTO_ESCUCHA_CONEXIONES, true);
 	if (server == NULL) {
-		log_error(console_log,
-				"Could not create TCP server. Aborting execution.");
+		error_log("Could not create TCP server. Aborting execution.");
 		exit_gracefully(EXIT_FAILURE);
 	}
 }
 
 void conectarseConCoordinador() {
-	log_info(console_log, "Conectando al Coordinador ...");
+	info_log("Conectando al Coordinador ...");
 
 	coordinator_socket = connect_to_server(planificador_setup.IP_COORDINADOR,
 			planificador_setup.PUERTO_COORDINADOR, console_log);
@@ -168,7 +184,7 @@ void conectarseConCoordinador() {
 			planificador_setup.NOMBRE_INSTANCIA, PLANNER, console_log)) {
 		exit_gracefully(EXIT_FAILURE);
 	}
-	log_info(console_log, "Conexion exitosa al Coordinador.");
+	info_log("Conexion exitosa al Coordinador.");
 }
 
 void ejecutarSiguienteESI(int esi_socket, int socket_id) {
@@ -180,7 +196,7 @@ void ejecutarSiguienteESI(int esi_socket, int socket_id) {
 	int result = send(esi_socket, buffer, PLANNER_REQUEST_SIZE, 0);
 
 	if (result <= 0) {
-		log_error(console_log, "Fallo al enviar instruccion de seguir ejecutando");
+		error_log("Fallo al enviar instruccion de seguir ejecutando");
 		tcpserver_remove_client(server, socket_id);
 	}
 	free(buffer);
@@ -195,9 +211,9 @@ int esperarEstadoDelEsi(int esi_socket, int socket_id) {
 			MSG_WAITALL);
 
 	if (bytesReceived < ESI_STATUS_RESPONSE_SIZE) {
-		log_error(console_log, "Error receiving status from ESI!");
+		error_log("Error receiving status from ESI!");
 
-		log_error(console_log, "Bytes leidos: %d | Esperados: %d",
+		log_info(console_log,"Bytes leidos: %d | Esperados: %d",
 				bytesReceived, ESI_STATUS_RESPONSE_SIZE);
 
 		free(res_buffer);
@@ -234,7 +250,7 @@ void on_server_accept(tcp_server_t* server, int client_socket, int socket_id) {
 	int res = recv(client_socket, header_buffer, CONNECTION_HEADER_SIZE, MSG_WAITALL);
 
 	if (res <= 0) {
-		log_error(console_log, "¡Error en el handshake del cliente!");
+		error_log("¡Error en el handshake del cliente!");
 		tcpserver_remove_client(server, socket_id);
 		free(header_buffer);
 		return;
@@ -242,7 +258,7 @@ void on_server_accept(tcp_server_t* server, int client_socket, int socket_id) {
 
 	connection_header = deserialize_connection_header(header_buffer);
 
-	log_info(console_log, "Se recibio handshake del cliente: %s", connection_header->instance_name);
+	info_log_param1("Se recibio handshake del cliente: %s", connection_header->instance_name);
 
 
 	/*************************** RESPONDER AL HANDSHAKE *********************************/
@@ -252,25 +268,21 @@ void on_server_accept(tcp_server_t* server, int client_socket, int socket_id) {
 
 	if (send(client_socket, ack_buffer, ACK_MESSAGE_SIZE, 0)
 			!= ACK_MESSAGE_SIZE) {
-		log_error(console_log,
-				"Could not send handshake acknowledge to TCP client.");
+		error_log("Could not send handshake acknowledge to TCP client.");
 		tcpserver_remove_client(server, socket_id);
 	} else {
-		log_info(console_log, "Successfully connected to TCP Client: %s",
+		info_log_param1("Successfully connected to TCP Client: %s",
 				connection_header->instance_name);
 	}
 
 
 	/*************************** SI EL HANDSHAKE LO HIZO UN ESI *********************************/
 	if (connection_header->instance_type == ESI) {
-		log_info(console_log, "************* NUEVO ESI ***************");
+		info_log("************* NUEVO ESI ***************");
 
 		int id_esi = generarId();
 		ESI_STRUCT * esi = nuevoESI(id_esi, client_socket, socket_id);
 		agregarNuevoEsi(esi);
-
-		// Nuevo esi => libero el hilo de planificacion
-		pthread_mutex_unlock(&mutexPlanificacion);
 	}
 
 	free(header_buffer);
@@ -292,10 +304,10 @@ void escucharCoordinador(){
 	MSG_WAITALL);
 
 	if (bytesReceived < COORDINATOR_OPERATION_REQUEST_SIZE) {
-		log_error(console_log, "Error!");
+		error_log("Error!");
 
-		log_error(console_log, "Bytes leidos: %d | Esperados: %d",
-				bytesReceived, COORDINATOR_OPERATION_REQUEST_SIZE);
+		log_info(console_log,"Bytes leidos: %d | Esperados: %d", bytesReceived,
+				COORDINATOR_OPERATION_REQUEST_SIZE);
 
 		free(res_buffer);
 		return;
@@ -304,7 +316,7 @@ void escucharCoordinador(){
 	t_coordinator_operation_request *request =
 			deserialize_coordinator_operation_request(res_buffer);
 
-	log_info(console_log, "El coordinador solicita: %d", request->operation_type);
+	log_info(console_log,"El coordinador solicita: %d", request->operation_type);
 
 	char * key = &request->key[0];
 
@@ -388,7 +400,7 @@ void responderCoordinador(int socket, operation_result_e result){
 	int r = send(socket, buffer, OPERATION_RESPONSE_SIZE, 0);
 
 	if (r <= 0) {
-		log_error(console_log, "No se pudo enviar la respuesta al coordinador");
+		error_log("No se pudo enviar la respuesta al coordinador");
 	}
 	free(buffer);
 }
@@ -419,7 +431,8 @@ void liberarRecursos(int tipoSalida) {
 
 	pthread_mutex_destroy(&mutexConsola);
 	pthread_mutex_destroy(&mutexPrincipal);
-	pthread_mutex_destroy(&mutexPlanificacion);
+
+	sem_destroy(&sem_esis);
 
 	liberarRecursosEsi();
 	liberarRecursosConfiguracion();

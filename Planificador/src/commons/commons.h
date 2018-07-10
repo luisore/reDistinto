@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+#include <semaphore.h>
 #include <commons/config.h>
 #include <commons/collections/list.h>
 #include <commons/collections/queue.h>
@@ -51,9 +52,18 @@ typedef struct {
 t_log *console_log;
 
 pthread_mutex_t mutexConsola;
+pthread_mutex_t mutexLog;
 pthread_mutex_t mutexPrincipal;
-pthread_mutex_t mutexPlanificacion;
+
+sem_t sem_esis;
 
 int create_log();
+
+void info_log(char * message);
+void info_log_param1(char * message, void * param1);
+void info_log_param2(char * message, void * param1, void * param2);
+void error_log(char * message);
+void error_log_param1(char * message, void * param1);
+void error_log_param2(char * message, void * param1, void * param2);
 
 #endif /* SRC_COMMONS_COMMONS_H_ */

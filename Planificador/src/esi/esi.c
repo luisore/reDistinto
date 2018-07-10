@@ -29,6 +29,7 @@ ESI_STRUCT * clonarEsi(ESI_STRUCT *esi) {
 
 void agregarNuevoEsi(ESI_STRUCT * esi){
 	list_add(listaEsiNuevos, esi);
+	sem_post(&sem_esis);
 }
 
 void terminarEsiActual(){
@@ -67,6 +68,9 @@ void desbloquearEsi(ESI_STRUCT * esi) {
 			esiAux->estado = ESI_LISTO;
 			list_remove(listaEsiBloqueados, i);
 			list_add(listaEsiListos, esiAux);
+
+			//Ahora hay un esi mas
+			sem_post(&sem_esis);
 			return;
 		}
 	}
@@ -197,6 +201,18 @@ int cantidadEsiTotales(){
 	return cantidadTotal;
 }
 
+void liberarRecursosDeEsiFinalizado(ESI_STRUCT * esi) {
+	int i;
+	for (i = 0; i < list_size(listaRecursos); i++) {
+		RECURSO* r = list_get(listaRecursos, i);
+
+		if (sonIguales(r->esi_bloqueante, esi)) {
+			r->esi_bloqueante = NULL;
+			r->estado = RECURSO_LIBRE;
+		}
+	}
+}
+
 void bloquearEsi(int id_esi, char* clave)
 {
 	int i;
@@ -233,6 +249,10 @@ void bloquearEsi(int id_esi, char* clave)
 			// Encolo el esi en la lista de bloqueados
 			list_add(listaEsiBloqueados, clonarEsi(esi));
 			list_remove(listaEsiNuevos, i);
+
+			// Ahora hay un esi menos en estado listo
+			sem_wait(&sem_esis);
+
 			return;
 		}
 	}
@@ -253,6 +273,10 @@ void bloquearEsi(int id_esi, char* clave)
 			// Encolo el esi en la lista de bloqueados
 			list_add(listaEsiBloqueados, clonarEsi(esi));
 			list_remove(listaEsiListos, i);
+
+			// Ahora hay un esi menos en estado listo
+			sem_wait(&sem_esis);
+
 			return;
 		}
 	}

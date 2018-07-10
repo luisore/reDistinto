@@ -5,8 +5,11 @@
 bool hayDesalojo = false;
 float alpha = 0.5f;
 int estimacionInicial = 0;
+int algoritmo = 0; // 0: SJF_SD; 1: SJF_CD; 2: HRRN
 
 void chequearDesbloqueos();
+void admitirNuevosEsis();
+void chequearBloqueoEsiActual();
 
 
 // SETTERS
@@ -15,6 +18,9 @@ void setAlpha(float p_alpha){
 }
 void setEstimacionInicial(int p_estimacion){
 	estimacionInicial = p_estimacion;
+}
+void setAlgoritmo(int p_algoritmo){
+	algoritmo = p_algoritmo;
 }
 
 
@@ -36,15 +42,11 @@ void nuevoCicloDeCPU() {
 	for(i = 0; i < list_size(listaEsiBloqueados); i++)
 	{
 		ESI_STRUCT * esi = list_get(listaEsiBloqueados, i);
-		esi->tiempoEspera++;
 		esi->informacionDeBloqueo->unidadesDeTiempoBloqueado++;
 	}
 
 	pthread_mutex_unlock(&mutexPrincipal);
 }
-
-
-
 
 int calcularMediaExponencial(int duracionRafaga, int estimacionTn) {
 	float estimacionTnMasUno = 0.0f;
@@ -74,38 +76,39 @@ int getIndiceMenorEstimacion(){
 	return menorIdx;
 }
 
+int getIndiceMayorResponseRatio() {
+	int mayorIdx = 0, i = 0;
+	float mayorRR = 0.0;
+
+	log_info(console_log, "\nCANTIDAD DE ESIS LISTOS: %d\n", list_size(listaEsiListos));
+
+	for (i = 0; i < list_size(listaEsiListos); i++) {
+		ESI_STRUCT * esi = list_get(listaEsiListos, i);
+
+		if (esi == NULL)
+			continue;
+
+		float rr = calcularTasaDeRespuesta(esi->tiempoEspera, esi->tiempoEstimado);
+
+		if(rr > mayorRR){
+			mayorRR = rr;
+			mayorIdx = i;
+		}
+	}
+
+	return mayorIdx;
+}
+
 void aplicarSJF(bool p_hayDesalojo) {
-	int i = 0;
 	hayDesalojo = p_hayDesalojo;
 
 	pthread_mutex_lock(&mutexPrincipal);
 
-	// 0 - Si el esi actual termino bloqueado lo encolo
-	if(esiEjecutando != NULL && esiEjecutando->estado == ESI_BLOQUEADO)
-	{
-		log_info(console_log, "El esi actual esta bloqueado, lo mando a la lista de bloqueados");
-		// Encolo el esi en la lista de bloqueados
-		list_add(listaEsiBloqueados, clonarEsi(esiEjecutando));
-		// Libero el esi actual
-		esiEjecutando = NULL;
-	}
+	//1 - Si el esi actual termino bloqueado lo encolo
+	chequearBloqueoEsiActual();
 
-	if(list_size(listaEsiNuevos) > 0)
-	{
-		//1 - Antes de admitirlos les seteo la estimacion inicial
-		for (i = 0; i < list_size(listaEsiNuevos); i++) {
-			ESI_STRUCT * esi = list_get(listaEsiNuevos, i);
-
-			if (esi == NULL)
-				continue;
-
-			esi->tiempoEstimado = estimacionInicial;
-		}
-
-		//2 - Admitir nuevos ESIs
-		list_add_all(listaEsiListos, listaEsiNuevos);
-		list_clean(listaEsiNuevos);
-	}
+	//2 - Admitir nuevos ESIs
+	admitirNuevosEsis();
 
 	//3 - Se desbloquea algun proceso?
 	chequearDesbloqueos();
@@ -148,16 +151,44 @@ void aplicarSJF(bool p_hayDesalojo) {
 			}
 		}
 	}
+
+	esiEjecutando->tiempoEspera = 0;
+	esiEjecutando->tiempoRafagaActual = 0;
+
 	pthread_mutex_unlock(&mutexPrincipal);
 }
 
 
 
 void aplicarHRRN(){
-	// 1) Chequear bloqueados: alguno se libero? -> Por c/u incrementar contador de tiempo y de tiempo de bloqueo.
-	// 2) Incrementar contador de tiempo para cada ESI listo
-	// 3) Calcular tasa de respuesta por cada esi listo
-	// 4) Elegir esi actual
+	pthread_mutex_lock(&mutexPrincipal);
+
+	//1 - Si el esi actual termino bloqueado lo encolo
+	chequearBloqueoEsiActual();
+
+	//2 - Admitir nuevos ESIs
+	admitirNuevosEsis();
+
+	//3 - Se desbloquea algun proceso?
+	chequearDesbloqueos();
+
+	//4 - Hay procesos listos para ejecutar?
+	if (list_size(listaEsiListos) <= 0) {
+		pthread_mutex_unlock(&mutexPrincipal);
+		return;
+	}
+
+	//5 - Si no hay esi, planifico el proximo
+	if(esiEjecutando == NULL){
+		int indexMayorResponseRatio = getIndiceMayorResponseRatio();
+		esiEjecutando = list_get(listaEsiListos, indexMayorResponseRatio);
+		list_remove(listaEsiListos, indexMayorResponseRatio);
+	}
+
+	esiEjecutando->tiempoEspera = 0;
+	esiEjecutando->tiempoRafagaActual = 0;
+
+	pthread_mutex_unlock(&mutexPrincipal);
 }
 
 /**
@@ -171,6 +202,40 @@ float calcularTasaDeRespuesta(int w, int s) {
 	return (w + s) / s;
 }
 
+void chequearBloqueoEsiActual()
+{
+	if(esiEjecutando != NULL && esiEjecutando->estado == ESI_BLOQUEADO)
+	{
+		info_log("El esi actual esta bloqueado, lo mando a la lista de bloqueados");
+
+		esiEjecutando->tiempoEspera = 0;
+
+		// Encolo el esi en la lista de bloqueados
+		list_add(listaEsiBloqueados, clonarEsi(esiEjecutando));
+		// Libero el esi actual
+		esiEjecutando = NULL;
+	}
+}
+
+void admitirNuevosEsis()
+{
+	int i = 0;
+	if (list_size(listaEsiNuevos) > 0) {
+		//1 - Antes de admitirlos les seteo la estimacion inicial
+		for (i = 0; i < list_size(listaEsiNuevos); i++) {
+			ESI_STRUCT * esi = list_get(listaEsiNuevos, i);
+
+			if (esi == NULL)
+				continue;
+
+			esi->tiempoEstimado = estimacionInicial;
+		}
+
+		//2 - Admitir nuevos ESIs
+		list_add_all(listaEsiListos, listaEsiNuevos);
+		list_clean(listaEsiNuevos);
+	}
+}
 
 void chequearDesbloqueos(){
 	int i, flagLiberar;
@@ -191,7 +256,7 @@ void chequearDesbloqueos(){
 			flagLiberar = 1;
 		}
 
-		if(estadoRecurso(infoBloqueo->recursoNecesitado) == RECURSO_LIBRE)
+		if(flagLiberar == 0 && estadoRecurso(infoBloqueo->recursoNecesitado) == RECURSO_LIBRE)
 			flagLiberar = 1;
 
 		if(flagLiberar == 1)
@@ -199,10 +264,22 @@ void chequearDesbloqueos(){
 			// Calculo la estimacion
 			esi->tiempoEstimado = calcularMediaExponencial(esi->tiempoRafagaActual, esi->tiempoEstimado);
 
+			if(algoritmo != 2)
+			{
+				// Si el algoritmo es SJF ya no me sirve el tiempo de rafaga
+				esi->tiempoRafagaActual = 0;
+			}
+
+			// Cuando se desbloquea, empieza a contar el tiempo de espera
+			esi->tiempoEspera = 0;
+
 			// Cambio de lista
 			list_remove(listaEsiBloqueados, i);
 			i--;
 			list_add(listaEsiListos, esi);
+
+			// Ahora hay un esi mas que esta listo para ejecutar
+			sem_post(&sem_esis);
 		}
 	}
 }

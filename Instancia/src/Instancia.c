@@ -5,6 +5,7 @@
 #include <pthread.h>
 #include <sys/timerfd.h>
 #include <sys/epoll.h>
+#include <errno.h>
 
 pthread_mutex_t operation_mutex;
 pthread_t dump_thread;
@@ -374,7 +375,7 @@ bool must_keep_running(){
 	pthread_mutex_lock(&exit_mutex);
 	bool res = should_terminate;
 	pthread_mutex_unlock(&exit_mutex);
-	return res;
+	return !res;
 }
 
 void run_operations(){
@@ -557,6 +558,24 @@ void run_console(){
 	end_thread(EXIT_SUCCESS);
 }
 
+void ensure_dump_directory() {
+	mode_t mode = 0700;
+	log_info(console_log, "Ensuring that mount dir exists: %s", instance_setup.PUNTO_MONTAJE);
+
+	char* p;
+	for (p=strchr(instance_setup.PUNTO_MONTAJE+1, '/'); p; p=strchr(p+1, '/')) {
+		*p='\0';
+		if (mkdir(instance_setup.PUNTO_MONTAJE, mode)==-1) {
+			if (errno!=EEXIST) {
+				*p='/';
+				log_error(console_log, "Error creating mount dir: %s. Aborting execution.", instance_setup.PUNTO_MONTAJE);
+				exit_program(EXIT_FAILURE);
+			}
+		}
+		*p='/';
+	}
+}
+
 int main(int argc, char **argv) {
 	if (argc > 1 && strcmp(argv[1], "-runTests") == 0){
 		run_tests();
@@ -567,6 +586,8 @@ int main(int argc, char **argv) {
 	create_log();
 	loadConfig();
 
+	ensure_dump_directory();
+
 	connect_with_coordinator();
 
 	initialize_instance();
@@ -575,20 +596,15 @@ int main(int argc, char **argv) {
 
 	pthread_mutex_init(&operation_mutex, NULL);
 
-	pthread_create(&operations_thread, NULL, (void*) run_operations, NULL);
 	pthread_create(&dump_thread, NULL, (void*) run_periodic_dump, NULL);
 	pthread_create(&console_thread, NULL, (void*) run_console, NULL);
+	pthread_create(&operations_thread, NULL, (void*) run_operations, NULL);
+
 
 	pthread_join(operations_thread, NULL);
 	pthread_join(dump_thread, NULL);
 	pthread_join(console_thread, NULL);
 
-	exit(EXIT_SUCCESS);
-	return 0;
-
-
-
-
-	return 0;
+	exit_program(EXIT_SUCCESS);
 }
 
