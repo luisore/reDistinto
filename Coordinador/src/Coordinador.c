@@ -340,17 +340,21 @@ void handle_esi_request(t_operation_request* esi_request, t_connected_client* cl
 
 		cod_result = send_operation_to_planner(esi_request->key, planner, GET);
 
-//		if(!send_operation_to_instance(instance)){
-//			cod_result->operation_result = OP_ERROR;
-//		}else{
-//
-//			if(!send_get_operation(esi_request, esi_request->operation_type, instance)){
-//				cod_result->operation_result = OP_ERROR;
-//			}
-//		}
+		//Si el planificador me dice que esta bloqueado y no puedo ejecutar esa operacion, no se la mando a la isntancia.
+		if(cod_result->operation_result!=OP_BLOCKED){
+	//		if(!send_operation_to_instance(instance)){
+	//			cod_result->operation_result = OP_ERROR;
+	//		}else{
+	//
+	//			if(!send_get_operation(esi_request, esi_request->operation_type, instance)){
+	//				cod_result->operation_result = OP_ERROR;
+	//			}
+	//		}
 
-		send_response_to_esi(socket, client, cod_result->operation_result);
-
+			send_response_to_esi(socket, client, cod_result->operation_result);
+		}else{
+			send_response_to_esi(socket, client, cod_result->operation_result);
+		}
 		break;
 
 	case STORE:
@@ -358,23 +362,27 @@ void handle_esi_request(t_operation_request* esi_request, t_connected_client* cl
 
 		cod_result =  send_operation_to_planner(esi_request->key, planner, STORE);
 
-
-		if(instance == 0){
-			log_error(coordinador_log , "There ir no instance left. Aborting");
-			cod_result->operation_result = OP_ERROR;
-
-		}else{
-			if(!send_operation_to_instance(instance)){
+		//Si el planificador me dice que esta bloqueado y no puedo ejecutar esa operacion, no se la mando a la isntancia.
+		if(cod_result->operation_result!=OP_BLOCKED){
+			if(instance == 0){
+				log_error(coordinador_log , "There ir no instance left. Aborting");
 				cod_result->operation_result = OP_ERROR;
-			}else{
 
-				if(!send_store_operation(esi_request, esi_request->operation_type, instance)){
+			}else{
+				if(!send_operation_to_instance(instance)){
 					cod_result->operation_result = OP_ERROR;
+				}else{
+
+					if(!send_store_operation(esi_request, esi_request->operation_type, instance)){
+						cod_result->operation_result = OP_ERROR;
+					}
 				}
 			}
-		}
 
-		send_response_to_esi(socket, client, cod_result->operation_result);
+			send_response_to_esi(socket, client, cod_result->operation_result);
+		}else{
+			send_response_to_esi(socket, client, cod_result->operation_result);
+		}
 
 		break;
 	case SET:
