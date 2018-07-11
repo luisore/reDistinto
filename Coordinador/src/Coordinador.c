@@ -340,14 +340,14 @@ void handle_esi_request(t_operation_request* esi_request, t_connected_client* cl
 
 		cod_result = send_operation_to_planner(esi_request->key, planner, GET);
 
-		if(!send_operation_to_instance(instance)){
-			cod_result->operation_result = OP_ERROR;
-		}else{
-
-			if(!send_get_operation(esi_request, esi_request->operation_type, instance)){
-				cod_result->operation_result = OP_ERROR;
-			}
-		}
+//		if(!send_operation_to_instance(instance)){
+//			cod_result->operation_result = OP_ERROR;
+//		}else{
+//
+//			if(!send_get_operation(esi_request, esi_request->operation_type, instance)){
+//				cod_result->operation_result = OP_ERROR;
+//			}
+//		}
 
 		send_response_to_esi(socket, client, cod_result->operation_result);
 
