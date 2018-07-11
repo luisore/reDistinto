@@ -332,7 +332,7 @@ void handle_esi_request(t_operation_request* esi_request, t_connected_client* cl
 	t_operation_response *cod_result;
 
 	// Select an instance based on the selected algorithim.
-	t_connected_client * instance = select_instancia();
+	t_connected_client * instance = select_instancia(esi_request);
 
 	switch(esi_request->operation_type){
 	case GET:
@@ -637,9 +637,22 @@ t_connected_client* select_intance_LSU(){
 	return NULL;
 }
 
-t_connected_client* select_intance_EL(){
+t_connected_client* select_intance_EL(char* key){
 	// TODO
-	return NULL ;
+	t_connected_client* selectedInstance;
+	int letras=25;
+	int inicio=0;
+	int maximo = letras/list_size(connected_instances);
+	for(int i=0; i<=list_size(connected_instances);i++){
+		if(i != list_size(connected_instances)){
+			if((int)key[0]>=inicio && (int)key[0]<maximo){
+				selectedInstance = list_get(connected_instances, i);
+			}
+		}
+		inicio = inicio+maximo;
+		maximo = maximo+maximo;
+	}
+	return selectedInstance;
 }
 
 t_connected_client* select_intance_KE(){
@@ -652,7 +665,7 @@ t_connected_client* select_intance_KE(){
 	return selectedInstance;
 }
 
-t_connected_client* select_instancia(){
+t_connected_client* select_instancia(t_operation_request* esi_request){
 
 	// MEJORAR COMO ESTA EN INSTANCIA
 	switch(coordinador_setup.ALGORITMO_DISTRIBUCION){
@@ -660,7 +673,7 @@ t_connected_client* select_instancia(){
 		return select_intance_LSU();
 		break;
 	case EL:
-		return select_intance_EL();
+		return select_intance_EL(esi_request->key);
 		break;
 	case KE:
 		return select_intance_KE();
