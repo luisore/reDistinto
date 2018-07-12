@@ -824,16 +824,9 @@ t_connected_client * simulated_instance_with_algorithim(char * key){
 
 
 
-status_response_from_coordinator * retrieve_instance_value(char * key , char * key_value){
+ char * retrieve_instance_value(char * key ,status_response_from_coordinator * response){
 
-	status_response_from_coordinator  * response = malloc(STATUS_RESPONSE_FROM_COORDINATOR);
-
-//
-//		// HARDCODE
-//		strcpy(response->nombre_intancia_actual ,"Instancia3");
-//		strcpy(response->nombre_intancia_posible , "NO_VALOR");
-//		response->payload_valor_size = 0;
-
+	 char * value;
 
 	t_connected_client * instance_structure = dictionary_get(key_instance_dictionary , key ); // CAMBIAR CUANDO SEBAS ARME LA ESTRUCTURA
 
@@ -849,12 +842,12 @@ status_response_from_coordinator * retrieve_instance_value(char * key , char * k
 		}else{
 
 			t_instance_response * response_instance = send_get_operation(key,instance_structure);
+
+
 			if(response_instance->status == INSTANCE_SUCCESS || response_instance->status == INSTANCE_COMPACT){
 
-				char * value = malloc(response_instance->payload_size);
+				value = malloc(response_instance->payload_size);
 				value = receive_value_from_instance(instance_structure , response_instance->payload_size);
-
-				strcpy(key_value, value);
 
 				response->payload_valor_size = response_instance->payload_size;
 			}else{
@@ -872,7 +865,7 @@ status_response_from_coordinator * retrieve_instance_value(char * key , char * k
 
 	}
 
-	return response;
+	return value;
 
 }
 
@@ -881,9 +874,11 @@ void handle_planner_console_request(char * key , int planner_socket){
 	log_info(coordinador_log , "CONSOLE_PLANNER: Receive key from console: %s" , key );
 	log_info(coordinador_log , "Retrieving value from INSTANCE");
 
-	char * key_value;
 
-	status_response_from_coordinator * response =  retrieve_instance_value(key , &key_value);
+
+	status_response_from_coordinator *response =  malloc(STATUS_RESPONSE_FROM_COORDINATOR);
+
+	char * key_value =  retrieve_instance_value(key , &response);
 
 
 
