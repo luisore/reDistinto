@@ -353,12 +353,33 @@ void handle_esi_request(t_operation_request* esi_request, t_connected_client* cl
 
 	switch(esi_request->operation_type){
 	case GET:
+
+		// Add key to instance dictionary.
+		// Redistribute instances
+		;
+		t_connected_client * instance_to_distribute = (t_connected_client *) dictionary_get(key_instance_dictionary , esi_request->key );
+
+		if( dictionary_size(key_instance_dictionary) > 0 && instance_to_distribute != NULL ){
+
+			// If it is the same instance
+			if(! instance_to_distribute->instance_name == instance->instance_name){
+
+				// Must verify if it is connected or not the instance_to_distribute.
+				// TODO
+
+			}
+
+		}else{
+			dictionary_put(key_instance_dictionary , esi_request->key  ,  instance);
+		}
+
 		log_info(coordinador_log, "Handling GET from ESI: %s. Key: %s.", client->instance_name, esi_request->key);
 
 		cod_result = send_operation_to_planner(esi_request->key, planner, GET);
 
 		//Si el planificador me dice que esta bloqueado y no puedo ejecutar esa operacion, no se la mando a la isntancia.
 		if(cod_result->operation_result!=OP_BLOCKED){
+
 	//		if(!send_operation_to_instance(instance)){
 	//			cod_result->operation_result = OP_ERROR;
 	//		}else{
@@ -448,7 +469,7 @@ void handle_esi_request(t_operation_request* esi_request, t_connected_client* cl
 	}
 }
 
-bool receive_value_from_instance(t_connected_client * instance , int payload_size){
+char *  receive_value_from_instance(t_connected_client * instance , int payload_size){
 
 	char* buffer = malloc(payload_size);
 
@@ -461,11 +482,10 @@ bool receive_value_from_instance(t_connected_client * instance , int payload_siz
 		return false;
 	}
 
-	// Doesn't matter the receive value
-	return true;
+	return buffer;
 }
 
-bool receive_response_from_instance(t_connected_client * instance ){
+t_instance_response * receive_response_from_instance(t_connected_client * instance ){
 
 	void* buffer = malloc(INSTANCE_RESPONSE_SIZE);
 
@@ -483,13 +503,9 @@ bool receive_response_from_instance(t_connected_client * instance ){
 	switch(response->status){
 	case INSTANCE_SUCCESS:
 		log_info(coordinador_log, "Receive status from Instance - SUCCESS");
-		free(response);
-		return true;
 		break;
 	case INSTANCE_ERROR:
 		log_error(coordinador_log, "Receive status from Instance - ERROR");
-		free(response);
-		return false;
 		break;
 	case INSTANCE_COMPACT:
 		log_warning(coordinador_log, "Receive status from Instance - COMPACT");
@@ -497,11 +513,10 @@ bool receive_response_from_instance(t_connected_client * instance ){
 
 		// TODO
 
-		free(response);
-		return true;
 		break;
 	}
-	return false;
+
+	return response;
 }
 
 bool send_operation_to_instance( t_connected_client * instance){
@@ -540,8 +555,7 @@ bool send_store_operation(t_operation_request* esi_request, operation_type_e ope
 	operation.operation_type = operation_type;
 	operation.payload_size = 0;
 
-	bool response_status = false;
-	bool value_instance = false;
+	bool response_status;
 
 	log_info(coordinador_log , "Attemting to send STORE OPERATION to Instance");
 
@@ -558,8 +572,9 @@ bool send_store_operation(t_operation_request* esi_request, operation_type_e ope
 		return false;
 	}else{
 
-		response_status = receive_response_from_instance(instance);
+		t_instance_response * response = receive_response_from_instance(instance);
 
+		response_status = (response->status == INSTANCE_SUCCESS || response->status == INSTANCE_COMPACT);
 	}
 	free(buffer);
 
@@ -567,15 +582,16 @@ bool send_store_operation(t_operation_request* esi_request, operation_type_e ope
 
 }
 
-bool send_get_operation(t_operation_request* esi_request, operation_type_e operation_type, t_connected_client *instance){
+t_instance_response *  send_get_operation( char * key ,t_connected_client *instance){
 
 	t_operation_request operation;
-	strcpy(operation.key, esi_request->key);
-	operation.operation_type = operation_type;
+	strcpy(operation.key, key);
+	operation.operation_type = GET;
 	operation.payload_size = 0;
 
+	t_instance_response * response = malloc(INSTANCE_RESPONSE_SIZE);
+
 	bool response_status = false;
-	bool value_instance = false;
 
 	log_info(coordinador_log , "Attemting to send GET OPERATION to Instance");
 
@@ -592,16 +608,12 @@ bool send_get_operation(t_operation_request* esi_request, operation_type_e opera
 		return false;
 	}else{
 
-		response_status = receive_response_from_instance(instance);
-
-		if(response_status)
-		value_instance = receive_value_from_instance(instance , esi_request->payload_size);
+		t_instance_response * response = receive_response_from_instance(instance);
 
 	}
 	free(buffer);
 
-	// Must return value. Ignore in this case.
-	return response_status;
+	return response;
 }
 
 bool send_set_operation(t_operation_request* esi_request, operation_type_e operation_type, t_connected_client *instance , char * payload_value){
@@ -612,7 +624,8 @@ bool send_set_operation(t_operation_request* esi_request, operation_type_e opera
 	operation.operation_type = operation_type;
 	operation.payload_size = esi_request->payload_size;
 
-	bool response_status = false;
+//	t_instance_response * response = malloc(INSTANCE_RESPONSE_SIZE);
+	bool status;
 
 	log_info(coordinador_log , "Attemting to send SET OPERATION to Instance");
 
@@ -640,13 +653,13 @@ bool send_set_operation(t_operation_request* esi_request, operation_type_e opera
 			return false;
 		}
 
-		response_status = receive_response_from_instance(instance);
+		t_instance_response * response = receive_response_from_instance(instance);
 
+		status = (response->status == INSTANCE_SUCCESS || response->status == INSTANCE_COMPACT);
 	}
 	free(buffer);
 
-	// Must return value. Ignore in this case.
-	return response_status;
+	return status;
 }
 
 t_connected_client* select_intance_LSU(){
@@ -655,7 +668,6 @@ t_connected_client* select_intance_LSU(){
 }
 
 t_connected_client* select_intance_EL(char* key){
-	// TODO
 	t_connected_client* selectedInstance;
 	int letras=25;
 	int inicio=0;
@@ -806,67 +818,58 @@ void destroy_connected_client(t_connected_client* connected_client){
 	free(connected_client);
 }
 
-void * simulated_instance_with_algorithim(char * key){
-
-	void * instance_retrieve = NULL;
-
-	t_connected_client * simulated_instance = select_simulated_instance(key);
-
-	// MUST TRANSFORM
-
-	return instance_retrieve;
-
+t_connected_client * simulated_instance_with_algorithim(char * key){
+	return select_simulated_instance(key);
 }
+
+
 
 
 status_response_from_coordinator * retrieve_instance_value(char * key , char * key_value){
 
 	status_response_from_coordinator  * response = malloc(STATUS_RESPONSE_FROM_COORDINATOR);
 
+//
+//		// HARDCODE
+//		strcpy(response->nombre_intancia_actual ,"Instancia3");
+//		strcpy(response->nombre_intancia_posible , "NO_VALOR");
+//		response->payload_valor_size = 0;
 
-	// HARDCODE
-	strcpy(response->nombre_intancia_actual ,"Instancia3");
-	strcpy(response->nombre_intancia_posible , "NO_VALOR");
-	response->payload_valor_size = 0;
 
-
-	void * instance_structure = dictionary_get(key_instance_dictionary , key ); // CAMBIAR CUANDO SEBAS ARME LA ESTRUCTURA
+	t_connected_client * instance_structure = dictionary_get(key_instance_dictionary , key ); // CAMBIAR CUANDO SEBAS ARME LA ESTRUCTURA
 
 	if( dictionary_size(key_instance_dictionary) > 0 && instance_structure != NULL ){
 
-		// EN ESTE CASO DEBERIA PASARLE EL NOOMBRE DE LA INSTANCIA COMO ESTRUCTURA.
-		strcpy(response->nombre_intancia_actual , "Instancia3");
+		strcpy(response->nombre_intancia_actual , instance_structure->instance_name);
 		strcpy(response->nombre_intancia_posible , "NO_VALOR");
 
-	}else{
+		// Send GET OPERATION to Instance to retrieve value.
 
-		// IF NOT
-		strcpy(response->nombre_intancia_actual ,"NO_VALOR");
+		if(!send_operation_to_instance(instance_structure)){
+			response->payload_valor_size = 0;
+		}else{
 
-		// CAMBIAR POR ESTRUCTURA DE SEBAS
-		void * simulated_instance = simulated_instance_with_algorithim( key );
+			t_instance_response * response_instance = send_get_operation(key,instance_structure);
+			if(response_instance->status == INSTANCE_SUCCESS || response_instance->status == INSTANCE_COMPACT){
 
-		// EN ESTE CASO DEBERIA PASARLE EL NOOMBRE DE LA INSTANCIA COMO ESTRUCTURA.
-		strcpy(response->nombre_intancia_posible , "Instancia2");
+				char * value = malloc(response_instance->payload_size);
+				value = receive_value_from_instance(instance_structure , response_instance->payload_size);
+				key_value = value ;
+				response->payload_valor_size = response_instance->payload_size;
+			}else{
+				response->payload_valor_size = 0;
+			}
 
-	}
-
-	// Send GET OPERATION to Instance to retrieve value.
-
-
-	if(!send_operation_to_instance(instance)){
-		cod_result->operation_result = OP_ERROR;
-
-	}else{
-
-		if(!send_get_operation(esi_request, esi_request->operation_type, instance)){
-			cod_result->operation_result = OP_ERROR;
 		}
 
+	}else{
+		strcpy(response->nombre_intancia_actual ,"NO_VALOR");
+
+		t_connected_client * simulated_instance = simulated_instance_with_algorithim( key );
+		strcpy(response->nombre_intancia_posible , simulated_instance->instance_name);
+		response->payload_valor_size = 0;
+
 	}
-
-
-	key_value = asdfasdf
 
 	return response;
 
@@ -883,7 +886,7 @@ void handle_planner_console_request(char * key , int planner_socket){
 
 
 
-
+	//TODO
 
 
 	log_info(coordinador_log , "Sending status_struct to PLANNER");
@@ -904,10 +907,12 @@ void handle_planner_console_request(char * key , int planner_socket){
 	if (response->payload_valor_size > 0){
 		log_info(coordinador_log , "Sending explicit value from associated key");
 
-		// HARDCODE
-		void *buffer = malloc(40);
-		strcpy(buffer , "HOLAA");
-		int payload_size = strlen(buffer);
+
+
+			// HARDCODE
+			void *buffer = malloc(40);
+			strcpy(buffer , "HOLAA");
+			int payload_size = strlen(buffer);
 
 
 		int send_value = send(planner_socket, buffer,payload_size, 0);

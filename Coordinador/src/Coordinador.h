@@ -99,14 +99,15 @@ t_connected_client* select_instancia();
 
 bool send_operation_to_instance(t_connected_client * instance);
 
-bool send_get_operation(t_operation_request* esi_request, operation_type_e t, t_connected_client *instance);
+
+t_instance_response *  send_get_operation( char * key ,t_connected_client *instance);
 bool send_store_operation(t_operation_request* esi_request, operation_type_e t, t_connected_client *instance);
 bool send_set_operation(t_operation_request* esi_request, operation_type_e t, t_connected_client *instance , char * payload_value);
 
-bool receive_response_from_instance(t_connected_client * instance);
+t_instance_response * receive_response_from_instance(t_connected_client * instance);
 
 // Must return value char * . For now its ok.
-bool receive_value_from_instance(t_connected_client * instance , int payload_size);
+char *  receive_value_from_instance(t_connected_client * instance , int payload_size);
 
 
 /*ALGORITHIMS*/
