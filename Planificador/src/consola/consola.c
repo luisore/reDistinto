@@ -514,11 +514,13 @@ void comando_status_instancias_por_clave(char* clave)
 status_response_from_coordinator* enviar_status_a_coordinador_por_clave(char* clave) {
 	/*Debo enviar la clave al Coordinador*/
 	status_response_from_coordinator* coordinator_response = NULL;
-	int payload_size = strlen(clave);
+	int payload_size = strlen(clave) + 1;
 	/*Envio tamanio de la clave*/
 	if (send(coordinator_socket_console, &payload_size, sizeof(payload_size), 0) != 4) {
 		printf("FALLO AL ENVIAR TAMANIO KEY\n");
 	}
+
+
 	/*Envio clave*/
 	if (send(coordinator_socket_console, clave, payload_size, 0) != payload_size) {
 		printf("FALLO AL ENVIAR\n");

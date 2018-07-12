@@ -907,17 +907,15 @@ void handle_planner_console_request(char * key , int planner_socket){
 	if (response->payload_valor_size > 0){
 		log_info(coordinador_log , "Sending explicit value from associated key");
 
+//			// HARDCODE
+//			void *buffer = malloc(40);
+//			strcpy(buffer , "HOLAA");
+//			int payload_size = strlen(buffer);
 
 
-			// HARDCODE
-			void *buffer = malloc(40);
-			strcpy(buffer , "HOLAA");
-			int payload_size = strlen(buffer);
+		int send_value = send(planner_socket, key_value,response->payload_valor_size, 0);
 
-
-		int send_value = send(planner_socket, buffer,payload_size, 0);
-
-		if(send_value < payload_size){
+		if(send_value < response->payload_valor_size){
 			log_error(coordinador_log, "It was an Error trying to send payload value to Planner. Aborting conection");
 			tcpserver_remove_client(server_planner_console, planner_socket);
 			free(buffer);
@@ -968,7 +966,7 @@ void server_planner_console_read(tcp_server_t* server, int client_socket, int so
 	log_info(coordinador_log , "Receive key size. Attempting to receive key_value");
 
 	// Define size of key.
-	char* key_buffer = malloc(key_size - 1);
+	char* key_buffer = malloc(key_size);
 
 	if (recv(client_socket, key_buffer, key_size, MSG_WAITALL) < key_size) {
 
