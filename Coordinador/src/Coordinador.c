@@ -479,7 +479,7 @@ char *  receive_value_from_instance(t_connected_client * instance , int payload_
 		free(buffer);
 		remove_client(server, instance->socket_id);
 		remove_instance(server, instance->socket_id);
-		return false;
+		return NULL;
 	}
 
 	return buffer;
@@ -591,7 +591,6 @@ t_instance_response *  send_get_operation( char * key ,t_connected_client *insta
 
 	t_instance_response * response = malloc(INSTANCE_RESPONSE_SIZE);
 
-	bool response_status = false;
 
 	log_info(coordinador_log , "Attemting to send GET OPERATION to Instance");
 
@@ -608,7 +607,7 @@ t_instance_response *  send_get_operation( char * key ,t_connected_client *insta
 		return false;
 	}else{
 
-		t_instance_response * response = receive_response_from_instance(instance);
+		response = receive_response_from_instance(instance);
 
 	}
 	free(buffer);
@@ -854,7 +853,9 @@ status_response_from_coordinator * retrieve_instance_value(char * key , char * k
 
 				char * value = malloc(response_instance->payload_size);
 				value = receive_value_from_instance(instance_structure , response_instance->payload_size);
-				key_value = value ;
+
+				strcpy(key_value, value);
+
 				response->payload_valor_size = response_instance->payload_size;
 			}else{
 				response->payload_valor_size = 0;
