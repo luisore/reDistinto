@@ -511,11 +511,29 @@ void comando_status_instancias_por_clave(char* clave)
 	list_clean(listaEsis);
 }
 
-status_response_from_coordinator* enviar_status_a_coordinador_por_clave(char* clave)
-{
-	status_response_from_coordinator* response = NULL;
+status_response_from_coordinator* enviar_status_a_coordinador_por_clave(char* clave) {
+	/*Debo enviar la clave al Coordinador*/
+	status_response_from_coordinator* coordinator_response = NULL;
+	int payload_size = strlen(clave);
+	/*Envio tamanio de la clave*/
+	if (send(coordinator_socket_console, &payload_size, sizeof(payload_size), 0) != 4) {
+		printf("FALLO AL ENVIAR TAMANIO KEY\n");
+	}
+	/*Envio clave*/
+	if (send(coordinator_socket_console, clave, payload_size, 0) != payload_size) {
+		printf("FALLO AL ENVIAR\n");
+	}
+	/*Espero la respuesta*/
+	void *status_buffer = malloc(STATUS_RESPONSE_FROM_COORDINATOR);
+	int res = recv(coordinator_socket_console, status_buffer,
+				STATUS_RESPONSE_FROM_COORDINATOR, MSG_WAITALL);
+	if (res < STATUS_RESPONSE_FROM_COORDINATOR) {
+		printf("OCURRIO UN ERROR AL RECIBIR LA RESPUESTA\n");
+		return coordinator_response;
+	}
+	coordinator_response = derialize_status_response_from_coordinator(status_buffer);
 
-	return response;
+	return coordinator_response;
 }
 
 void comando_exit()
