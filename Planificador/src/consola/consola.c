@@ -480,14 +480,16 @@ void comando_status_instancias_por_clave(char* clave)
 		free(estado);
 	}
 
+	char * valor_clave;
+
 	status_response_from_coordinator* response = enviar_status_a_coordinador_por_clave(clave);
 
 	// Valido que la respuesta no sea nula como tal.
 	if (response != NULL){
 		// Debo esperar al valor de la clave , ya que existe
 		if (response->payload_valor_size > 0){
-			char * valor_clave = malloc(response->payload_valor_size);
-			if (recv(coordinator_socket_console, valor_clave, response->payload_valor_size, MSG_WAITALL) < response->payload_valor_size) {
+			valor_clave = malloc(response->payload_valor_size);
+			if (recv(coordinator_socket_console, valor_clave, response->payload_valor_size, MSG_WAITALL) != response->payload_valor_size) {
 				free(valor_clave);
 				// TODO - Verificar con Pablo que se debe hacer aqui.
 			}
@@ -499,12 +501,16 @@ void comando_status_instancias_por_clave(char* clave)
 
 	}
 
+
+
 	t_list* esis_filtrados = list_filter(listaEsis, (void*) _espera_por_recurso);
 	if(!list_is_empty(esis_filtrados)) {
 		printf("VALOR\t| INSTANCIA_ACTUAL\t| INSTANCIA_A_GUARDAR\t| ESIS_BLOQUEADOS_POR_CLAVE\n");
 		list_iterate(esis_filtrados, (void*) _list_estatus_intancias);
 	} else {
 		printf("No se encuentran procesos esi esperando por el recurso\n");
+		printf("Valor: %s" , valor_clave);
+
 		log_info(console_log, "Sin procesos esi esperando por el recurso\n");
 	}
 	list_destroy(esis_filtrados);

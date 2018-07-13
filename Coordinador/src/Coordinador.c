@@ -878,12 +878,7 @@ void handle_planner_console_request(char * key , int planner_socket){
 
 	status_response_from_coordinator *response =  malloc(STATUS_RESPONSE_FROM_COORDINATOR);
 
-	char * key_value =  retrieve_instance_value(key , &response);
-
-
-
-	//TODO
-
+	char * key_value =  retrieve_instance_value(key , response);
 
 	log_info(coordinador_log , "Sending status_struct to PLANNER");
 
@@ -902,12 +897,6 @@ void handle_planner_console_request(char * key , int planner_socket){
 
 	if (response->payload_valor_size > 0){
 		log_info(coordinador_log , "Sending explicit value from associated key");
-
-//			// HARDCODE
-//			void *buffer = malloc(40);
-//			strcpy(buffer , "HOLAA");
-//			int payload_size = strlen(buffer);
-
 
 		int send_value = send(planner_socket, key_value,response->payload_valor_size, 0);
 
