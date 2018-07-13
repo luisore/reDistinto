@@ -816,16 +816,17 @@ t_connected_client* select_intance_LSU(){
 t_connected_client* select_intance_EL(char* key){
 	t_connected_client* selectedInstance;
 	int letras=25;
-	int inicio=0;
-	int maximo = letras/list_size(connected_instances);
+	int inicio=97;
+	int nroInstancias=(letras/list_size(connected_instances));
+	int maximo = inicio+nroInstancias;
 	for(int i=0; i<=list_size(connected_instances);i++){
 		if(i != list_size(connected_instances)){
 			if((int)key[0]>=inicio && (int)key[0]<maximo){
 				selectedInstance = list_get(connected_instances, i);
 			}
 		}
-		inicio = inicio+maximo;
-		maximo = maximo+maximo;
+		inicio = maximo;
+		maximo = maximo+nroInstancias;
 	}
 	return selectedInstance;
 }
