@@ -819,9 +819,13 @@ t_connected_client* select_intance_EL(char* key){
 	int inicio=97;
 	int nroInstancias=(letras/list_size(connected_instances));
 	int maximo = inicio+nroInstancias;
-	for(int i=0; i<=list_size(connected_instances);i++){
-		if(i != list_size(connected_instances)){
+	for(int i=0; i<=(list_size(connected_instances)-1);i++){
+		if(i != (list_size(connected_instances)-1)){
 			if((int)key[0]>=inicio && (int)key[0]<maximo){
+				selectedInstance = list_get(connected_instances, i);
+			}
+		}else{
+			if((int)key[0]>=inicio && (int)key[0]<maximo+1){
 				selectedInstance = list_get(connected_instances, i);
 			}
 		}
