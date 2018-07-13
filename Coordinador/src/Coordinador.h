@@ -5,6 +5,7 @@
 #include "libs/tcpserver.h"
 #include "libs/protocols.h"
 #include <pthread.h>
+#include "Distributor.h"
 
 #ifndef SRC_COORDINADOR_H_
 #define SRC_COORDINADOR_H_
@@ -45,9 +46,9 @@ pthread_mutex_t mutex_planner_console;
 pthread_mutex_t mutex_principal;
 pthread_mutex_t mutex_all;
 
-typedef enum {
-	LSU = 1, EL = 2, KE = 3
-} dist_algo_e;
+//typedef enum {
+//	LSU = 1, EL = 2, KE = 3
+//} dist_algo_e;
 
 typedef struct {
 	char * NOMBRE_INSTANCIA;
