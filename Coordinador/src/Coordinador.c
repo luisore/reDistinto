@@ -152,6 +152,28 @@ void before_tpc_server_cycle(tcp_server_t* server){
 	// ACÁ DEBERÍA IR LA LÓGICA DE DISTRIBUCION
 }
 
+
+void actualize_instance_dictionary(t_connected_client * instancia){
+	// Actualize dictionary connected value
+
+	if( dictionary_size(key_instance_dictionary) > 0  ){
+
+		t_dictionary_instance_struct * find_instance_and_actualize(char * key , t_dictionary_instance_struct * instance_structure){
+
+			int compare_string = strcmp(instance_structure->instance->instance_name ,instancia->instance_name);
+
+			if(compare_string == 0){
+				instance_structure->isConnected = false;
+			}
+
+		};
+
+		dictionary_iterator(key_instance_dictionary,find_instance_and_actualize);
+
+	}
+
+}
+
 void remove_client(server, socket_id){
 	bool is_linked_to_socket(void* conn_client){
 		t_connected_client* connected_client = (t_connected_client*)conn_client;
@@ -165,7 +187,14 @@ void remove_client(server, socket_id){
 void remove_instance(server, socket_id){
 	bool is_linked_to_socket(void* conn_client){
 		t_connected_client* connected_client = (t_connected_client*)conn_client;
+
+		if(connected_client->socket_id == socket_id){
+
+			actualize_instance_dictionary(connected_client);
+		}
+
 		return connected_client->socket_id == socket_id;
+
 	};
 
 	tcpserver_remove_client(server, socket_id);
@@ -354,19 +383,9 @@ void handle_esi_request(t_operation_request* esi_request, t_connected_client* cl
 	switch(esi_request->operation_type){
 	case GET:
 
-
-
 		// Add key to instance dictionary.
 		// Redistribute instances
 		;
-
-
-
-
-
-
-
-
 
 		log_info(coordinador_log, "Handling GET from ESI: %s. Key: %s.", client->instance_name, esi_request->key);
 
@@ -375,16 +394,6 @@ void handle_esi_request(t_operation_request* esi_request, t_connected_client* cl
 		//Si el planificador me dice que esta bloqueado y no puedo ejecutar esa operacion, no se la mando a la isntancia.
 		if(cod_result->operation_result!=OP_BLOCKED){
 
-	//		if(!send_operation_to_instance(instance)){
-	//			cod_result->operation_result = OP_ERROR;
-	//		}else{
-	//
-	//			if(!send_get_operation(esi_request, esi_request->operation_type, instance)){
-	//				cod_result->operation_result = OP_ERROR;
-	//			}
-	//		}
-
-
 			t_dictionary_instance_struct * instance_structure = (t_dictionary_instance_struct *) dictionary_get(key_instance_dictionary , esi_request->key );
 
 			if( dictionary_size(key_instance_dictionary) > 0 && instance_structure != NULL ){
@@ -392,22 +401,31 @@ void handle_esi_request(t_operation_request* esi_request, t_connected_client* cl
 				if(!instance_structure->isConnected){
 					// It is not connected
 					// MUST REDISTRIBUTE
+					dictionary_remove(key_instance_dictionary,esi_request->key);
 
 					t_dictionary_instance_struct * instance_structure = malloc(sizeof(t_dictionary_instance_struct));
 					instance_structure->instance = malloc(sizeof(t_connected_client));
 
+
 					t_connected_client * instance = select_instancia(esi_request);
 
-					strcpy(instance_structure->instance->instance_name , instance->instance_name);
-					instance_structure->instance->instance_type = instance->instance_type;
-					instance_structure->instance->socket_id = instance->socket_id;
-					instance_structure->instance->socket_reference = instance->socket_reference;
+					if(instance != NULL){
 
-					instance_structure->storage=50 ;// HARDCODE
-					instance_structure->isConnected = true;
+						strcpy(instance_structure->instance->instance_name , instance->instance_name);
+						instance_structure->instance->instance_type = instance->instance_type;
+						instance_structure->instance->socket_id = instance->socket_id;
+						instance_structure->instance->socket_reference = instance->socket_reference;
 
-					dictionary_remove(key_instance_dictionary,esi_request->key);
-					dictionary_put(key_instance_dictionary ,esi_request->key , instance_structure );
+						instance_structure->storage=50 ;// HARDCODE
+						instance_structure->isConnected = true;
+
+						dictionary_put(key_instance_dictionary ,esi_request->key , instance_structure );
+
+					}else{
+						log_error(coordinador_log , "There is no instance left");
+						cod_result->operation_result = OP_ERROR;
+					}
+
 
 
 				}
@@ -903,6 +921,9 @@ void instance_disconected(int socket_id){
 
 		log_warning(coordinador_log , "INSTANCE has disconnected");
 		remove_instance(server,socket_id );
+
+
+
 	}
 
 }
