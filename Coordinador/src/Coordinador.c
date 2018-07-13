@@ -657,8 +657,22 @@ t_instance_response * receive_response_from_instance(t_connected_client * instan
 	case INSTANCE_COMPACT:
 		log_warning(coordinador_log, "Receive status from Instance - COMPACT");
 		log_info(coordinador_log , "NEED TO COMPACT - STARTING COMPACT ALGORITHIM");
+		t_coordinator_operation_header *header=malloc(sizeof(*header));
+		header->coordinator_operation_type=COMPACT;
+		void* buffer = serialize_coordinator_operation_header(header);
+		for(int i=0;i<list_size(connected_instances);i++){
+			t_connected_client* selectedInstance = list_get(connected_instances, instancia_actual);
+			if(send(selectedInstance->socket_reference, buffer,COORDINATOR_OPERATION_HEADER_SIZE, 0)<COORDINATOR_OPERATION_HEADER_SIZE){
+				//Esto es por si se cae alguna instancia actualizo las correspondientes estructuras.
+				log_error(coordinador_log, "Could not send message COMPACT to Instance. Remove Instance.");
+				actualize_instance_dictionary(selectedInstance);
+				remove_client(server,selectedInstance->socket_id);
+				remove_instance(server , selectedInstance->socket_id);
+			}else{
+			// TODO Comportamiento cuando termina de compactar
 
-		// TODO
+			}
+		}
 
 		break;
 	}
