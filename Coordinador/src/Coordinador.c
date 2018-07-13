@@ -349,29 +349,69 @@ void handle_esi_request(t_operation_request* esi_request, t_connected_client* cl
 	t_operation_response *cod_result;
 
 	// Select an instance based on the selected algorithim.
-	t_connected_client * instance = select_instancia(esi_request);
+
 
 	switch(esi_request->operation_type){
 	case GET:
 
+
+
 		// Add key to instance dictionary.
 		// Redistribute instances
 		;
-		t_connected_client * instance_to_distribute = (t_connected_client *) dictionary_get(key_instance_dictionary , esi_request->key );
 
-		if( dictionary_size(key_instance_dictionary) > 0 && instance_to_distribute != NULL ){
+		t_dictionary_instance_struct * instance_structure = (t_dictionary_instance_struct *) dictionary_get(key_instance_dictionary , esi_request->key );
 
-			// If it is the same instance
-			if(! instance_to_distribute->instance_name == instance->instance_name){
+		if( dictionary_size(key_instance_dictionary) > 0 && instance_structure != NULL ){
 
-				// Must verify if it is connected or not the instance_to_distribute.
-				// TODO
+			if(!instance_structure->isConnected){
+				// It is not connected
+				// MUST REDISTRIBUTE
+
+				t_dictionary_instance_struct * instance_structure = malloc(sizeof(t_dictionary_instance_struct));
+
+				t_connected_client * instance = select_instancia(esi_request);
+
+				strcpy(instance_structure->instance->instance_name , instance->instance_name);
+				instance_structure->instance->instance_type = instance->instance_type;
+				instance_structure->instance->socket_id = instance->socket_id;
+				instance_structure->instance->socket_reference = instance->socket_reference;
+
+				instance_structure->storage=50 ;// HARDCODE
+				instance_structure->isConnected = true;
+
+				dictionary_remove(key_instance_dictionary,esi_request->key);
+				dictionary_put(key_instance_dictionary ,esi_request->key , instance_structure );
+
 
 			}
 
+			// If there is an instance OK , continue normaly
+
 		}else{
-			dictionary_put(key_instance_dictionary , esi_request->key  ,  instance);
+
+			t_dictionary_instance_struct * instance_structure = malloc(sizeof(t_dictionary_instance_struct));
+
+			t_connected_client * instance = select_instancia(esi_request);
+
+			strcpy(instance_structure->instance->instance_name , instance->instance_name);
+			instance_structure->instance->instance_type = instance->instance_type;
+			instance_structure->instance->socket_id = instance->socket_id;
+			instance_structure->instance->socket_reference = instance->socket_reference;
+
+			instance_structure->storage=50 ;// HARDCODE
+			instance_structure->isConnected = true;
+
+
+			dictionary_put(key_instance_dictionary , esi_request->key  ,  instance_structure);
+
 		}
+
+
+
+
+
+
 
 		log_info(coordinador_log, "Handling GET from ESI: %s. Key: %s.", client->instance_name, esi_request->key);
 
@@ -402,22 +442,58 @@ void handle_esi_request(t_operation_request* esi_request, t_connected_client* cl
 
 		//Si el planificador me dice que esta bloqueado y no puedo ejecutar esa operacion, no se la mando a la isntancia.
 		if(cod_result->operation_result!=OP_BLOCKED){
-			if(instance == 0){
+
+
+			// VERIFICO QUE EXISTA EN EL DICCIONARIO.
+
+			t_dictionary_instance_struct * instance_structure = (t_dictionary_instance_struct *) dictionary_get(key_instance_dictionary , esi_request->key );
+
+			if( dictionary_size(key_instance_dictionary) > 0 && instance_structure != NULL ){
+
+				if(!instance_structure->isConnected){
+
+					// The instance it is not connect. Must abort.
+					cod_result->operation_result = OP_ERROR;
+
+				}else{
+
+					if(!send_operation_to_instance(instance_structure->instance)){
+						cod_result->operation_result = OP_ERROR;
+					}else{
+
+						if(!send_store_operation(esi_request, esi_request->operation_type, instance_structure->instance)){
+							cod_result->operation_result = OP_ERROR;
+						}
+					}
+
+				}
+
+
+			}else{
+				// It doesnt exist any instance.
 				log_error(coordinador_log , "There ir no instance left. Aborting");
 				cod_result->operation_result = OP_ERROR;
 
-			}else{
-				if(!send_operation_to_instance(instance)){
-					cod_result->operation_result = OP_ERROR;
-				}else{
-
-					if(!send_store_operation(esi_request, esi_request->operation_type, instance)){
-						cod_result->operation_result = OP_ERROR;
-					}
-				}
 			}
 
+
+//			if(instance == 0){
+//				log_error(coordinador_log , "There ir no instance left. Aborting");
+//				cod_result->operation_result = OP_ERROR;
+//
+//			}else{
+//				if(!send_operation_to_instance(instance)){
+//					cod_result->operation_result = OP_ERROR;
+//				}else{
+//
+//					if(!send_store_operation(esi_request, esi_request->operation_type, instance)){
+//						cod_result->operation_result = OP_ERROR;
+//					}
+//				}
+//			}
+
 			send_response_to_esi(socket, client, cod_result->operation_result);
+
 		}else{
 			send_response_to_esi(socket, client, cod_result->operation_result);
 		}
@@ -448,19 +524,54 @@ void handle_esi_request(t_operation_request* esi_request, t_connected_client* cl
 
 			cod_result = send_operation_to_planner(esi_request->key, planner, SET);
 
-			if(instance == 0){
-				log_error(coordinador_log , "There ir no instance left. Aborting");
-				cod_result->operation_result = OP_ERROR;
-			}else{
-				if(!send_operation_to_instance(instance)){
+
+			// VERIFICO QUE EXISTA EN EL DICCIONARIO.
+
+			t_dictionary_instance_struct * instance_structure = (t_dictionary_instance_struct *) dictionary_get(key_instance_dictionary , esi_request->key );
+
+			if( dictionary_size(key_instance_dictionary) > 0 && instance_structure != NULL ){
+
+				if(!instance_structure->isConnected){
+
+					// The instance it is not connect. Must abort.
 					cod_result->operation_result = OP_ERROR;
+
 				}else{
 
-					if(!send_set_operation(esi_request, esi_request->operation_type, instance ,payload_for_intance )){
+					if(!send_operation_to_instance(instance_structure->instance)){
 						cod_result->operation_result = OP_ERROR;
+					}else{
+
+						if(!send_store_operation(esi_request, esi_request->operation_type, instance_structure->instance)){
+							cod_result->operation_result = OP_ERROR;
+						}
 					}
+
 				}
+
+
+			}else{
+				// It doesnt exist any instance.
+				log_error(coordinador_log , "There ir no instance left. Aborting");
+				cod_result->operation_result = OP_ERROR;
+
 			}
+
+
+
+//			if(instance == 0){
+//				log_error(coordinador_log , "There ir no instance left. Aborting");
+//				cod_result->operation_result = OP_ERROR;
+//			}else{
+//				if(!send_operation_to_instance(instance)){
+//					cod_result->operation_result = OP_ERROR;
+//				}else{
+//
+//					if(!send_set_operation(esi_request, esi_request->operation_type, instance ,payload_for_intance )){
+//						cod_result->operation_result = OP_ERROR;
+//					}
+//				}
+//			}
 
 		}
 
@@ -828,11 +939,11 @@ t_connected_client * simulated_instance_with_algorithim(char * key){
 
 	 char * value;
 
-	t_connected_client * instance_structure = dictionary_get(key_instance_dictionary , key ); // CAMBIAR CUANDO SEBAS ARME LA ESTRUCTURA
+	 t_dictionary_instance_struct * instance_structure = dictionary_get(key_instance_dictionary , key ); // CAMBIAR CUANDO SEBAS ARME LA ESTRUCTURA
 
 	if( dictionary_size(key_instance_dictionary) > 0 && instance_structure != NULL ){
 
-		strcpy(response->nombre_intancia_actual , instance_structure->instance_name);
+		strcpy(response->nombre_intancia_actual , instance_structure->instance->instance_name);
 		strcpy(response->nombre_intancia_posible , "NO_VALOR");
 
 		// Send GET OPERATION to Instance to retrieve value.

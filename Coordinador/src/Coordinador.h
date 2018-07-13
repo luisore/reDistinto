@@ -71,6 +71,14 @@ typedef struct {
 } t_connected_client;
 
 
+typedef struct{
+	t_connected_client * instance;
+	bool isConnected;
+	int storage;
+} t_dictionary_instance_struct;
+
+
+
 /* PRINCIPAL FUNCTIONS*/
 void coordinate_planner_console();
 void coordinate_principal_process();
