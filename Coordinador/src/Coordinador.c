@@ -768,7 +768,7 @@ void instance_disconected(int socket_id){
 
 	int buffer , aux_size ;
 
-	int valor = recv(socket, buffer, aux_size, MSG_WAITALL);
+	int valor = recv(socket_id, buffer, aux_size, MSG_WAITALL);
 
 	if (valor == -1) {
 
