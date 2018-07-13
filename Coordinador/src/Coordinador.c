@@ -360,52 +360,7 @@ void handle_esi_request(t_operation_request* esi_request, t_connected_client* cl
 		// Redistribute instances
 		;
 
-		t_dictionary_instance_struct * instance_structure = (t_dictionary_instance_struct *) dictionary_get(key_instance_dictionary , esi_request->key );
 
-		if( dictionary_size(key_instance_dictionary) > 0 && instance_structure != NULL ){
-
-			if(!instance_structure->isConnected){
-				// It is not connected
-				// MUST REDISTRIBUTE
-
-				t_dictionary_instance_struct * instance_structure = malloc(sizeof(t_dictionary_instance_struct));
-
-				t_connected_client * instance = select_instancia(esi_request);
-
-				strcpy(instance_structure->instance->instance_name , instance->instance_name);
-				instance_structure->instance->instance_type = instance->instance_type;
-				instance_structure->instance->socket_id = instance->socket_id;
-				instance_structure->instance->socket_reference = instance->socket_reference;
-
-				instance_structure->storage=50 ;// HARDCODE
-				instance_structure->isConnected = true;
-
-				dictionary_remove(key_instance_dictionary,esi_request->key);
-				dictionary_put(key_instance_dictionary ,esi_request->key , instance_structure );
-
-
-			}
-
-			// If there is an instance OK , continue normaly
-
-		}else{
-
-			t_dictionary_instance_struct * instance_structure = malloc(sizeof(t_dictionary_instance_struct));
-
-			t_connected_client * instance = select_instancia(esi_request);
-
-			strcpy(instance_structure->instance->instance_name , instance->instance_name);
-			instance_structure->instance->instance_type = instance->instance_type;
-			instance_structure->instance->socket_id = instance->socket_id;
-			instance_structure->instance->socket_reference = instance->socket_reference;
-
-			instance_structure->storage=50 ;// HARDCODE
-			instance_structure->isConnected = true;
-
-
-			dictionary_put(key_instance_dictionary , esi_request->key  ,  instance_structure);
-
-		}
 
 
 
@@ -428,6 +383,69 @@ void handle_esi_request(t_operation_request* esi_request, t_connected_client* cl
 	//				cod_result->operation_result = OP_ERROR;
 	//			}
 	//		}
+
+
+			t_dictionary_instance_struct * instance_structure = (t_dictionary_instance_struct *) dictionary_get(key_instance_dictionary , esi_request->key );
+
+			if( dictionary_size(key_instance_dictionary) > 0 && instance_structure != NULL ){
+
+				if(!instance_structure->isConnected){
+					// It is not connected
+					// MUST REDISTRIBUTE
+
+					t_dictionary_instance_struct * instance_structure = malloc(sizeof(t_dictionary_instance_struct));
+					instance_structure->instance = malloc(sizeof(t_connected_client));
+
+					t_connected_client * instance = select_instancia(esi_request);
+
+					strcpy(instance_structure->instance->instance_name , instance->instance_name);
+					instance_structure->instance->instance_type = instance->instance_type;
+					instance_structure->instance->socket_id = instance->socket_id;
+					instance_structure->instance->socket_reference = instance->socket_reference;
+
+					instance_structure->storage=50 ;// HARDCODE
+					instance_structure->isConnected = true;
+
+					dictionary_remove(key_instance_dictionary,esi_request->key);
+					dictionary_put(key_instance_dictionary ,esi_request->key , instance_structure );
+
+
+				}
+
+				// If there is an instance OK , continue normaly
+
+			}else{
+
+				t_dictionary_instance_struct * instance_structure = malloc(sizeof(t_dictionary_instance_struct));
+				instance_structure->instance = malloc(sizeof(t_connected_client));
+
+
+				t_connected_client * instance = select_instancia(esi_request);
+
+				if(instance != NULL){
+
+					strcpy(instance_structure->instance->instance_name , instance->instance_name);
+
+
+					instance_structure->instance->instance_type = instance->instance_type;
+					instance_structure->instance->socket_id = instance->socket_id;
+					instance_structure->instance->socket_reference = instance->socket_reference;
+
+					instance_structure->storage=50 ;// HARDCODE
+					instance_structure->isConnected = true;
+
+
+					dictionary_put(key_instance_dictionary , esi_request->key  ,  instance_structure);
+
+
+				}else{
+					log_error(coordinador_log , "There is no instance left");
+					cod_result->operation_result = OP_ERROR;
+				}
+
+
+			}
+
 
 			send_response_to_esi(socket, client, cod_result->operation_result);
 		}else{
@@ -542,7 +560,7 @@ void handle_esi_request(t_operation_request* esi_request, t_connected_client* cl
 						cod_result->operation_result = OP_ERROR;
 					}else{
 
-						if(!send_store_operation(esi_request, esi_request->operation_type, instance_structure->instance)){
+						if(!send_set_operation(esi_request, esi_request->operation_type, instance_structure->instance ,payload_for_intance )){
 							cod_result->operation_result = OP_ERROR;
 						}
 					}
@@ -948,17 +966,17 @@ t_connected_client * simulated_instance_with_algorithim(char * key){
 
 		// Send GET OPERATION to Instance to retrieve value.
 
-		if(!send_operation_to_instance(instance_structure)){
+		if(!send_operation_to_instance(instance_structure->instance)){
 			response->payload_valor_size = 0;
 		}else{
 
-			t_instance_response * response_instance = send_get_operation(key,instance_structure);
+			t_instance_response * response_instance = send_get_operation(key,instance_structure->instance);
 
 
 			if(response_instance->status == INSTANCE_SUCCESS || response_instance->status == INSTANCE_COMPACT){
 
 				value = malloc(response_instance->payload_size);
-				value = receive_value_from_instance(instance_structure , response_instance->payload_size);
+				value = receive_value_from_instance(instance_structure->instance , response_instance->payload_size);
 
 				response->payload_valor_size = response_instance->payload_size;
 			}else{
