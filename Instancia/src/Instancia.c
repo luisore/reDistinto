@@ -356,9 +356,10 @@ void handle_operation(){
 	operation_destroy(operation);
 }
 
-void compact() {
+void handle_compact() {
 	pthread_mutex_lock(&operation_mutex);
 	redis_compact(redis);
+	send_response_to_coordinator(INSTANCE_SUCCESS, 0);
 	pthread_mutex_unlock(&operation_mutex);
 }
 
@@ -389,7 +390,7 @@ void run_operations(){
 			handle_operation();
 			break;
 		case COMPACT:
-			compact();
+			handle_compact();
 			break;
 		}
 	}

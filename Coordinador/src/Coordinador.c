@@ -339,6 +339,15 @@ void send_message_planner_console(t_connection_header *connection_header, int cl
 
 }
 
+t_connected_client* find_connected_instance(int socket_id){
+	bool is_linked_to_socket(void* conn_instance){
+		t_connected_client* connected_instance = (t_connected_client*)conn_instance;
+		return connected_instance->socket_id == socket_id;
+	};
+
+	return list_find(connected_instances, is_linked_to_socket);
+}
+
 t_connected_client* find_connected_client(int socket_id){
 	bool is_linked_to_socket(void* conn_client){
 		t_connected_client* connected_client = (t_connected_client*)conn_client;
@@ -657,21 +666,45 @@ t_instance_response * receive_response_from_instance(t_connected_client * instan
 	case INSTANCE_COMPACT:
 		log_warning(coordinador_log, "Receive status from Instance - COMPACT");
 		log_info(coordinador_log , "NEED TO COMPACT - STARTING COMPACT ALGORITHIM");
+
 		t_coordinator_operation_header *header=malloc(sizeof(*header));
+
 		header->coordinator_operation_type=COMPACT;
-		void* buffer = serialize_coordinator_operation_header(header);
+
+		void* bufferOperation = serialize_coordinator_operation_header(header);
+
 		for(int i=0;i<list_size(connected_instances);i++){
-			t_connected_client* selectedInstance = list_get(connected_instances, instancia_actual);
-			if(send(selectedInstance->socket_reference, buffer,COORDINATOR_OPERATION_HEADER_SIZE, 0)<COORDINATOR_OPERATION_HEADER_SIZE){
+
+			t_connected_client* selectedInstance = list_get(connected_instances, i);
+
+			if(send(selectedInstance->socket_reference, bufferOperation,COORDINATOR_OPERATION_HEADER_SIZE, 0)<COORDINATOR_OPERATION_HEADER_SIZE){
+
 				//Esto es por si se cae alguna instancia actualizo las correspondientes estructuras.
 				log_error(coordinador_log, "Could not send message COMPACT to Instance. Remove Instance.");
+				free(bufferOperation);
 				actualize_instance_dictionary(selectedInstance);
 				remove_client(server,selectedInstance->socket_id);
 				remove_instance(server , selectedInstance->socket_id);
-			}else{
-			// TODO Comportamiento cuando termina de compactar
 
 			}
+
+			// Espero respuesta de Instancia
+
+			void* mensaje = malloc(INSTANCE_RESPONSE_SIZE);
+
+			if(recv(selectedInstance->socket_reference,mensaje, INSTANCE_RESPONSE_SIZE, MSG_WAITALL)<INSTANCE_RESPONSE_SIZE){
+
+				log_warning(coordinador_log, "Instance Disconnected: %s", selectedInstance->instance_name);
+				free(selectedInstance);
+				remove_client(server, selectedInstance->socket_id);
+				remove_instance(server, selectedInstance->socket_id);
+				return false;
+
+			}
+
+
+			/// END FOR
+
 		}
 
 		break;
@@ -735,7 +768,20 @@ bool send_store_operation(t_operation_request* esi_request, operation_type_e ope
 
 		t_instance_response * response = receive_response_from_instance(instance);
 
-		response_status = (response->status == INSTANCE_SUCCESS || response->status == INSTANCE_COMPACT);
+		if(response->status == INSTANCE_COMPACT){
+			// Compact was made - REDO
+
+			// VER QUE INSTANCIA ESTE LEVANTADO
+			if(find_connected_instance(instance->socket_id)==NULL){
+				log_error(coordinador_log, "La instancia no existe - ERROR");
+				response_status = false;
+			}else{
+				response_status = send_store_operation(esi_request , operation_type , instance);
+			}
+		}else{
+			response_status = (response->status == INSTANCE_SUCCESS);
+		}
+
 	}
 	free(buffer);
 
@@ -815,7 +861,19 @@ bool send_set_operation(t_operation_request* esi_request, operation_type_e opera
 
 		t_instance_response * response = receive_response_from_instance(instance);
 
-		status = (response->status == INSTANCE_SUCCESS || response->status == INSTANCE_COMPACT);
+		if(response->status == INSTANCE_COMPACT){
+			// Compact was made - REDO
+
+			// VER QUE INSTANCIA ESTE LEVANTADO
+			if(find_connected_instance(instance->socket_id)==NULL){
+				log_error(coordinador_log, "La instancia no existe - ERROR");
+				status = false;
+			}else{
+				status = send_store_operation(esi_request , operation_type , instance);
+			}
+		}else{
+			status = (response->status == INSTANCE_SUCCESS);
+		}
 	}
 	free(buffer);
 
