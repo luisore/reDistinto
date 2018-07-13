@@ -44,6 +44,16 @@ void create_log() {
 	}
 }
 
+void create_log_operations() {
+
+	coordinador_log_operation = log_create("log_op.log", "[OPERATIONS]", false, LOG_LEVEL_TRACE);
+
+	if (coordinador_log_operation == NULL) {
+		printf(" FALLO - Creacion de Log de Operaciones");
+		exit_program(EXIT_FAILURE);
+	}
+}
+
 void loadConfig() {
 
 	log_info(coordinador_log, " Cargan datos del archivo de configuracion");
@@ -478,6 +488,9 @@ void handle_esi_request(t_operation_request* esi_request, t_connected_client* cl
 		}else{
 			send_response_to_esi(socket, client, cod_result->operation_result);
 		}
+		// OPERATION - KEY
+		log_info(coordinador_log_operation, "GET - %s " , esi_request->key);
+
 		break;
 
 	case STORE:
@@ -542,6 +555,9 @@ void handle_esi_request(t_operation_request* esi_request, t_connected_client* cl
 		}else{
 			send_response_to_esi(socket, client, cod_result->operation_result);
 		}
+
+		// OPERATION - KEY
+		log_info(coordinador_log_operation, "STORE - %s " , esi_request->key);
 
 		break;
 	case SET:
@@ -621,6 +637,9 @@ void handle_esi_request(t_operation_request* esi_request, t_connected_client* cl
 		}
 
 		send_response_to_esi(socket, client, cod_result->operation_result);
+
+		// OPERATION - KEY
+		log_info(coordinador_log_operation, "SET - %s " , esi_request->key);
 		break;
 	}
 }
@@ -1214,6 +1233,7 @@ int main(void) {
 
 	print_header();
 	create_log();
+	create_log_operations();
 	loadConfig();
 	log_inicial_consola();
 

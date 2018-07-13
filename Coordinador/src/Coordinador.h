@@ -14,6 +14,7 @@
 
 /*VARIABLES GLOBALES*/
 t_log * coordinador_log;
+t_log * coordinador_log_operation;
 t_config *config;
 t_list* connected_clients;
 t_list* connected_instances;
