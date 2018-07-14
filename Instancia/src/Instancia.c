@@ -603,13 +603,13 @@ int main(int argc, char **argv) {
 
 	pthread_mutex_init(&operation_mutex, NULL);
 
-	//pthread_create(&dump_thread, NULL, (void*) run_periodic_dump, NULL);
+	pthread_create(&dump_thread, NULL, (void*) run_periodic_dump, NULL);
 	pthread_create(&console_thread, NULL, (void*) run_console, NULL);
 	pthread_create(&operations_thread, NULL, (void*) run_operations, NULL);
 
 
 	pthread_join(operations_thread, NULL);
-	//pthread_join(dump_thread, NULL);
+	pthread_join(dump_thread, NULL);
 	pthread_join(console_thread, NULL);
 
 	exit_program(EXIT_SUCCESS);
