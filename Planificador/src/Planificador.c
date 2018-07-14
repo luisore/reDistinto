@@ -22,8 +22,9 @@ int main(void) {
 	pthread_create(&hiloPlanificacion, NULL, (void*) ejecutarPlanificacion, NULL);
 
 	pthread_join(hiloConsola, NULL);
-	pthread_join(hiloPrincipal, NULL);
-	pthread_join(hiloPlanificacion, NULL);
+
+	pthread_cancel(hiloPrincipal);
+	pthread_cancel(hiloPlanificacion);
 
 	liberarRecursos(EXIT_SUCCESS);
 	return 0;
