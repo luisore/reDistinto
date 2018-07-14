@@ -800,8 +800,8 @@ void perform_instance_compaction(void* instance){
 		pthread_mutex_unlock(&mutex_compaction);
 	}
 
-	//sem_post(&compact_semaphore);
-//	pthread_exit(0);
+	sem_post(&compact_semaphore);
+	pthread_exit(0);
 }
 
 void wait_for_compaction_thread(void* thread){
@@ -809,22 +809,20 @@ void wait_for_compaction_thread(void* thread){
 }
 
 void do_synchronized_compaction(){
-	/*t_list* compaction_threads = list_create();
+	t_list* compaction_threads = list_create();
 
 	void create_instance_thread(void* instance){
 		pthread_t* thread = malloc(sizeof(pthread_t));
 		pthread_create(thread, NULL, perform_instance_compaction, instance);
 		list_add(compaction_threads, thread);
-	}*/
+	}
 
 	// TODO: MUTEX!
-	//list_iterate(connected_instances, create_instance_thread);
+	list_iterate(connected_instances, create_instance_thread);
 
-	//list_iterate(compaction_threads, wait_for_compaction_thread);
+	list_iterate(compaction_threads, wait_for_compaction_thread);
 
 	//list_destroy_and_destroy_elements(compaction_threads, free);
-
-	list_iterate(connected_instances, perform_instance_compaction);
 }
 
 t_instance_response * receive_response_from_instance(t_connected_client * instance ){
