@@ -1,6 +1,7 @@
 #include "Coordinador.h"
 #include "libs/protocols.h"
 #include <stdlib.h>
+#include <commons/string.h>
 
 
 void print_header() {
@@ -28,8 +29,6 @@ void exit_program(int entero) {
 	pthread_mutex_destroy(&mutex_all);
 
 	dictionary_destroy(key_instance_dictionary);
-
-	distributor_destroy(distributor);
 
 	printf("\n\t\e[31;1m FINALIZA COORDINADOR \e[0m\n");
 	exit(entero);
@@ -89,6 +88,7 @@ void liberar_memoria() {
 	if(connected_instances != NULL) list_destroy_and_destroy_elements(connected_instances, destroy_connected_client);
 	if(server != NULL) tcpserver_destroy(server);
 	if(coordinador_config.NOMBRE_INSTANCIA != NULL) free(coordinador_config.NOMBRE_INSTANCIA);
+	if(distributor != NULL) distributor_destroy(distributor);
 }
 
 void log_inicial_consola() {
@@ -170,15 +170,13 @@ void actualize_instance_dictionary(t_connected_client * instancia){
 
 	if( dictionary_size(key_instance_dictionary) > 0  ){
 
-		t_dictionary_instance_struct * find_instance_and_actualize(char * key , t_dictionary_instance_struct * instance_structure){
-
+		void find_instance_and_actualize(char * key , t_dictionary_instance_struct * instance_structure){
 			int compare_string = strcmp(instance_structure->instance->instance_name ,instancia->instance_name);
 
 			if(compare_string == 0){
 				instance_structure->isConnected = false;
 			}
-
-		};
+		}
 
 		dictionary_iterator(key_instance_dictionary,find_instance_and_actualize);
 
@@ -186,7 +184,7 @@ void actualize_instance_dictionary(t_connected_client * instancia){
 
 }
 
-void remove_client(server, socket_id){
+void remove_client(tcp_server_t* server, int socket_id){
 	bool is_linked_to_socket(void* conn_client){
 		t_connected_client* connected_client = (t_connected_client*)conn_client;
 		return connected_client->socket_id == socket_id;
@@ -196,7 +194,7 @@ void remove_client(server, socket_id){
 	list_remove_and_destroy_by_condition(connected_clients, is_linked_to_socket, destroy_connected_client);
 }
 
-void remove_instance(server, socket_id){
+void remove_instance(tcp_server_t* server, int socket_id){
 	bool is_linked_to_socket(void* conn_client){
 		t_connected_client* connected_client = (t_connected_client*)conn_client;
 		return connected_client->socket_id == socket_id;
@@ -211,6 +209,7 @@ void remove_instance(server, socket_id){
 
 	actualize_instance_dictionary(connected_client);
 	distributor_remove_instance(distributor, connected_client->instance_name);
+	log_info(coordinador_log, "Disconnected Instance: %s", connected_client->instance_name);
 	destroy_connected_client(connected_client);
 }
 
@@ -266,6 +265,7 @@ t_operation_response * send_operation_to_planner(char * recurso, t_connected_cli
 	return response;
 }
 
+// TODO: REFACTOR!!!
 void on_server_accept(tcp_server_t* server, int client_socket, int socket_id){
 	void *header_buffer = malloc(CONNECTION_HEADER_SIZE);
 
@@ -306,7 +306,7 @@ void on_server_accept(tcp_server_t* server, int client_socket, int socket_id){
 
 		if( dictionary_size(key_instance_dictionary) > 0  ){
 
-			t_dictionary_instance_struct * find_instance_and_actualize(char * key , t_dictionary_instance_struct * instance_structure){
+			void find_instance_and_actualize(char * key , t_dictionary_instance_struct * instance_structure){
 
 				int compare_string = strcmp(instance_structure->instance->instance_name ,connected_client->instance_name);
 
@@ -492,6 +492,7 @@ void handle_esi_get(t_connected_client* planner, t_operation_request* esi_reques
 	//Si el planificador me dice que esta bloqueado y no puedo ejecutar esa operacion, no se la mando a la isntancia.
 	if(cod_result->operation_result == OP_BLOCKED){
 		send_response_to_esi(socket, client, cod_result->operation_result);
+		free(cod_result);
 		return;
 	}
 
@@ -510,6 +511,64 @@ void handle_esi_get(t_connected_client* planner, t_operation_request* esi_reques
 
 	// OPERATION - KEY
 	log_info(coordinador_log_operation, "GET - %s " , esi_request->key);
+
+	free(cod_result);
+}
+
+t_connected_client* get_instance_connected_for_key(char* key){
+	t_dictionary_instance_struct * instance_structure = (t_dictionary_instance_struct *) dictionary_get(key_instance_dictionary , key );
+
+	if(instance_structure == NULL){
+		log_error(coordinador_log, "There was no mapped instance for key: %s", key);
+		return NULL;
+	}
+	if (!instance_structure->isConnected){
+		log_warning(coordinador_log, "Mapped instance for key:%s (%s) is disconnected.", key, instance_structure->instance->instance_name);
+		return NULL;
+	}
+	return instance_structure->instance;
+}
+
+operation_result_e perform_instance_store(t_operation_request* esi_request){
+	t_connected_client* instance = get_instance_connected_for_key(esi_request->key);
+
+	if(instance == NULL){
+		return OP_ERROR;
+	}
+
+	if(!send_operation_to_instance(instance)){
+		log_error(coordinador_log, "Failed to send STORE operation header to instance: %s", instance->instance_name);
+		return OP_ERROR;
+	}
+
+	if (!send_store_operation(esi_request, STORE, instance)){
+		log_error(coordinador_log, "Failed to send STORE operation to instance: %s", instance->instance_name);
+		return OP_ERROR;
+	}
+
+	return  OP_SUCCESS;
+
+}
+
+void handle_esi_store(t_connected_client* planner, t_operation_request* esi_request, t_connected_client* client, int socket){
+	log_info(coordinador_log, "Handling STORE from ESI: %s. Key: %s.", client->instance_name, esi_request->key);
+
+	t_operation_response* cod_result = send_operation_to_planner(esi_request->key, planner, STORE);
+
+	//Si el planificador me dice que esta bloqueado y no puedo ejecutar esa operacion, no se la mando a la isntancia.
+	if(cod_result->operation_result == OP_BLOCKED){
+		send_response_to_esi(socket, client, OP_BLOCKED);
+		free(cod_result);
+		return;
+	}
+	free(cod_result);
+
+	operation_result_e op_result = perform_instance_store(esi_request);
+
+	send_response_to_esi(socket, client, op_result);
+
+	// OPERATION - KEY
+	log_info(coordinador_log_operation, "STORE - %s " , esi_request->key);
 }
 
 void handle_esi_request(t_operation_request* esi_request, t_connected_client* client, int socket){
@@ -526,71 +585,7 @@ void handle_esi_request(t_operation_request* esi_request, t_connected_client* cl
 		break;
 
 	case STORE:
-		log_info(coordinador_log, "Handling STORE from ESI: %s. Key: %s.", client->instance_name, esi_request->key);
-
-		cod_result =  send_operation_to_planner(esi_request->key, planner, STORE);
-
-		//Si el planificador me dice que esta bloqueado y no puedo ejecutar esa operacion, no se la mando a la isntancia.
-		if(cod_result->operation_result!=OP_BLOCKED){
-
-
-			// VERIFICO QUE EXISTA EN EL DICCIONARIO.
-
-			t_dictionary_instance_struct * instance_structure = (t_dictionary_instance_struct *) dictionary_get(key_instance_dictionary , esi_request->key );
-
-			if( dictionary_size(key_instance_dictionary) > 0 && instance_structure != NULL ){
-
-				if(!instance_structure->isConnected){
-
-					// The instance it is not connect. Must abort.
-					cod_result->operation_result = OP_ERROR;
-
-				}else{
-
-					if(!send_operation_to_instance(instance_structure->instance)){
-						cod_result->operation_result = OP_ERROR;
-					}else{
-
-						if(!send_store_operation(esi_request, esi_request->operation_type, instance_structure->instance)){
-							cod_result->operation_result = OP_ERROR;
-						}
-					}
-
-				}
-
-
-			}else{
-				// It doesnt exist any instance.
-				log_error(coordinador_log , "There ir no instance left. Aborting");
-				cod_result->operation_result = OP_ERROR;
-
-			}
-
-
-//			if(instance == 0){
-//				log_error(coordinador_log , "There ir no instance left. Aborting");
-//				cod_result->operation_result = OP_ERROR;
-//
-//			}else{
-//				if(!send_operation_to_instance(instance)){
-//					cod_result->operation_result = OP_ERROR;
-//				}else{
-//
-//					if(!send_store_operation(esi_request, esi_request->operation_type, instance)){
-//						cod_result->operation_result = OP_ERROR;
-//					}
-//				}
-//			}
-
-			send_response_to_esi(socket, client, cod_result->operation_result);
-
-		}else{
-			send_response_to_esi(socket, client, cod_result->operation_result);
-		}
-
-		// OPERATION - KEY
-		log_info(coordinador_log_operation, "STORE - %s " , esi_request->key);
-
+		handle_esi_store(planner, esi_request, client, socket);
 		break;
 	case SET:
 		log_info(coordinador_log, "Handling SET from ESI: %s. Key: %s.", client->instance_name, esi_request->key);
@@ -734,7 +729,6 @@ t_instance_response * receive_response_from_instance(t_connected_client * instan
 				log_error(coordinador_log, "Could not send message COMPACT to Instance. Remove Instance.");
 				free(bufferOperation);
 				actualize_instance_dictionary(selectedInstance);
-				remove_client(server,selectedInstance->socket_id);
 				remove_instance(server , selectedInstance->socket_id);
 
 			}
@@ -747,7 +741,6 @@ t_instance_response * receive_response_from_instance(t_connected_client * instan
 
 				log_warning(coordinador_log, "Instance Disconnected: %s", selectedInstance->instance_name);
 				free(selectedInstance);
-				remove_client(server, selectedInstance->socket_id);
 				remove_instance(server, selectedInstance->socket_id);
 				return false;
 
@@ -777,7 +770,7 @@ bool send_operation_to_instance( t_connected_client * instance){
 
 		// Conection to instance fails. Must be removed and replanify all instances.
 		log_warning(coordinador_log , "It was an error trying to send OPERATION to an Instance. Aborting execution");
-		remove_client(server,instance->socket_id);
+		remove_instance(server,instance->socket_id);
 
 		// Verify free
 		free(instance);
@@ -950,32 +943,13 @@ void handle_esi_read(t_connected_client* client, int socket){
 }
 
 void planner_disconected(int socket_id){
-
-	char* buffer = malloc(OPERATION_RESPONSE_SIZE);
-
-	if (recv(socket, buffer, OPERATION_RESPONSE_SIZE, MSG_WAITALL) < OPERATION_RESPONSE_SIZE) {
-		log_warning(coordinador_log , "PLANNER has disconnected");
-		remove_client(server,socket_id );
-		free(buffer);
-		return;
-	}
+	log_warning(coordinador_log , "PLANNER has disconnected");
+	remove_client(server,socket_id );
 }
 
 void instance_disconected(int socket_id){
-
-	int buffer , aux_size ;
-
-	int valor = recv(socket_id, buffer, aux_size, MSG_WAITALL);
-
-	if (valor == -1) {
-
-		log_warning(coordinador_log , "INSTANCE has disconnected");
-		remove_instance(server,socket_id );
-
-
-
-	}
-
+	log_warning(coordinador_log , "INSTANCE has disconnected");
+	remove_instance(server,socket_id );
 }
 
 void on_server_read(tcp_server_t* server, int client_socket, int socket_id){
