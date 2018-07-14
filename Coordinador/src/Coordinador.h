@@ -6,6 +6,7 @@
 #include "libs/tcpserver.h"
 #include "libs/protocols.h"
 #include <pthread.h>
+#include <semaphore.h>
 #include "Distributor.h"
 
 #ifndef SRC_COORDINADOR_H_
@@ -46,6 +47,7 @@ pthread_t thread_principal;
 pthread_mutex_t mutex_planner_console;
 pthread_mutex_t mutex_principal;
 pthread_mutex_t mutex_all;
+pthread_mutex_t mutex_compaction;
 
 typedef struct {
 	char * NOMBRE_INSTANCIA;
@@ -100,12 +102,12 @@ void send_message_clients(t_connection_header *connection_header, int client_soc
 t_connected_client* find_connected_client_by_type(instance_type_e instance_type);
 t_connected_client* select_instancia();
 
-bool send_operation_to_instance(t_connected_client * instance);
+bool send_operation_header_to_instance(t_connected_client * instance);
 
 
 t_instance_response *  send_get_operation( char * key ,t_connected_client *instance);
 bool send_store_operation(t_operation_request* esi_request, operation_type_e t, t_connected_client *instance);
-bool send_set_operation(t_operation_request* esi_request, operation_type_e t, t_connected_client *instance , char * payload_value);
+bool send_set_operation(t_operation_request* esi_request, t_connected_client *instance , char * payload_value);
 
 t_instance_response * receive_response_from_instance(t_connected_client * instance);
 

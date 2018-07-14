@@ -27,6 +27,7 @@ void exit_program(int entero) {
 	pthread_mutex_destroy(&mutex_planner_console);
 	pthread_mutex_destroy(&mutex_principal);
 	pthread_mutex_destroy(&mutex_all);
+	pthread_mutex_destroy(&mutex_compaction);
 
 	dictionary_destroy(key_instance_dictionary);
 
@@ -536,7 +537,7 @@ operation_result_e perform_instance_store(t_operation_request* esi_request){
 		return OP_ERROR;
 	}
 
-	if(!send_operation_to_instance(instance)){
+	if(!send_operation_header_to_instance(instance)){
 		log_error(coordinador_log, "Failed to send STORE operation header to instance: %s", instance->instance_name);
 		return OP_ERROR;
 	}
@@ -588,6 +589,60 @@ char* receive_payload_from_esi(t_operation_request* esi_request, t_connected_cli
 	return payload;
 }
 
+bool send_set_operation_to_instance(t_operation_request* esi_request, t_connected_client* instance, char* payload){
+	t_operation_request operation;
+	strcpy(operation.key, esi_request->key);
+	operation.operation_type = SET;
+	operation.payload_size = esi_request->payload_size;
+
+	void *buffer = serialize_operation_request(&operation);
+
+	if(send(instance->socket_reference, buffer, OPERATION_REQUEST_SIZE, 0) != OPERATION_REQUEST_SIZE){
+		// Conection to instance fails. Must be removed.
+		log_warning(coordinador_log , "Error trying to send SET OPERATION to Instance: $s", instance->instance_name);
+		remove_instance(server , instance->socket_id);
+		free(buffer);
+		return false;
+	}
+	free(buffer);
+
+	if( send(instance->socket_reference, payload, operation.payload_size, 0) != operation.payload_size){
+		log_warning(coordinador_log , "Error trying to send SET PAYLOAD to Instance: $s", instance->instance_name);
+		remove_instance(server , instance->socket_id);
+		return false;
+	}
+
+	log_info(coordinador_log, "Successfully sent SET %s %s to Instance: %s", esi_request->key, payload, instance->instance_name);
+	return true;
+}
+
+bool do_send_set_operation(t_operation_request* esi_request, t_connected_client *instance , char * payload, bool retry){
+	if(!send_set_operation_to_instance(esi_request, instance, payload)){
+		return false;
+	}
+
+	t_instance_response* response = receive_response_from_instance(instance);
+	instance_status_e instance_status = response->status;
+	free(response);
+
+	if(instance_status == INSTANCE_COMPACT){
+		if(retry){
+			log_info(coordinador_log, "Compaction finished. Retrying SET %s %s operation on instance: %s.",
+					esi_request->key, payload, instance->instance_name);
+			return do_send_set_operation(esi_request, instance, payload, false);
+		} else {
+			log_error(coordinador_log, "Entered in a compaction loop with instance: %s. Removing instance.", instance->instance_name);
+			remove_instance(server, instance->socket_id);
+		}
+	}
+
+	return (instance_status == INSTANCE_SUCCESS);
+}
+
+bool send_set_operation(t_operation_request* esi_request, t_connected_client *instance , char * payload){
+	return do_send_set_operation(esi_request, instance, payload, true);
+}
+
 operation_result_e perform_instance_set(t_operation_request* esi_request, char* payload){
 	t_dictionary_instance_struct * instance_structure = (t_dictionary_instance_struct *) dictionary_get(key_instance_dictionary , esi_request->key );
 
@@ -601,12 +656,12 @@ operation_result_e perform_instance_set(t_operation_request* esi_request, char* 
 		return OP_ERROR;
 	}
 
-	if(!send_operation_to_instance(instance_structure->instance)){
+	if(!send_operation_header_to_instance(instance_structure->instance)){
 		log_error(coordinador_log, "Error sending SET operation header to Instance: %s.", instance_structure->instance->instance_name);
 		return OP_ERROR;
 	}
 
-	if(!send_set_operation(esi_request, esi_request->operation_type, instance_structure->instance, payload)){
+	if(!send_set_operation(esi_request, instance_structure->instance, payload)){
 		log_error(coordinador_log, "Error sending SET operation to Instance: %s.", instance_structure->instance->instance_name);
 		return OP_ERROR;
 	}
@@ -636,7 +691,7 @@ void handle_esi_set(t_connected_client* planner, t_operation_request* esi_reques
 		op_result = perform_instance_set(esi_request, payload);
 	}
 
-	send_response_to_esi(socket, client, cod_result->operation_result);
+	send_response_to_esi(socket, client, op_result);
 
 	// OPERATION - KEY
 	log_info(coordinador_log_operation, "SET %s %s" , esi_request->key, payload);
@@ -677,6 +732,78 @@ char*  receive_value_from_instance(t_connected_client * instance , int payload_s
 	return buffer;
 }
 
+void perform_instance_compaction(void* instance){
+	t_coordinator_operation_header header;
+	header.coordinator_operation_type = COMPACT;
+
+	void* buffer_operation = serialize_coordinator_operation_header(&header);
+
+	t_connected_client* the_instance = (t_connected_client*)instance;
+
+	log_info(coordinador_log, "Initiating compact on instance: %s", the_instance->instance_name);
+
+	if(send(the_instance->socket_reference, buffer_operation,COORDINATOR_OPERATION_HEADER_SIZE, 0)<COORDINATOR_OPERATION_HEADER_SIZE){
+		//Esto es por si se cae alguna instancia actualizo las correspondientes estructuras.
+		log_error(coordinador_log, "Could not send message COMPACT to Instance: %s. Remove Instance.", the_instance->instance_name);
+		free(buffer_operation);
+		pthread_mutex_lock(&mutex_compaction);
+		remove_instance(server , the_instance->socket_id);
+		pthread_mutex_unlock(&mutex_compaction);
+		pthread_exit(0);
+	}
+
+	free(buffer_operation);
+
+	// Espero respuesta de Instancia
+
+	void* response_buffer = malloc(INSTANCE_RESPONSE_SIZE);
+
+	if(recv(the_instance->socket_reference,response_buffer, INSTANCE_RESPONSE_SIZE, MSG_WAITALL)<INSTANCE_RESPONSE_SIZE){
+		log_error(coordinador_log, "Could not receive COMPACT response from instance: %s", the_instance->instance_name);
+		pthread_mutex_lock(&mutex_compaction);
+		remove_instance(server, the_instance->socket_id);
+		pthread_mutex_unlock(&mutex_compaction);
+		free(response_buffer);
+		pthread_exit(0);
+
+	}
+
+	t_instance_response* instance_response = deserialize_instance_response(response_buffer);
+	instance_status_e instance_status = instance_response->status;
+	free(instance_response);
+
+	if(instance_status == INSTANCE_SUCCESS){
+		log_info(coordinador_log, "Successfully compacted on instance: %s", the_instance->instance_name);
+	} else {
+		log_error(coordinador_log, "Instance: %s returned error on compact. Removing instance.", the_instance->instance_name);
+		pthread_mutex_lock(&mutex_compaction);
+		remove_instance(server, the_instance->socket_id);
+		pthread_mutex_unlock(&mutex_compaction);
+	}
+
+	pthread_exit(0);
+}
+
+void wait_for_compaction_thread(void* thread){
+	pthread_join((pthread_t*)thread, NULL);
+}
+
+void do_synchronized_compaction(){
+	t_list* compaction_threads = list_create();
+
+	void create_instance_thread(void* instance){
+		pthread_t* thread = malloc(sizeof(pthread_t));
+		pthread_create(thread, NULL, perform_instance_compaction, instance);
+	}
+
+	// TODO: MUTEX!
+	list_iterate(connected_instances, create_instance_thread);
+
+	list_iterate(compaction_threads, wait_for_compaction_thread);
+
+	list_destroy_and_destroy_elements(compaction_threads, free);
+}
+
 t_instance_response * receive_response_from_instance(t_connected_client * instance ){
 
 	void* buffer = malloc(INSTANCE_RESPONSE_SIZE);
@@ -703,54 +830,15 @@ t_instance_response * receive_response_from_instance(t_connected_client * instan
 		log_error(coordinador_log, "Receive status from Instance - ERROR");
 		break;
 	case INSTANCE_COMPACT:
-		log_warning(coordinador_log, "Receive status from Instance - COMPACT");
 		log_info(coordinador_log , "NEED TO COMPACT - STARTING COMPACT ALGORITHIM");
-
-		t_coordinator_operation_header *header=malloc(sizeof(*header));
-
-		header->coordinator_operation_type=COMPACT;
-
-		void* bufferOperation = serialize_coordinator_operation_header(header);
-
-		for(int i=0;i<list_size(connected_instances);i++){
-
-			t_connected_client* selectedInstance = list_get(connected_instances, i);
-
-			if(send(selectedInstance->socket_reference, bufferOperation,COORDINATOR_OPERATION_HEADER_SIZE, 0)<COORDINATOR_OPERATION_HEADER_SIZE){
-
-				//Esto es por si se cae alguna instancia actualizo las correspondientes estructuras.
-				log_error(coordinador_log, "Could not send message COMPACT to Instance. Remove Instance.");
-				free(bufferOperation);
-				actualize_instance_dictionary(selectedInstance);
-				remove_instance(server , selectedInstance->socket_id);
-
-			}
-
-			// Espero respuesta de Instancia
-
-			void* mensaje = malloc(INSTANCE_RESPONSE_SIZE);
-
-			if(recv(selectedInstance->socket_reference,mensaje, INSTANCE_RESPONSE_SIZE, MSG_WAITALL)<INSTANCE_RESPONSE_SIZE){
-
-				log_warning(coordinador_log, "Instance Disconnected: %s", selectedInstance->instance_name);
-				free(selectedInstance);
-				remove_instance(server, selectedInstance->socket_id);
-				return false;
-
-			}
-
-
-			/// END FOR
-
-		}
-
+		do_synchronized_compaction();
 		break;
 	}
 
 	return response;
 }
 
-bool send_operation_to_instance( t_connected_client * instance){
+bool send_operation_header_to_instance( t_connected_client * instance){
 
 	t_coordinator_operation_header header;
 	header.coordinator_operation_type = KEY_OPERATION;
@@ -859,64 +947,6 @@ t_instance_response *  send_get_operation( char * key ,t_connected_client *insta
 	return response;
 }
 
-bool send_set_operation(t_operation_request* esi_request, operation_type_e operation_type, t_connected_client *instance , char * payload_value){
-
-
-	t_operation_request operation;
-	strcpy(operation.key, esi_request->key);
-	operation.operation_type = operation_type;
-	operation.payload_size = esi_request->payload_size;
-
-//	t_instance_response * response = malloc(INSTANCE_RESPONSE_SIZE);
-	bool status;
-
-	log_info(coordinador_log , "Attemting to send SET OPERATION to Instance");
-
-	void *buffer = serialize_operation_request(&operation);
-
-	if(send(instance->socket_reference, buffer, OPERATION_REQUEST_SIZE, 0) != OPERATION_REQUEST_SIZE){
-
-		// Conection to instance fails. Must be removed and replanify all instances.
-		log_warning(coordinador_log , "It was an error trying to send SET OPERATION to an Instance. Aborting execution");
-		remove_client(server,instance->socket_id);
-		remove_instance(server , instance->socket_id);
-		// Verify free
-		free(instance);
-		return false;
-	}else{
-
-		int payload_size = operation.payload_size;
-
-		if( send(instance->socket_reference, payload_value, payload_size, 0) != payload_size){
-			log_warning(coordinador_log , "It was an error trying to send value to an Instance. Aborting execution");
-			remove_client(server,instance->socket_id);
-			remove_instance(server , instance->socket_id);
-			// Verify free
-			free(instance);
-			return false;
-		}
-
-		t_instance_response * response = receive_response_from_instance(instance);
-
-		if(response->status == INSTANCE_COMPACT){
-			// Compact was made - REDO
-
-			// VER QUE INSTANCIA ESTE LEVANTADO
-			if(find_connected_instance(instance->socket_id)==NULL){
-				log_error(coordinador_log, "La instancia no existe - ERROR");
-				status = false;
-			}else{
-				status = send_store_operation(esi_request , operation_type , instance);
-			}
-		}else{
-			status = (response->status == INSTANCE_SUCCESS);
-		}
-	}
-	free(buffer);
-
-	return status;
-}
-
 void handle_esi_read(t_connected_client* client, int socket){
 	char* buffer = malloc(OPERATION_REQUEST_SIZE);
 
@@ -947,8 +977,6 @@ void instance_disconected(int socket_id){
 
 void on_server_read(tcp_server_t* server, int client_socket, int socket_id){
 
-	pthread_mutex_lock(&mutex_all);
-
 	// Verifico que proceso estoy leyendo:
 	t_connected_client* client = find_connected_client(socket_id);
 
@@ -956,7 +984,7 @@ void on_server_read(tcp_server_t* server, int client_socket, int socket_id){
 		// TODO: VER QUE HACEMOS! CLIENTE INVALIDO, no deberia pasar nunca
 		return;
 	}
-
+	pthread_mutex_lock(&mutex_all);
 	switch(client->instance_type){
 	case ESI:
 		handle_esi_read(client, client_socket);
@@ -970,7 +998,6 @@ void on_server_read(tcp_server_t* server, int client_socket, int socket_id){
 	case COORDINATOR:
 		break;
 	}
-
 	pthread_mutex_unlock(&mutex_all);
 
 }
@@ -997,7 +1024,7 @@ void destroy_connected_client(t_connected_client* connected_client){
 
 		// Send GET OPERATION to Instance to retrieve value.
 
-		if(!send_operation_to_instance(instance_structure->instance)){
+		if(!send_operation_header_to_instance(instance_structure->instance)){
 			response->payload_valor_size = 0;
 		}else{
 
@@ -1147,6 +1174,7 @@ void create_distributor(){
 	distributor = distributor_init(coordinador_config.ALGORITMO_DISTRIBUCION, coordinador_log);
 }
 
+
 int main(int argc, char **argv) {
 	if (argc > 1 && strcmp(argv[1], "-runTests") == 0){
 		run_tests();
@@ -1162,6 +1190,7 @@ int main(int argc, char **argv) {
 
 
 	pthread_mutex_init(&mutex_all, NULL);
+	pthread_mutex_init(&mutex_compaction, NULL);
 
 	// HILO CONSOLA PLANIFICADOR
 	pthread_mutex_init(&mutex_planner_console, NULL);
