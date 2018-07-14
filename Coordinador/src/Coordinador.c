@@ -259,8 +259,11 @@ t_operation_response * send_operation_to_planner(char * recurso, t_connected_cli
 	t_operation_response *response =
 				deserialize_operation_response(res_buffer);
 
+	free(res_buffer);
+
 	log_info(coordinador_log, "Operation status well received from PLANNER");
 	log_info(coordinador_log, "PLANNER Response: %d", response->operation_result);
+
 	return response;
 }
 
@@ -433,7 +436,10 @@ t_connected_client* do_select_instance(char* key, bool simulated){
 				string_equals_ignore_case(instance_name, ((t_connected_client*)connected_client)->instance_name);
 	}
 
-	return list_find(connected_instances, find_instance_by_name);
+	t_connected_client* client = list_find(connected_instances, find_instance_by_name);
+
+	free(instance_name);
+	return client;
 }
 
 
@@ -828,7 +834,8 @@ t_instance_response * receive_response_from_instance(t_connected_client * instan
 		return false;
 	}
 
-	t_instance_response * response = deserialize_instance_response(buffer);
+	t_instance_response* response = deserialize_instance_response(buffer);
+	free(buffer);
 
 	// update space used for LSU algorithm
 	distributor_update_space_used(distributor, instance->instance_name, response->space_used);
@@ -899,6 +906,7 @@ bool send_store_operation(t_operation_request* esi_request, operation_type_e ope
 		remove_instance(server , instance->socket_id);
 		// Verify free
 		free(instance);
+		free(buffer);
 		return false;
 	}else{
 
@@ -917,6 +925,7 @@ bool send_store_operation(t_operation_request* esi_request, operation_type_e ope
 		}else{
 			response_status = (response->status == INSTANCE_SUCCESS);
 		}
+		free(response);
 
 	}
 	free(buffer);
