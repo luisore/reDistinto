@@ -105,55 +105,66 @@ void ejecutarPlanificacion() {
 			log_info(console_log,"ESI actual\tid: %d \tTiempo estimado: %d\n",
 					esiEjecutando->id, esiEjecutando->tiempoEstimado);
 
-			ejecutarSiguienteESI(esiEjecutando->client_socket, esiEjecutando->socket_id);
+			bool resultado_comunicacion = ejecutarSiguienteESI(esiEjecutando->client_socket, esiEjecutando->socket_id);
 
-			// Escucho al coordinador
-			escucharCoordinador();
-
-			// ACA LE TENGO QUE ESPERAR AL ESTADO DEL ESI
-			int estado = esperarEstadoDelEsi(esiEjecutando->client_socket,
-					esiEjecutando->socket_id);
-
-			switch (estado) {
-			case -1:
-				info_log("Error al pedir el estado del ESI. Abortando ESI");
+			if(!resultado_comunicacion)
+			{
+				// Algo salio mal en la comunicacion. Aborto el ESI
 				terminarEsiActual();
-				break;
-			case ESI_IDLE:
-				info_log("El ESI puede seguir ejecutando");
+			}
+			else
+			{
+				// Si le pudo indicar al esi que continue,
+				// entonces continuo con la planificacion
 
-				// Aumento contadores esi actual
-				esiEjecutando->tiempoRafagaActual++;
+				// Escucho al coordinador
+				escucharCoordinador();
 
-				// Por ahora no decremento el tiempo estimado.
-				// No estoy seguro de que este bien
-				/*esiEjecutando->tiempoEstimado--;
+				// ACA LE TENGO QUE ESPERAR AL ESTADO DEL ESI
+				int estado = esperarEstadoDelEsi(esiEjecutando->client_socket,
+						esiEjecutando->socket_id);
+
+				switch (estado) {
+				case -1:
+					info_log("Error al pedir el estado del ESI. Abortando ESI");
+					terminarEsiActual();
+					break;
+				case ESI_IDLE:
+					info_log("El ESI puede seguir ejecutando");
+
+					// Aumento contadores esi actual
+					esiEjecutando->tiempoRafagaActual++;
+
+					// Por ahora no decremento el tiempo estimado.
+					// No estoy seguro de que este bien
+					/*esiEjecutando->tiempoEstimado--;
 
 				if(esiEjecutando->tiempoEstimado < 0)
 					esiEjecutando->tiempoEstimado = 0;*/
 
-				//Incremento el contador porque este esi todavia no salio del programa
-				sem_post(&sem_esis);
+					//Incremento el contador porque este esi todavia no salio del programa
+					sem_post(&sem_esis);
 
-				break;
-			case ESI_BLOCKED:
-				// En un bloqueo se supone que el esi no pudo ejecutar
-				// por eso no hago el incremento de contadores
-				info_log("El ESI esta bloqueado");
+					break;
+				case ESI_BLOCKED:
+					// En un bloqueo se supone que el esi no pudo ejecutar
+					// por eso no hago el incremento de contadores
+					info_log("El ESI esta bloqueado");
 
-				// Un esi menos para ejecutar
-				sem_wait(&sem_esis);
+					// Un esi menos para ejecutar
+					sem_wait(&sem_esis);
 
-				break;
-			case ESI_FINISHED:
-				info_log("El ESI termino");
+					break;
+				case ESI_FINISHED:
+					info_log("El ESI termino");
 
-				liberarRecursosDeEsiFinalizado(esiEjecutando);
+					liberarRecursosDeEsiFinalizado(esiEjecutando);
 
-				tcpserver_remove_client(server, esiEjecutando->socket_id);
-				terminarEsiActual();
+					tcpserver_remove_client(server, esiEjecutando->socket_id);
+					terminarEsiActual();
 
-				break;
+					break;
+				}
 			}
 		}
 
@@ -192,25 +203,26 @@ void conectarseConCoordinador() {
 }
 
 void conectarseConCoordinadorConsola() {
-		info_log("Conectando al Coordinador mediante consola");
+	info_log("Conectando al Coordinador mediante consola");
 
-		coordinator_socket_console = 0;
+	coordinator_socket_console = 0;
 
-		coordinator_socket_console = connect_to_server(planificador_setup.IP_COORDINADOR,
-				planificador_setup.PUERTO_COORDINADOR_CONSOLA , console_log);
+	coordinator_socket_console = connect_to_server(planificador_setup.IP_COORDINADOR,
+			planificador_setup.PUERTO_COORDINADOR_CONSOLA , console_log);
 
-		if (coordinator_socket_console <= 0) {
-			exit_gracefully(EXIT_FAILURE);
-		}
+	if (coordinator_socket_console <= 0) {
+		exit_gracefully(EXIT_FAILURE);
+	}
 
-		if (!perform_connection_handshake(coordinator_socket_console,
-				planificador_setup.NOMBRE_INSTANCIA, PLANNER, console_log)) {
-			exit_gracefully(EXIT_FAILURE);
-		}
-		info_log("Conexion exitosa al Coordinador mediante la consola");
+	if (!perform_connection_handshake(coordinator_socket_console,
+			planificador_setup.NOMBRE_INSTANCIA, PLANNER, console_log)) {
+		exit_gracefully(EXIT_FAILURE);
+	}
+	info_log("Conexion exitosa al Coordinador mediante la consola");
 }
 
-void ejecutarSiguienteESI(int esi_socket, int socket_id) {
+bool ejecutarSiguienteESI(int esi_socket, int socket_id) {
+	bool pudo_ejecutar = true;
 	t_planner_execute_request planner_request;
 	strcpy(planner_request.planner_name, planificador_setup.NOMBRE_INSTANCIA);
 
@@ -221,8 +233,10 @@ void ejecutarSiguienteESI(int esi_socket, int socket_id) {
 	if (result <= 0) {
 		error_log("Fallo al enviar instruccion de seguir ejecutando");
 		tcpserver_remove_client(server, socket_id);
+		pudo_ejecutar = false;
 	}
 	free(buffer);
+	return pudo_ejecutar;
 }
 
 int esperarEstadoDelEsi(int esi_socket, int socket_id) {
@@ -327,7 +341,7 @@ void escucharCoordinador(){
 	MSG_WAITALL);
 
 	if (bytesReceived < COORDINATOR_OPERATION_REQUEST_SIZE) {
-		error_log("Error!");
+		error_log("¡Error en la comunicacion con el coordinador!");
 
 		log_info(console_log,"Bytes leidos: %d | Esperados: %d", bytesReceived,
 				COORDINATOR_OPERATION_REQUEST_SIZE);
