@@ -457,7 +457,7 @@ void bind_key_to_instance(char* key, t_connected_client* instance){
 	dictionary_put(key_instance_dictionary, key, instance_structure);
 }
 
-bool secure_instance_for_get_request(char* key){
+bool secure_instance_for_set_request(char* key){
 	t_dictionary_instance_struct * instance_structure = (t_dictionary_instance_struct *) dictionary_get(key_instance_dictionary, key);
 
 	if(instance_structure != NULL){
@@ -495,18 +495,18 @@ void handle_esi_get(t_connected_client* planner, t_operation_request* esi_reques
 		return;
 	}
 
-	operation_result_e op_result;
+//	operation_result_e op_result;
 
-	if(secure_instance_for_get_request(esi_request->key)){
-		log_info(coordinador_log, "Successful GET from ESI: %s. Key: %s.", client->instance_name, esi_request->key);
-		op_result = OP_SUCCESS;
+//	if(secure_instance_for_get_request(esi_request->key)){
+//		log_info(coordinador_log, "Successful GET from ESI: %s. Key: %s.", client->instance_name, esi_request->key);
+//		op_result = OP_SUCCESS;
+//
+//	} else {
+//		log_info(coordinador_log, "There was an error processing GET from ESI: %s. Key: %s.", client->instance_name, esi_request->key);
+//		op_result = OP_ERROR;
+//	}
 
-	} else {
-		log_info(coordinador_log, "There was an error processing GET from ESI: %s. Key: %s.", client->instance_name, esi_request->key);
-		op_result = OP_ERROR;
-	}
-
-	send_response_to_esi(socket, client, op_result);
+	send_response_to_esi(socket, client, cod_result->operation_result);
 
 	// OPERATION - KEY
 	log_info(coordinador_log_operation, "GET - %s " , esi_request->key);
@@ -684,6 +684,16 @@ void handle_esi_set(t_connected_client* planner, t_operation_request* esi_reques
 	t_operation_response* cod_result = send_operation_to_planner(esi_request->key, planner, SET);
 	operation_result_e op_result = cod_result->operation_result;
 	free(cod_result);
+
+	if(secure_instance_for_set_request(esi_request->key)){
+		log_info(coordinador_log, "Successful SET from ESI: %s. Key: %s.", client->instance_name, esi_request->key);
+		op_result = OP_SUCCESS;
+
+	} else {
+		log_info(coordinador_log, "There was an error processing SET from ESI: %s. Key: %s.", client->instance_name, esi_request->key);
+		op_result = OP_ERROR;
+	}
+
 
 	if(op_result == OP_SUCCESS){
 		op_result = perform_instance_set(esi_request, payload);
