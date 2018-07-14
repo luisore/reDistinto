@@ -1,5 +1,18 @@
 #include "Planificador.h"
 
+void signal_catch(int signal){
+	if (signal == SIGINT)
+	{
+		printf("'n¡ADIOS!\n");
+
+		pthread_cancel(hiloPrincipal);
+		pthread_cancel(hiloPlanificacion);
+		pthread_cancel(hiloConsola);
+
+		liberarRecursos(EXIT_SUCCESS);
+	}
+}
+
 int main(void) {
 
 	print_header();
@@ -12,6 +25,9 @@ int main(void) {
 	}
 
 	sem_init(&sem_esis, 0, 0);
+
+	if (signal(SIGINT, signal_catch) == SIG_ERR)
+		printf("\ncan't catch SIGINT\n");
 
 	pthread_mutex_init(&mutexConsola, NULL);
 	pthread_mutex_init(&mutexLog, NULL);
