@@ -971,8 +971,14 @@ void planner_disconected(int socket_id){
 }
 
 void instance_disconected(int socket_id){
-	log_warning(coordinador_log , "INSTANCE has disconnected");
-	remove_instance(server,socket_id );
+
+	if(!flag_get){
+		log_warning(coordinador_log , "INSTANCE has disconnected");
+		remove_instance(server,socket_id );
+	}else{
+		flag_get = false;
+	}
+
 }
 
 void on_server_read(tcp_server_t* server, int client_socket, int socket_id){
@@ -1152,6 +1158,8 @@ void server_planner_console_read(tcp_server_t* server, int client_socket, int so
 	handle_planner_console_request(key_buffer , client_socket );
 
 	free(key_buffer);
+
+	flag_get = true;
 
 	pthread_mutex_unlock(&mutex_all);
 }
