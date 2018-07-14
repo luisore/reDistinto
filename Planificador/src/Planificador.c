@@ -1,9 +1,9 @@
 #include "Planificador.h"
 
 void signal_catch(int signal){
-	if (signal == SIGINT)
+	if (signal == SIGINT || signal == SIGKILL || signal == SIGSTOP)
 	{
-		printf("'n¡ADIOS!\n");
+		printf("\n¡ADIOS!\n");
 
 		pthread_cancel(hiloPrincipal);
 		pthread_cancel(hiloPlanificacion);
