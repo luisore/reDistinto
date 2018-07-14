@@ -342,6 +342,7 @@ void send_message_instance(t_connection_header *connection_header, int client_so
 
 void send_message_clients(t_connection_header *connection_header, int client_socket, int socket_id){
 	t_ack_message ack_message;
+
 	strcpy(ack_message.instance_name, coordinador_config.NOMBRE_INSTANCIA);
 	void *ack_buffer = serialize_ack_message(&ack_message);
 
@@ -359,7 +360,7 @@ void send_message_clients(t_connection_header *connection_header, int client_soc
 void send_message_planner_console(t_connection_header *connection_header, int client_socket, int socket_id){
 
 	t_ack_message ack_message;
-	strcpy(ack_message.instance_name, coordinador_config.NOMBRE_INSTANCIA);
+	strcpy(&(ack_message.instance_name), coordinador_config.NOMBRE_INSTANCIA);
 	void *ack_buffer = serialize_ack_message(&ack_message);
 
 	if( send(client_socket, ack_buffer, ACK_MESSAGE_SIZE, 0) != ACK_MESSAGE_SIZE)
@@ -1132,8 +1133,11 @@ void server_planner_console_accept(tcp_server_t* server, int client_socket, int 
 
 	t_connection_header *connection_header = deserialize_connection_header(header_buffer);
 
+
 	send_message_planner_console(connection_header, client_socket, socket_id);
 
+	free(header_buffer);
+	free(connection_header);
 }
 
 void server_planner_console_read(tcp_server_t* server, int client_socket, int socket_id){
