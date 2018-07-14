@@ -368,6 +368,7 @@ void send_message_planner_console(t_connection_header *connection_header, int cl
 		log_info(coordinador_log, "Successfully connected to TCP Client: %s", connection_header->instance_name);
 	}
 
+	free(ack_buffer);
 }
 
 t_connected_client* find_connected_instance(int socket_id){
