@@ -420,7 +420,7 @@ void send_response_to_esi(int esi_socket, t_connected_client* client, operation_
 
 t_connected_client* do_select_instance(char* key, bool simulated){
 	char* instance_name;
-	if(simulated){
+	if(!simulated){
 		instance_name = distributor_select_instance(distributor, key);
 	} else {
 		instance_name = distributor_simulate_select_instance(distributor, key);
