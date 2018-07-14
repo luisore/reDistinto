@@ -42,7 +42,7 @@ void aplicar_algoritmo_planificacion();
 
 //Comunicacion con el coordinador
 void conectarseConCoordinador();
-voidconectarseConCoordinadorConsola();
+void conectarseConCoordinadorConsola();
 
 // TCP Server handlers
 void create_tcp_server();
@@ -52,7 +52,7 @@ void on_server_command(tcp_server_t* server);
 void before_tpc_server_cycle(tcp_server_t* server);
 
 int esperarEstadoDelEsi(int esi_socket, int socket_id);
-void ejecutarSiguienteESI(int esi_socket, int socket_id);
+bool ejecutarSiguienteESI(int esi_socket, int socket_id);
 void escucharCoordinador();
 
 void responderCoordinador(int socket, operation_result_e result);

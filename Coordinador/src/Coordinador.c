@@ -303,6 +303,23 @@ void on_server_accept(tcp_server_t* server, int client_socket, int socket_id){
 	if(connection_header->instance_type == REDIS_INSTANCE){
 		// Add to intances list -> For algorithims
 		list_add(connected_instances, (void*)connected_client);
+
+		if( dictionary_size(key_instance_dictionary) > 0  ){
+
+			t_dictionary_instance_struct * find_instance_and_actualize(char * key , t_dictionary_instance_struct * instance_structure){
+
+				int compare_string = strcmp(instance_structure->instance->instance_name ,connected_client->instance_name);
+
+				if(compare_string == 0){
+					instance_structure->instance->socket_id = connected_client->socket_id;
+					instance_structure->instance->socket_reference = connected_client->socket_reference;
+				}
+
+			};
+			dictionary_iterator(key_instance_dictionary,find_instance_and_actualize);
+
+		}
+
 	}
 
 	free(connection_header);

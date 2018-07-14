@@ -10,6 +10,7 @@ RM := rm -rf
 -include sources.mk
 -include src/libs/subdir.mk
 -include src/subdir.mk
+-include test/subdir.mk
 -include subdir.mk
 -include objects.mk
 
@@ -38,7 +39,7 @@ endif
 
 # Add inputs and outputs from these tool invocations to the build variables 
 
-LIBS = -lcommons -lreadline -lcrypto -lpthread
+LIBS = -lcommons -lreadline -lcrypto -lpthread -lcunit
 
 # All Target
 all: Coordinador
