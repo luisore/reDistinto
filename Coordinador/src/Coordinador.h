@@ -25,6 +25,8 @@ int instancia_actual=0;
 tcp_server_t* server;
 tcp_server_t* server_planner_console;
 
+bool flag_get = false;
+
 char* instance_name = NULL;
 char *planificador_ip = NULL;
 int planificador_port = 0;
