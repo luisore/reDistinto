@@ -188,7 +188,7 @@ void test_remove_instance_last_used_should_decrement_index(){
 void test_select_instance_empty_distributor_EL_should_return_null(){
 	t_distributor* distributor = distributor_init(EL, dist_test_log);
 
-	char* selected_instance = distributor_select_instance(distributor, "A KEY", 2);
+	char* selected_instance = distributor_select_instance(distributor, "A KEY");
 
 	CU_ASSERT_PTR_NULL(selected_instance);
 
@@ -198,7 +198,7 @@ void test_select_instance_empty_distributor_EL_should_return_null(){
 void test_select_instance_empty_distributor_KE_should_return_null(){
 	t_distributor* distributor = distributor_init(KE, dist_test_log);
 
-	char* selected_instance = distributor_select_instance(distributor, "A KEY", 2);
+	char* selected_instance = distributor_select_instance(distributor, "A KEY");
 
 	CU_ASSERT_PTR_NULL(selected_instance);
 
@@ -208,7 +208,7 @@ void test_select_instance_empty_distributor_KE_should_return_null(){
 void test_select_instance_empty_distributor_LSU_should_return_null(){
 	t_distributor* distributor = distributor_init(LSU, dist_test_log);
 
-	char* selected_instance = distributor_select_instance(distributor, "A KEY", 2);
+	char* selected_instance = distributor_select_instance(distributor, "A KEY");
 
 	CU_ASSERT_PTR_NULL(selected_instance);
 
@@ -224,7 +224,7 @@ void test_select_instance_distributor_with_one_instance_EL_should_return_that_in
 	unsigned int space_used = 3;
 	distributor_add_instance(distributor, instance_name, space_used);
 
-	char* selected_instance = distributor_select_instance(distributor, "A KEY", 2);
+	char* selected_instance = distributor_select_instance(distributor, "A KEY");
 
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected_instance);
 
@@ -243,7 +243,7 @@ void test_select_instance_distributor_with_one_instance_KE_should_return_that_in
 	unsigned int space_used = 3;
 	distributor_add_instance(distributor, instance_name, space_used);
 
-	char* selected_instance = distributor_select_instance(distributor, "A KEY", 2);
+	char* selected_instance = distributor_select_instance(distributor, "A KEY");
 
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected_instance);
 
@@ -262,7 +262,7 @@ void test_select_instance_distributor_with_one_instance_LSU_should_return_that_i
 	unsigned int space_used = 3;
 	distributor_add_instance(distributor, instance_name, space_used);
 
-	char* selected_instance = distributor_select_instance(distributor, "A KEY", 2);
+	char* selected_instance = distributor_select_instance(distributor, "A KEY");
 
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected_instance);
 
@@ -288,7 +288,7 @@ void test_select_instance_two_instances_EL_first_call_should_return_first_one(){
 
 	CU_ASSERT_EQUAL(distributor->last_used_instance, -1);
 
-	char* selected_instance = distributor_select_instance(distributor, "A KEY", 2);
+	char* selected_instance = distributor_select_instance(distributor, "A KEY");
 
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected_instance);
 
@@ -312,13 +312,13 @@ void test_select_instance_two_instances_EL_second_call_should_return_second_one(
 
 	CU_ASSERT_EQUAL(distributor->last_used_instance, -1);
 
-	char* selected_instance = distributor_select_instance(distributor, "A KEY", 2);
+	char* selected_instance = distributor_select_instance(distributor, "A KEY");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected_instance);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected_instance, instance_name1);
 	CU_ASSERT_EQUAL(distributor->last_used_instance, 0);
 	free(selected_instance);
 
-	selected_instance = distributor_select_instance(distributor, "A KEY", 2);
+	selected_instance = distributor_select_instance(distributor, "A KEY");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected_instance);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected_instance, instance_name2);
 	CU_ASSERT_EQUAL(distributor->last_used_instance, 1);
@@ -340,19 +340,19 @@ void test_select_instance_two_instances_EL_third_call_should_circle_back_to_firs
 
 	CU_ASSERT_EQUAL(distributor->last_used_instance, -1);
 
-	char* selected_instance = distributor_select_instance(distributor, "A KEY", 2);
+	char* selected_instance = distributor_select_instance(distributor, "A KEY");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected_instance);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected_instance, instance_name1);
 	CU_ASSERT_EQUAL(distributor->last_used_instance, 0);
 	free(selected_instance);
 
-	selected_instance = distributor_select_instance(distributor, "A KEY", 2);
+	selected_instance = distributor_select_instance(distributor, "A KEY");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected_instance);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected_instance, instance_name2);
 	CU_ASSERT_EQUAL(distributor->last_used_instance, 1);
 	free(selected_instance);
 
-	selected_instance = distributor_select_instance(distributor, "A KEY", 2);
+	selected_instance = distributor_select_instance(distributor, "A KEY");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected_instance);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected_instance, instance_name1);
 	CU_ASSERT_EQUAL(distributor->last_used_instance, 0);
@@ -411,7 +411,7 @@ void test_select_instance_LSU_many_instances_should_select_the_one_with_least_sp
 
 	CU_ASSERT_EQUAL_FATAL(list_size(distributor->instances), 4);
 
-	char* selected = distributor_select_instance(distributor, "A KEY", 3);
+	char* selected = distributor_select_instance(distributor, "A KEY");
 
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name3);
@@ -437,7 +437,7 @@ void test_select_instance_LSU_many_instances_is_tie_last_used_before_should_tie_
 
 	distributor->last_used_instance = 0;
 
-	char* selected = distributor_select_instance(distributor, "A KEY", 3);
+	char* selected = distributor_select_instance(distributor, "A KEY");
 
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name2);
@@ -464,7 +464,7 @@ void test_select_instance_LSU_many_instances_is_tie_last_used_middle_should_tie_
 	distributor->last_used_instance = 1;
 
 
-	char* selected = distributor_select_instance(distributor, "A KEY", 3);
+	char* selected = distributor_select_instance(distributor, "A KEY");
 
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name3);
@@ -491,7 +491,7 @@ void test_select_instance_LSU_many_instances_is_tie_last_used_in_tie_should_tie_
 	distributor->last_used_instance = 0;
 
 
-	char* selected = distributor_select_instance(distributor, "A KEY", 3);
+	char* selected = distributor_select_instance(distributor, "A KEY");
 
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name3);
@@ -512,32 +512,32 @@ void test_select_instance_KE_two_instances_should_select_according_to_first_char
 
 	CU_ASSERT_EQUAL_FATAL(list_size(distributor->instances), 2);
 
-	char* selected = distributor_select_instance(distributor, "axxx", 3);
+	char* selected = distributor_select_instance(distributor, "axxx");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name1);
 	free(selected);
 
-	selected = distributor_select_instance(distributor, "fxxx", 3);
+	selected = distributor_select_instance(distributor, "fxxx");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name1);
 	free(selected);
 
-	selected = distributor_select_instance(distributor, "mxxx", 3);
+	selected = distributor_select_instance(distributor, "mxxx");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name1);
 	free(selected);
 
-	selected = distributor_select_instance(distributor, "nxxx", 3);
+	selected = distributor_select_instance(distributor, "nxxx");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name2);
 	free(selected);
 
-	selected = distributor_select_instance(distributor, "txxx", 3);
+	selected = distributor_select_instance(distributor, "txxx");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name2);
 	free(selected);
 
-	selected = distributor_select_instance(distributor, "zxxx", 3);
+	selected = distributor_select_instance(distributor, "zxxx");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name2);
 	free(selected);
@@ -557,47 +557,47 @@ void test_select_instance_KE_three_instances_should_select_according_to_first_ch
 
 	CU_ASSERT_EQUAL_FATAL(list_size(distributor->instances), 3);
 
-	char* selected = distributor_select_instance(distributor, "axxx", 3);
+	char* selected = distributor_select_instance(distributor, "axxx");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name1);
 	free(selected);
 
-	selected = distributor_select_instance(distributor, "exxx", 3);
+	selected = distributor_select_instance(distributor, "exxx");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name1);
 	free(selected);
 
-	selected = distributor_select_instance(distributor, "ixxx", 3);
+	selected = distributor_select_instance(distributor, "ixxx");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name1);
 	free(selected);
 
-	selected = distributor_select_instance(distributor, "jxxx", 3);
+	selected = distributor_select_instance(distributor, "jxxx");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name2);
 	free(selected);
 
-	selected = distributor_select_instance(distributor, "nxxx", 3);
+	selected = distributor_select_instance(distributor, "nxxx");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name2);
 	free(selected);
 
-	selected = distributor_select_instance(distributor, "rxxx", 3);
+	selected = distributor_select_instance(distributor, "rxxx");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name2);
 	free(selected);
 
-	selected = distributor_select_instance(distributor, "sxxx", 3);
+	selected = distributor_select_instance(distributor, "sxxx");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name3);
 	free(selected);
 
-	selected = distributor_select_instance(distributor, "wxxx", 3);
+	selected = distributor_select_instance(distributor, "wxxx");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name3);
 	free(selected);
 
-	selected = distributor_select_instance(distributor, "zxxx", 3);
+	selected = distributor_select_instance(distributor, "zxxx");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name3);
 	free(selected);
@@ -620,62 +620,62 @@ void test_select_instance_KE_four_instances_should_select_according_to_first_cha
 
 	CU_ASSERT_EQUAL_FATAL(list_size(distributor->instances), 4);
 
-	char* selected = distributor_select_instance(distributor, "axxx", 3);
+	char* selected = distributor_select_instance(distributor, "axxx");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name1);
 	free(selected);
 
-	selected = distributor_select_instance(distributor, "cxxx", 3);
+	selected = distributor_select_instance(distributor, "cxxx");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name1);
 	free(selected);
 
-	selected = distributor_select_instance(distributor, "gxxx", 3);
+	selected = distributor_select_instance(distributor, "gxxx");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name1);
 	free(selected);
 
-	selected = distributor_select_instance(distributor, "hxxx", 3);
+	selected = distributor_select_instance(distributor, "hxxx");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name2);
 	free(selected);
 
-	selected = distributor_select_instance(distributor, "kxxx", 3);
+	selected = distributor_select_instance(distributor, "kxxx");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name2);
 	free(selected);
 
-	selected = distributor_select_instance(distributor, "nxxx", 3);
+	selected = distributor_select_instance(distributor, "nxxx");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name2);
 	free(selected);
 
-	selected = distributor_select_instance(distributor, "oxxx", 3);
+	selected = distributor_select_instance(distributor, "oxxx");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name3);
 	free(selected);
 
-	selected = distributor_select_instance(distributor, "rxxx", 3);
+	selected = distributor_select_instance(distributor, "rxxx");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name3);
 	free(selected);
 
-	selected = distributor_select_instance(distributor, "uxxx", 3);
+	selected = distributor_select_instance(distributor, "uxxx");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name3);
 	free(selected);
 
-	selected = distributor_select_instance(distributor, "vxxx", 3);
+	selected = distributor_select_instance(distributor, "vxxx");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name4);
 	free(selected);
 
-	selected = distributor_select_instance(distributor, "xxxx", 3);
+	selected = distributor_select_instance(distributor, "xxxx");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name4);
 	free(selected);
 
-	selected = distributor_select_instance(distributor, "zxxx", 3);
+	selected = distributor_select_instance(distributor, "zxxx");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name4);
 	free(selected);
@@ -699,72 +699,72 @@ void test_select_instance_KE_five_instances_should_select_according_to_first_cha
 
 	CU_ASSERT_EQUAL_FATAL(list_size(distributor->instances), 5);
 
-	char* selected = distributor_select_instance(distributor, "axxx", 3);
+	char* selected = distributor_select_instance(distributor, "axxx");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name1);
 	free(selected);
 
-	selected = distributor_select_instance(distributor, "cxxx", 3);
+	selected = distributor_select_instance(distributor, "cxxx");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name1);
 	free(selected);
 
-	selected = distributor_select_instance(distributor, "fxxx", 3);
+	selected = distributor_select_instance(distributor, "fxxx");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name1);
 	free(selected);
 
-	selected = distributor_select_instance(distributor, "gxxx", 3);
+	selected = distributor_select_instance(distributor, "gxxx");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name2);
 	free(selected);
 
-	selected = distributor_select_instance(distributor, "ixxx", 3);
+	selected = distributor_select_instance(distributor, "ixxx");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name2);
 	free(selected);
 
-	selected = distributor_select_instance(distributor, "lxxx", 3);
+	selected = distributor_select_instance(distributor, "lxxx");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name2);
 	free(selected);
 
-	selected = distributor_select_instance(distributor, "mxxx", 3);
+	selected = distributor_select_instance(distributor, "mxxx");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name3);
 	free(selected);
 
-	selected = distributor_select_instance(distributor, "oxxx", 3);
+	selected = distributor_select_instance(distributor, "oxxx");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name3);
 	free(selected);
 
-	selected = distributor_select_instance(distributor, "rxxx", 3);
+	selected = distributor_select_instance(distributor, "rxxx");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name3);
 	free(selected);
 
-	selected = distributor_select_instance(distributor, "sxxx", 3);
+	selected = distributor_select_instance(distributor, "sxxx");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name4);
 	free(selected);
 
-	selected = distributor_select_instance(distributor, "txxx", 3);
+	selected = distributor_select_instance(distributor, "txxx");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name4);
 	free(selected);
 
-	selected = distributor_select_instance(distributor, "xxxx", 3);
+	selected = distributor_select_instance(distributor, "xxxx");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name4);
 	free(selected);
 
-	selected = distributor_select_instance(distributor, "yxxx", 3);
+	selected = distributor_select_instance(distributor, "yxxx");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name5);
 	free(selected);
 
-	selected = distributor_select_instance(distributor, "zxxx", 3);
+	selected = distributor_select_instance(distributor, "zxxx");
 	CU_ASSERT_PTR_NOT_NULL_FATAL(selected);
 	CU_ASSERT_STRING_EQUAL_FATAL(selected, instance_name5);
 	free(selected);

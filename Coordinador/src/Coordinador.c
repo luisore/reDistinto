@@ -29,6 +29,8 @@ void exit_program(int entero) {
 
 	dictionary_destroy(key_instance_dictionary);
 
+	distributor_destroy(distributor);
+
 	printf("\n\t\e[31;1m FINALIZA COORDINADOR \e[0m\n");
 	exit(entero);
 }
@@ -197,18 +199,19 @@ void remove_client(server, socket_id){
 void remove_instance(server, socket_id){
 	bool is_linked_to_socket(void* conn_client){
 		t_connected_client* connected_client = (t_connected_client*)conn_client;
-
-		if(connected_client->socket_id == socket_id){
-
-			actualize_instance_dictionary(connected_client);
-		}
-
 		return connected_client->socket_id == socket_id;
-
 	};
 
 	tcpserver_remove_client(server, socket_id);
-	list_remove_and_destroy_by_condition(connected_instances, is_linked_to_socket, destroy_connected_client);
+	t_connected_client* connected_client = list_remove_by_condition(connected_instances, is_linked_to_socket);
+
+	if(connected_client == NULL){
+		log_error(coordinador_log, "Cannot remove conected instance. There was no mapping for socket id: %i", socket_id);
+	}
+
+	actualize_instance_dictionary(connected_client);
+	distributor_remove_instance(distributor, connected_client->instance_name);
+	destroy_connected_client(connected_client);
 }
 
 t_operation_response * send_operation_to_planner(char * recurso, t_connected_client * planner, operation_type_e t){
@@ -279,6 +282,7 @@ void on_server_accept(tcp_server_t* server, int client_socket, int socket_id){
 	free(header_buffer);
 	switch (connection_header->instance_type){
 	case REDIS_INSTANCE:
+		distributor_add_instance(distributor, connection_header->instance_name, 0); // TODO: USE REAL SPACED USED BY INSTANCE
 		send_message_instance(connection_header, client_socket, socket_id);
 		break;
 	default:
@@ -301,22 +305,23 @@ void on_server_accept(tcp_server_t* server, int client_socket, int socket_id){
 		list_add(connected_instances, (void*)connected_client);
 	}
 
+	free(connection_header);
 }
 
 void send_message_instance(t_connection_header *connection_header, int client_socket, int socket_id){
 	t_instance_init_values init_values_message;
-			init_values_message.entry_size = coordinador_config.TAMANIO_ENTRADA_BYTES;
-			init_values_message.number_of_entries = coordinador_config.CANTIDAD_ENTRADAS;
-			void *init_value_instance_buffer = serialize_init_instancia_message(&init_values_message);
+	init_values_message.entry_size = coordinador_config.TAMANIO_ENTRADA_BYTES;
+	init_values_message.number_of_entries = coordinador_config.CANTIDAD_ENTRADAS;
+	void *init_value_instance_buffer = serialize_init_instancia_message(&init_values_message);
 
-			if( send(client_socket, init_value_instance_buffer, INSTANCE_INIT_VALUES_SIZE, 0) != INSTANCE_INIT_VALUES_SIZE)
-			{
-				log_error(coordinador_log, "Could not send handshake acknowledge to TCP client.");
-				remove_client(server, socket_id);
-			} else {
-				log_info(coordinador_log, "Successfully connected to TCP Client: %s", connection_header->instance_name);
-			}
-			free(init_value_instance_buffer);
+	if( send(client_socket, init_value_instance_buffer, INSTANCE_INIT_VALUES_SIZE, 0) != INSTANCE_INIT_VALUES_SIZE)
+	{
+		log_error(coordinador_log, "Could not send handshake acknowledge to TCP client.");
+		remove_client(server, socket_id);
+	} else {
+		log_info(coordinador_log, "Successfully connected to TCP Client: %s", connection_header->instance_name);
+	}
+	free(init_value_instance_buffer);
 }
 
 void send_message_clients(t_connection_header *connection_header, int client_socket, int socket_id){
@@ -391,6 +396,105 @@ void send_response_to_esi(int esi_socket, t_connected_client* client, operation_
 	free(buffer);
 }
 
+t_connected_client* do_select_instance(char* key, bool simulated){
+	char* instance_name;
+	if(simulated){
+		instance_name = distributor_select_instance(distributor, key);
+	} else {
+		instance_name = distributor_simulate_select_instance(distributor, key);
+	}
+
+	if(instance_name == NULL){
+		log_error(coordinador_log, "Could not select an instance. Maybe they all were disconected...");
+		return NULL;
+	}
+
+	bool find_instance_by_name(void* connected_client){
+		return connected_client != NULL &&
+				string_equals_ignore_case(instance_name, ((t_connected_client*)connected_client)->instance_name);
+	}
+
+	return list_find(connected_instances, find_instance_by_name);
+}
+
+
+t_connected_client* select_instance(char* key){
+	return do_select_instance(key, false);
+}
+
+t_connected_client* simulate_select_instance(char* key){
+	return do_select_instance(key, true);
+}
+
+void bind_key_to_instance(char* key, t_connected_client* instance){
+	t_dictionary_instance_struct * instance_structure = malloc(sizeof(t_dictionary_instance_struct));
+	instance_structure->instance = malloc(sizeof(t_connected_client));
+
+	strcpy(instance_structure->instance->instance_name , instance->instance_name);
+	instance_structure->instance->instance_type = instance->instance_type;
+	instance_structure->instance->socket_id = instance->socket_id;
+	instance_structure->instance->socket_reference = instance->socket_reference;
+
+	instance_structure->storage=50 ;// HARDCODE TODO: QUE ES ESTO???
+	instance_structure->isConnected = true;
+
+	dictionary_put(key_instance_dictionary, key, instance_structure);
+}
+
+bool secure_instance_for_get_request(char* key){
+	t_dictionary_instance_struct * instance_structure = (t_dictionary_instance_struct *) dictionary_get(key_instance_dictionary, key);
+
+	if(instance_structure != NULL){
+		// check if the instance is connected or if we have to reassign it
+		if(instance_structure->isConnected){
+			return true;
+		} else {
+			dictionary_remove(key_instance_dictionary,key);
+		}
+	}
+
+	t_connected_client* selected_instance = select_instance(key);
+
+	if(selected_instance == NULL){
+		log_error(coordinador_log, "Could not secure an instance for the GET request. Maybe all disconected...");
+		return false;
+	}
+
+	bind_key_to_instance(key, selected_instance);
+	return true;
+}
+
+void handle_esi_get(t_connected_client* planner, t_operation_request* esi_request, t_connected_client* client, int socket){
+	// Add key to instance dictionary.
+	// Redistribute instances
+
+	log_info(coordinador_log, "Handling GET from ESI: %s. Key: %s.", client->instance_name, esi_request->key);
+
+	t_operation_response* cod_result = send_operation_to_planner(esi_request->key, planner, GET);
+
+	//Si el planificador me dice que esta bloqueado y no puedo ejecutar esa operacion, no se la mando a la isntancia.
+	if(cod_result->operation_result == OP_BLOCKED){
+		send_response_to_esi(socket, client, cod_result->operation_result);
+		return;
+	}
+
+	operation_result_e op_result;
+
+	if(secure_instance_for_get_request(esi_request->key)){
+		log_info(coordinador_log, "Successful GET from ESI: %s. Key: %s.", client->instance_name, esi_request->key);
+		op_result = OP_SUCCESS;
+
+	} else {
+		log_info(coordinador_log, "There was an error processing GET from ESI: %s. Key: %s.", client->instance_name, esi_request->key);
+		op_result = OP_ERROR;
+	}
+
+	send_response_to_esi(socket, client, op_result);
+
+	// OPERATION - KEY
+	log_info(coordinador_log_operation, "GET - %s " , esi_request->key);
+}
+
 void handle_esi_request(t_operation_request* esi_request, t_connected_client* client, int socket){
 
 	t_connected_client* planner = find_connected_client_by_type(PLANNER);
@@ -401,96 +505,7 @@ void handle_esi_request(t_operation_request* esi_request, t_connected_client* cl
 
 	switch(esi_request->operation_type){
 	case GET:
-
-		// Add key to instance dictionary.
-		// Redistribute instances
-		;
-
-		log_info(coordinador_log, "Handling GET from ESI: %s. Key: %s.", client->instance_name, esi_request->key);
-
-		cod_result = send_operation_to_planner(esi_request->key, planner, GET);
-
-		//Si el planificador me dice que esta bloqueado y no puedo ejecutar esa operacion, no se la mando a la isntancia.
-		if(cod_result->operation_result!=OP_BLOCKED){
-
-			t_dictionary_instance_struct * instance_structure = (t_dictionary_instance_struct *) dictionary_get(key_instance_dictionary , esi_request->key );
-
-			if( dictionary_size(key_instance_dictionary) > 0 && instance_structure != NULL ){
-
-				if(!instance_structure->isConnected){
-					// It is not connected
-					// MUST REDISTRIBUTE
-					dictionary_remove(key_instance_dictionary,esi_request->key);
-
-					t_dictionary_instance_struct * instance_structure = malloc(sizeof(t_dictionary_instance_struct));
-					instance_structure->instance = malloc(sizeof(t_connected_client));
-
-
-					t_connected_client * instance = select_instancia(esi_request);
-
-					if(instance != NULL){
-
-						strcpy(instance_structure->instance->instance_name , instance->instance_name);
-						instance_structure->instance->instance_type = instance->instance_type;
-						instance_structure->instance->socket_id = instance->socket_id;
-						instance_structure->instance->socket_reference = instance->socket_reference;
-
-						instance_structure->storage=50 ;// HARDCODE
-						instance_structure->isConnected = true;
-
-						dictionary_put(key_instance_dictionary ,esi_request->key , instance_structure );
-
-					}else{
-						log_error(coordinador_log , "There is no instance left");
-						cod_result->operation_result = OP_ERROR;
-					}
-
-
-
-				}
-
-				// If there is an instance OK , continue normaly
-
-			}else{
-
-				t_dictionary_instance_struct * instance_structure = malloc(sizeof(t_dictionary_instance_struct));
-				instance_structure->instance = malloc(sizeof(t_connected_client));
-
-
-				t_connected_client * instance = select_instancia(esi_request);
-
-				if(instance != NULL){
-
-					strcpy(instance_structure->instance->instance_name , instance->instance_name);
-
-
-					instance_structure->instance->instance_type = instance->instance_type;
-					instance_structure->instance->socket_id = instance->socket_id;
-					instance_structure->instance->socket_reference = instance->socket_reference;
-
-					instance_structure->storage=50 ;// HARDCODE
-					instance_structure->isConnected = true;
-
-
-					dictionary_put(key_instance_dictionary , esi_request->key  ,  instance_structure);
-
-
-				}else{
-					log_error(coordinador_log , "There is no instance left");
-					cod_result->operation_result = OP_ERROR;
-				}
-
-
-			}
-
-
-			send_response_to_esi(socket, client, cod_result->operation_result);
-		}else{
-			send_response_to_esi(socket, client, cod_result->operation_result);
-		}
-		// OPERATION - KEY
-		log_info(coordinador_log_operation, "GET - %s " , esi_request->key);
-
+		handle_esi_get(planner, esi_request, client, socket);
 		break;
 
 	case STORE:
@@ -899,84 +914,6 @@ bool send_set_operation(t_operation_request* esi_request, operation_type_e opera
 	return status;
 }
 
-t_connected_client* select_intance_LSU(){
-	// TODO
-	return NULL;
-}
-
-t_connected_client* select_intance_EL(char* key){
-	t_connected_client* selectedInstance;
-	int letras=25;
-	int inicio=97;
-	int nroInstancias=(letras/list_size(connected_instances));
-	int maximo = inicio+nroInstancias;
-	for(int i=0; i<=(list_size(connected_instances)-1);i++){
-		if(i != (list_size(connected_instances)-1)){
-			if((int)key[0]>=inicio && (int)key[0]<maximo){
-				selectedInstance = list_get(connected_instances, i);
-			}
-		}else{
-			if((int)key[0]>=inicio && (int)key[0]<maximo+1){
-				selectedInstance = list_get(connected_instances, i);
-			}
-		}
-		inicio = maximo;
-		maximo = maximo+nroInstancias;
-	}
-	return selectedInstance;
-}
-
-t_connected_client* select_intance_KE(bool simulation_flag){
-
-	if(instancia_actual == list_size(connected_instances)){
-		instancia_actual=0;
-	}
-	t_connected_client* selectedInstance = list_get(connected_instances, instancia_actual);
-
-	if(!simulation_flag) instancia_actual++; // If it is a simulation must no increase value
-
-	return selectedInstance;
-}
-
-t_connected_client* select_instancia(t_operation_request* esi_request){
-
-	// MEJORAR COMO ESTA EN INSTANCIA
-	switch(coordinador_config.ALGORITMO_DISTRIBUCION){
-	case LSU:
-		return select_intance_LSU();
-		break;
-	case EL:
-		return select_intance_EL(esi_request->key);
-		break;
-	case KE:
-		return select_intance_KE(false);
-		break;
-	}
-
-	return NULL;
-
-}
-
-t_connected_client* select_simulated_instance(char * key){
-
-	// MEJORAR COMO ESTA EN INSTANCIA
-	switch(coordinador_config.ALGORITMO_DISTRIBUCION){
-	case LSU:
-		return select_intance_LSU();
-		break;
-	case EL:
-		return select_intance_EL(key);
-		break;
-	case KE:
-		return select_intance_KE(true);
-		break;
-	}
-
-	return NULL;
-
-}
-
-
 void handle_esi_read(t_connected_client* client, int socket){
 	char* buffer = malloc(OPERATION_REQUEST_SIZE);
 
@@ -1055,20 +992,13 @@ void on_server_read(tcp_server_t* server, int client_socket, int socket_id){
 }
 
 void on_server_command(tcp_server_t* server){
-	// TODO: FALTA HACER!
+
 }
 
 
 void destroy_connected_client(t_connected_client* connected_client){
 	free(connected_client);
 }
-
-t_connected_client * simulated_instance_with_algorithim(char * key){
-	return select_simulated_instance(key);
-}
-
-
-
 
  char * retrieve_instance_value(char * key ,status_response_from_coordinator * response){
 
@@ -1105,7 +1035,7 @@ t_connected_client * simulated_instance_with_algorithim(char * key){
 	}else{
 		strcpy(response->nombre_intancia_actual ,"NO_VALOR");
 
-		t_connected_client * simulated_instance = simulated_instance_with_algorithim( key );
+		t_connected_client* simulated_instance = simulate_select_instance(key);
 		strcpy(response->nombre_intancia_posible , simulated_instance->instance_name);
 		response->payload_valor_size = 0;
 
@@ -1229,6 +1159,10 @@ void coordinate_principal_process(){
 
 }
 
+void create_distributor(){
+	distributor = distributor_init(coordinador_config.ALGORITMO_DISTRIBUCION, coordinador_log);
+}
+
 int main(int argc, char **argv) {
 	if (argc > 1 && strcmp(argv[1], "-runTests") == 0){
 		run_tests();
@@ -1239,7 +1173,9 @@ int main(int argc, char **argv) {
 	create_log();
 	create_log_operations();
 	loadConfig();
+	create_distributor();
 	log_inicial_consola();
+
 
 	pthread_mutex_init(&mutex_all, NULL);
 

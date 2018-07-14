@@ -1,6 +1,7 @@
 #include <commons/config.h>
 #include <commons/log.h>
 #include <stdio.h> //printf
+#include <stdbool.h>
 #include "libs/list.h"
 #include "libs/tcpserver.h"
 #include "libs/protocols.h"
@@ -35,8 +36,7 @@ t_list * lista_instancias;
 /*ESTRUCTURAS*/
 
 t_dictionary* key_instance_dictionary;
-
-
+t_distributor* distributor;
 
 /*SEMAFOROS - SINCRONIZACION*/
 
@@ -46,10 +46,6 @@ pthread_t thread_principal;
 pthread_mutex_t mutex_planner_console;
 pthread_mutex_t mutex_principal;
 pthread_mutex_t mutex_all;
-
-//typedef enum {
-//	LSU = 1, EL = 2, KE = 3
-//} dist_algo_e;
 
 typedef struct {
 	char * NOMBRE_INSTANCIA;
@@ -115,13 +111,6 @@ t_instance_response * receive_response_from_instance(t_connected_client * instan
 
 // Must return value char * . For now its ok.
 char *  receive_value_from_instance(t_connected_client * instance , int payload_size);
-
-
-/*ALGORITHIMS*/
-
-t_connected_client* select_intance_LSU();
-t_connected_client* select_intance_EL(char * key);
-t_connected_client* select_intance_KE(bool flag_simulation);
 
 
 #endif /* SRC_COORDINADOR_H_ */

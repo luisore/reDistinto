@@ -8,6 +8,7 @@
 #ifndef SRC_DISTRIBUTOR_H_
 #define SRC_DISTRIBUTOR_H_
 
+#include <stdbool.h>
 #include "libs/list.h"
 #include <commons/log.h>
 
@@ -25,7 +26,7 @@ typedef struct Distributor {
 	t_list* instances;
 	unsigned int last_used_instance;
 
-	char* (*select_instance)(struct Distributor*, char*, unsigned int);
+	char* (*select_instance)(struct Distributor*, char*, bool);
 } t_distributor;
 
 
@@ -34,7 +35,8 @@ void distributor_add_instance(t_distributor* distributor, char* instance_name, u
 void distributor_remove_instance(t_distributor* distributor, char* instance_name);
 void distributor_update_space_used(t_distributor* distributor, char* instance_name, unsigned int space_used);
 
-char* distributor_select_instance(t_distributor* distributor, char* key_to_set, unsigned int value_size);
+char* distributor_select_instance(t_distributor* distributor, char* key_to_set);
+char* distributor_simulate_select_instance(t_distributor* distributor, char* key_to_set);
 
 void distributor_destroy(t_distributor* distributor);
 
