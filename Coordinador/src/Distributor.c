@@ -9,9 +9,9 @@
 #include <stdlib.h>
 #include <commons/string.h>
 
-char* distributor_select_instance_lsu(struct Distributor* distributor, char* key, unsigned int value_size);
-char* distributor_select_instance_el(struct Distributor* distributor, char* key, unsigned int value_size);
-char* distributor_select_instance_ke(struct Distributor* distributor, char* key, unsigned int value_size);
+char* distributor_select_instance_lsu(struct Distributor* distributor, char* key, bool simulated);
+char* distributor_select_instance_el(struct Distributor* distributor, char* key, bool simulated);
+char* distributor_select_instance_ke(struct Distributor* distributor, char* key, bool simulated);
 
 t_distributor* distributor_init(dist_algo_e dist_algo, t_log* log){
 	t_distributor* distributor = malloc(sizeof(t_distributor));
@@ -80,14 +80,22 @@ void distributor_update_space_used(t_distributor* distributor, char* instance_na
 	}
 }
 
-char* distributor_select_instance(t_distributor* distributor, char* key_to_set, unsigned int value_size){
+char* distributor_do_select_instance(t_distributor* distributor, char* key_to_set, bool simulated){
 	// If no instances return NULL.
 	if(list_is_empty(distributor->instances)){
 		log_error(distributor->log, "Cannot select next instance. Instances is empty!");
 		return NULL;
 	}
 
-	return distributor->select_instance(distributor, key_to_set, value_size);
+	return distributor->select_instance(distributor, key_to_set, simulated);
+}
+
+char* distributor_select_instance(t_distributor* distributor, char* key_to_set){
+	return distributor_do_select_instance(distributor, key_to_set, false);
+}
+
+char* distributor_simulate_select_instance(t_distributor* distributor, char* key_to_set){
+	return distributor_do_select_instance(distributor, key_to_set, true);
 }
 
 void distributor_destroy(t_distributor* distributor){
@@ -104,7 +112,7 @@ void instance_destroy(t_instance* instance){
 }
 
 
-char* distributor_select_instance_lsu(struct Distributor* distributor, char* key, unsigned int value_size){
+char* distributor_select_instance_lsu(struct Distributor* distributor, char* key, bool simulated){
 	int number_of_instances = list_size(distributor->instances);
 	t_instance* current_instance;
 	t_instance* selected_instance = NULL;
@@ -123,12 +131,14 @@ char* distributor_select_instance_lsu(struct Distributor* distributor, char* key
 	}
 
 	// update next instance
-	distributor->last_used_instance = selected_instance_index;
+	if(!simulated){
+		distributor->last_used_instance = selected_instance_index;
+	}
 
 	return string_duplicate(selected_instance->name);
 }
 
-char* distributor_select_instance_el(struct Distributor* distributor, char* key, unsigned int value_size){
+char* distributor_select_instance_el(struct Distributor* distributor, char* key, bool simulated){
 	// If no instances return NULL.
 	if(list_is_empty(distributor->instances)){
 		log_error(distributor->log, "Cannot select next instance. Instances is empty!");
@@ -144,12 +154,14 @@ char* distributor_select_instance_el(struct Distributor* distributor, char* key,
 			number_of_instances, distributor->last_used_instance, next_instance, instance->name);
 
 	// Update the last used instance
-	distributor->last_used_instance = next_instance;
+	if(!simulated){
+		distributor->last_used_instance = next_instance;
+	}
 
 	return string_duplicate(instance->name);
 }
 
-char* distributor_select_instance_ke(struct Distributor* distributor, char* key, unsigned int value_size){
+char* distributor_select_instance_ke(struct Distributor* distributor, char* key, bool simulated){
 	int number_of_instances = list_size(distributor->instances);
 
 	int letters_to_split = 26;
@@ -170,6 +182,9 @@ char* distributor_select_instance_ke(struct Distributor* distributor, char* key,
 	log_info(distributor->log, "Selected next instance. Algorithm: KE. Letters by instance: %i. First char: %c. Selected instance number %i of %i: %s.",
 			letters_by_instance, key_letter, instance_index, number_of_instances, instance->name);
 
-	distributor->last_used_instance = instance_index;
+	if(!simulated){
+		distributor->last_used_instance = instance_index;
+	}
+
 	return string_duplicate(instance->name);
 }
