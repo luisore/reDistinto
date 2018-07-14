@@ -85,8 +85,8 @@ bool _validar_parametro(char* cadena);
 
 int consolaLeerComando()
 {
-	size_t size = 20;
-	char *entrada = malloc(20);
+	size_t size = 50;
+	char *entrada = malloc(50);
 
 	char *comando = malloc(sizeof(char*));
 	char *parametro1 = malloc(sizeof(char*));
@@ -469,20 +469,27 @@ void comando_status_instancias_por_clave(char* clave)
 		char * valor_clave;
 		status_response_from_coordinator* response = enviar_status_a_coordinador_por_clave(clave);
 		if (response != NULL){
-			// Debo esperar al valor de la clave , ya que existe
 			printf("VALOR\t| INSTANCIA_ACTUAL\t| INSTANCIA_A_GUARDAR\t| ESIS_BLOQUEADOS_POR_CLAVE\n");
+			// Debo esperar al valor de la clave , ya que existe
 			if (response->payload_valor_size > 0){
 				valor_clave = malloc(response->payload_valor_size);
 				if (recv(coordinator_socket_console, valor_clave, response->payload_valor_size, MSG_WAITALL) != response->payload_valor_size) {
-					_obtener_esis_bloqueados();
-					t_list* esis_filtrados = list_filter(listaEsis, (void*) _espera_por_recurso);
-					free(valor_clave);
-					list_destroy(esis_filtrados);
-					// TODO - Verificar con Pablo que se debe hacer aqui.
+					printf("Ocurrio un error de comunicacion con el Coordinador al recuperar el valor de la clave!\n");
+					exit(1);
 				}
-				// Aqui ya deberiamos tener el valor
-			}
 
+			} else {
+				valor_clave = malloc(strlen("La clave no posee valor"));
+				strcpy(valor_clave, "La clave no posee valor");
+			}
+//			_obtener_esis_bloqueados();
+//			t_list* esis_filtrados = list_filter(listaEsis, (void*) _espera_por_recurso);
+			printf("%s\t| %s\t| %s\t| ESIS_BLOQUEADOS_POR_CLAVE\n",
+									valor_clave,
+									response->nombre_intancia_actual,
+									response->nombre_intancia_posible);
+			free(valor_clave);
+//			list_destroy(esis_filtrados);
 		}else{
 			printf("No se obtuvo respuesta del Coordinador para la solicitud de status de la clave: %s\n" , clave);
 			log_info(console_log, "No se obtuvo respuesta del Coordinador para la solicitud\n");
