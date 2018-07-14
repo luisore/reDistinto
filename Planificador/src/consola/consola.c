@@ -85,8 +85,8 @@ bool _validar_parametro(char* cadena);
 
 int consolaLeerComando()
 {
-	size_t size = 20;
-	char *entrada = malloc(20);
+	size_t size = 50;
+	char *entrada = malloc(50);
 
 	char *comando = malloc(sizeof(char*));
 	char *parametro1 = malloc(sizeof(char*));
@@ -278,13 +278,13 @@ void comando_desbloquear_primer_esi_por_clave(char* clave)
 	}
 }
 
-bool _espera_por_recurso(ESI_STRUCT* esi, char* recurso)
-{
-	return string_equals_ignore_case(esi->informacionDeBloqueo->recursoNecesitado, recurso);
-}
-
 ESI_STRUCT* obtener_esi_por_clave_recurso(char* clave)
 {
+	bool _espera_por_recurso(ESI_STRUCT* esi)
+	{
+		return string_equals_ignore_case(esi->informacionDeBloqueo->recursoNecesitado, clave);
+	}
+
 	ESI_STRUCT* esi = list_find(listaEsis, (void*) _espera_por_recurso);
 	return esi;
 }
@@ -317,6 +317,11 @@ void comando_listar_procesos_por_recurso(char* recurso)
 	if(_validar_parametro(recurso))
 	{
 		_obtener_todos_los_esis();
+
+		bool _espera_por_recurso(ESI_STRUCT* esi)
+		{
+			return string_equals_ignore_case(esi->informacionDeBloqueo->recursoNecesitado, recurso);
+		}
 
 		t_list* esis_filtrados = list_filter(listaEsis, (void*) _espera_por_recurso);
 		if(!list_is_empty(esis_filtrados)) {
@@ -391,7 +396,12 @@ void _verificar_si_alguien_tiene_el_recurso(char* clave)
 	for (k = 0; k < cantidad_de_bloqueados ; k++) {
 		ESI_STRUCT* esi_actual = (ESI_STRUCT*) list_get(listaEsiBloqueados,k);
 
-		if(_espera_por_recurso(esi_actual,clave)){
+		bool _espera_por_recurso(ESI_STRUCT* esi)
+		{
+			return string_equals_ignore_case(esi->informacionDeBloqueo->recursoNecesitado, clave);
+		}
+
+		if(_espera_por_recurso(esi_actual)){
 			list_add(listaEsiEnDeadlock, esi_actual);
 			if(!_verificar_si_hay_circulo()){
 				_verificar_si_alguien_tiene_el_recurso(esi_actual->informacionDeBloqueo->recursoNecesitado);
@@ -460,7 +470,6 @@ ESI_STRUCT* obtener_esi_por_id(char* id_esi)
 	return esi;
 }
 
-//TODO
 void comando_status_instancias_por_clave(char* clave)
 {
 	log_info(console_log, "Consola: Status %s\n", clave);
@@ -469,26 +478,61 @@ void comando_status_instancias_por_clave(char* clave)
 		char * valor_clave;
 		status_response_from_coordinator* response = enviar_status_a_coordinador_por_clave(clave);
 		if (response != NULL){
-			// Debo esperar al valor de la clave , ya que existe
 			printf("VALOR\t| INSTANCIA_ACTUAL\t| INSTANCIA_A_GUARDAR\t| ESIS_BLOQUEADOS_POR_CLAVE\n");
+			// Debo esperar al valor de la clave , ya que existe
 			if (response->payload_valor_size > 0){
 				valor_clave = malloc(response->payload_valor_size);
 				if (recv(coordinator_socket_console, valor_clave, response->payload_valor_size, MSG_WAITALL) != response->payload_valor_size) {
-					_obtener_esis_bloqueados();
-					t_list* esis_filtrados = list_filter(listaEsis, (void*) _espera_por_recurso);
-					free(valor_clave);
-					list_destroy(esis_filtrados);
-					// TODO - Verificar con Pablo que se debe hacer aqui.
+					printf("Ocurrio un error de comunicacion con el Coordinador al recuperar el valor de la clave!\n");
+					exit(1);
 				}
-				// Aqui ya deberiamos tener el valor
-			}
 
+			} else {
+				valor_clave = malloc(strlen("La clave no posee valor"));
+				strcpy(valor_clave, "La clave no posee valor");
+			}
+			_obtener_esis_bloqueados();
+
+			bool _espera_por_recurso(ESI_STRUCT* esi)
+			{
+				return string_equals_ignore_case(esi->informacionDeBloqueo->recursoNecesitado, clave);
+			}
+			t_list* esis_filtrados = list_filter(listaEsis, (void*) _espera_por_recurso);
+
+			char * lista_esis_bloqueados = malloc(strlen("No hay ESIS bloquados a la espera de la clave"));
+			if(!list_is_empty(esis_filtrados))
+			{
+				int j;
+				for (j = 0; j < list_size(esis_filtrados); j++)
+				{
+					ESI_STRUCT* aux = (ESI_STRUCT*) list_get(esis_filtrados, j);
+					if (j == list_size(esis_filtrados) - 1) {
+						strcat(lista_esis_bloqueados, aux->id + "\n ");
+					} else {
+						strcat(lista_esis_bloqueados, aux->id + ", ");
+					}
+				}
+			} else {
+				strcpy(lista_esis_bloqueados, "No hay ESIS bloquados a la espera de la clave");
+			}
+			printf("%s\t| %s\t| %s\t| %s\n",
+									valor_clave,
+									response->nombre_intancia_actual,
+									response->nombre_intancia_posible,
+									lista_esis_bloqueados);
+			log_info(console_log, "%s\t| %s\t| %s\t| %s\n", valor_clave,
+															response->nombre_intancia_actual,
+															response->nombre_intancia_posible,
+															lista_esis_bloqueados);
+
+			free(valor_clave);
+			free(lista_esis_bloqueados);
+			list_destroy(esis_filtrados);
+			list_clean(listaEsis);
 		}else{
 			printf("No se obtuvo respuesta del Coordinador para la solicitud de status de la clave: %s\n" , clave);
 			log_info(console_log, "No se obtuvo respuesta del Coordinador para la solicitud\n");
 		}
-
-		list_clean(listaEsis);
 	}
 }
 
