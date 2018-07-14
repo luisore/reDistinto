@@ -692,6 +692,9 @@ t_instance_response * receive_response_from_instance(t_connected_client * instan
 
 	t_instance_response * response = deserialize_instance_response(buffer);
 
+	// update space used for LSU algorithm
+	distributor_update_space_used(distributor, instance->instance_name, response->space_used);
+
 	switch(response->status){
 	case INSTANCE_SUCCESS:
 		log_info(coordinador_log, "Receive status from Instance - SUCCESS");
