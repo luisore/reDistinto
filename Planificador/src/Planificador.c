@@ -1,9 +1,9 @@
 #include "Planificador.h"
 
 void signal_catch(int signal){
-	if (signal == SIGINT)
+	if (signal == SIGINT || signal == SIGKILL || signal == SIGSTOP || signal == SIGTSTP)
 	{
-		printf("'n¡ADIOS!\n");
+		printf("\n¡ADIOS!\n");
 
 		pthread_cancel(hiloPrincipal);
 		pthread_cancel(hiloPlanificacion);
@@ -28,6 +28,9 @@ int main(void) {
 
 	if (signal(SIGINT, signal_catch) == SIG_ERR)
 		printf("\ncan't catch SIGINT\n");
+
+	if (signal(SIGTSTP, signal_catch) == SIG_ERR)
+			printf("\ncan't catch SIGINT\n");
 
 	pthread_mutex_init(&mutexConsola, NULL);
 	pthread_mutex_init(&mutexLog, NULL);
