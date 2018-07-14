@@ -571,107 +571,97 @@ void handle_esi_store(t_connected_client* planner, t_operation_request* esi_requ
 	log_info(coordinador_log_operation, "STORE - %s " , esi_request->key);
 }
 
+char* receive_payload_from_esi(t_operation_request* esi_request, t_connected_client* client, int socket){
+	char *payload = malloc(esi_request->payload_size);
+	int result = recv( socket, payload, esi_request->payload_size, MSG_WAITALL);
+
+	if (result < esi_request->payload_size) {
+		log_error(coordinador_log, "Error trying to receive payload from ESI: %s. Bytes read: %d. Expected: %d",
+				client->instance_name, result, esi_request->payload_size);
+
+		remove_client(server, client->socket_id);
+
+		free(payload);
+		return NULL;
+
+	}
+	return payload;
+}
+
+operation_result_e perform_instance_set(t_operation_request* esi_request, char* payload){
+	t_dictionary_instance_struct * instance_structure = (t_dictionary_instance_struct *) dictionary_get(key_instance_dictionary , esi_request->key );
+
+	if(instance_structure == NULL ){
+		log_error(coordinador_log, "No instance found for key: %s.", esi_request->key);
+		return OP_ERROR;
+	}
+
+	if(!instance_structure->isConnected){
+		log_error(coordinador_log, "Instance for key: %s found, but is disconnected: %s.", esi_request->key, instance_structure->instance->instance_name);
+		return OP_ERROR;
+	}
+
+	if(!send_operation_to_instance(instance_structure->instance)){
+		log_error(coordinador_log, "Error sending SET operation header to Instance: %s.", instance_structure->instance->instance_name);
+		return OP_ERROR;
+	}
+
+	if(!send_set_operation(esi_request, esi_request->operation_type, instance_structure->instance, payload)){
+		log_error(coordinador_log, "Error sending SET operation to Instance: %s.", instance_structure->instance->instance_name);
+		return OP_ERROR;
+	}
+
+	log_info(coordinador_log, "Successfully sent SET %s %s operation to instance: %s.",
+			esi_request->key, payload, instance_structure->instance->instance_name);
+	return OP_SUCCESS;
+}
+
+void handle_esi_set(t_connected_client* planner, t_operation_request* esi_request, t_connected_client* client, int socket){
+	log_info(coordinador_log, "Handling SET from ESI: %s. Key: %s.", client->instance_name, esi_request->key);
+	log_info(coordinador_log, "Waiting for payload from ESI");
+
+	char *payload = receive_payload_from_esi(esi_request, client, socket);
+
+	if(payload == NULL){
+		return;
+	}
+
+	log_info(coordinador_log, "Retrieved payload for SET : %s ",payload);
+
+	t_operation_response* cod_result = send_operation_to_planner(esi_request->key, planner, SET);
+	operation_result_e op_result = cod_result->operation_result;
+	free(cod_result);
+
+	if(op_result == OP_SUCCESS){
+		op_result = perform_instance_set(esi_request, payload);
+	}
+
+	send_response_to_esi(socket, client, cod_result->operation_result);
+
+	// OPERATION - KEY
+	log_info(coordinador_log_operation, "SET %s %s" , esi_request->key, payload);
+	free(payload);
+}
+
+
 void handle_esi_request(t_operation_request* esi_request, t_connected_client* client, int socket){
 
 	t_connected_client* planner = find_connected_client_by_type(PLANNER);
-	t_operation_response *cod_result;
-
-	// Select an instance based on the selected algorithim.
-
 
 	switch(esi_request->operation_type){
 	case GET:
 		handle_esi_get(planner, esi_request, client, socket);
 		break;
-
 	case STORE:
 		handle_esi_store(planner, esi_request, client, socket);
 		break;
 	case SET:
-		log_info(coordinador_log, "Handling SET from ESI: %s. Key: %s.", client->instance_name, esi_request->key);
-		log_info(coordinador_log, "Waiting for payload from ESI");
-
-		char * payload_for_intance  = malloc(esi_request->payload_size);
-		int result = recv( socket, payload_for_intance, esi_request->payload_size, MSG_WAITALL);
-
-		if (result < esi_request->payload_size) {
-
-			// On receive error
-
-			log_error(coordinador_log, "It was an Error trying to receive payload from ESI. Aborting conection");
-			log_error(coordinador_log, "Bytes leidos: %d | Esperados: %d",
-					result, esi_request->payload_size);
-
-			remove_client(server, client->socket_id);
-
-			// TODO: Figure out how to send planner that ESI has stop working;
-
-		}else{
-
-			log_info(coordinador_log, "Retrieving value from SET : %s ",payload_for_intance);
-
-			cod_result = send_operation_to_planner(esi_request->key, planner, SET);
-
-
-			// VERIFICO QUE EXISTA EN EL DICCIONARIO.
-
-			t_dictionary_instance_struct * instance_structure = (t_dictionary_instance_struct *) dictionary_get(key_instance_dictionary , esi_request->key );
-
-			if( dictionary_size(key_instance_dictionary) > 0 && instance_structure != NULL ){
-
-				if(!instance_structure->isConnected){
-
-					// The instance it is not connect. Must abort.
-					cod_result->operation_result = OP_ERROR;
-
-				}else{
-
-					if(!send_operation_to_instance(instance_structure->instance)){
-						cod_result->operation_result = OP_ERROR;
-					}else{
-
-						if(!send_set_operation(esi_request, esi_request->operation_type, instance_structure->instance ,payload_for_intance )){
-							cod_result->operation_result = OP_ERROR;
-						}
-					}
-
-				}
-
-
-			}else{
-				// It doesnt exist any instance.
-				log_error(coordinador_log , "There ir no instance left. Aborting");
-				cod_result->operation_result = OP_ERROR;
-
-			}
-
-
-
-//			if(instance == 0){
-//				log_error(coordinador_log , "There ir no instance left. Aborting");
-//				cod_result->operation_result = OP_ERROR;
-//			}else{
-//				if(!send_operation_to_instance(instance)){
-//					cod_result->operation_result = OP_ERROR;
-//				}else{
-//
-//					if(!send_set_operation(esi_request, esi_request->operation_type, instance ,payload_for_intance )){
-//						cod_result->operation_result = OP_ERROR;
-//					}
-//				}
-//			}
-
-		}
-
-		send_response_to_esi(socket, client, cod_result->operation_result);
-
-		// OPERATION - KEY
-		log_info(coordinador_log_operation, "SET - %s " , esi_request->key);
+		handle_esi_set(planner, esi_request, client, socket);
 		break;
 	}
 }
 
-char *  receive_value_from_instance(t_connected_client * instance , int payload_size){
+char*  receive_value_from_instance(t_connected_client * instance , int payload_size){
 
 	char* buffer = malloc(payload_size);
 
