@@ -69,7 +69,7 @@ tcp_server_t* tcpserver_create(char* server_name, t_log* log, int max_clients, i
 	//bind the socket to localhost on specified port
 	if (bind(server->master_socket, (struct sockaddr *)(server->address), sizeof(struct sockaddr_in))<0)
 	{
-		log_error(server->logger, "Could not bind TCP Server %s to port %d.", port, server_name);
+		log_error(server->logger, "Could not bind TCP Server %s to port %d.", server_name, port);
 		tcpserver_destroy(server);
 		return NULL;
 	}

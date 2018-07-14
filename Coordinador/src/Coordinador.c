@@ -148,9 +148,7 @@ void create_tcp_server_console(){
 	pthread_mutex_lock(&mutex_all);
 
 	server_planner_console = tcpserver_create("CONSOLE PLANNER", coordinador_log,
-							1,
-							1,
-							coordinador_config.PUERTO_ESCUCHA_CONEXION_CONSOLA, true);
+							1, 1,coordinador_config.PUERTO_ESCUCHA_CONEXION_CONSOLA, false);
 
 	if(server_planner_console == NULL){
 		log_error(coordinador_log, "Could not create TCP server for PLANNER CONSOLE. Aborting execution.");
