@@ -1009,7 +1009,7 @@ void destroy_connected_client(t_connected_client* connected_client){
 				value = malloc(response_instance->payload_size);
 				value = receive_value_from_instance(instance_structure->instance , response_instance->payload_size);
 
-				response->payload_valor_size = response_instance->payload_size;
+				response->payload_valor_size = response_instance->payload_size + 1;
 			}else{
 				response->payload_valor_size = 0;
 			}
