@@ -50,6 +50,7 @@ pthread_mutex_t mutex_planner_console;
 pthread_mutex_t mutex_principal;
 pthread_mutex_t mutex_all;
 pthread_mutex_t mutex_compaction;
+sem_t compact_semaphore;
 
 typedef struct {
 	char * NOMBRE_INSTANCIA;

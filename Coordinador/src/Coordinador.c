@@ -624,6 +624,11 @@ bool send_set_operation_to_instance(t_operation_request* esi_request, t_connecte
 }
 
 bool do_send_set_operation(t_operation_request* esi_request, t_connected_client *instance , char * payload, bool retry){
+	if(!send_operation_header_to_instance(instance)){
+		log_error(coordinador_log, "Error sending SET operation header to Instance: %s.", instance->instance_name);
+		return false;
+	}
+
 	if(!send_set_operation_to_instance(esi_request, instance, payload)){
 		return false;
 	}
@@ -660,11 +665,6 @@ operation_result_e perform_instance_set(t_operation_request* esi_request, char* 
 
 	if(!instance_structure->isConnected){
 		log_error(coordinador_log, "Instance for key: %s found, but is disconnected: %s.", esi_request->key, instance_structure->instance->instance_name);
-		return OP_ERROR;
-	}
-
-	if(!send_operation_header_to_instance(instance_structure->instance)){
-		log_error(coordinador_log, "Error sending SET operation header to Instance: %s.", instance_structure->instance->instance_name);
 		return OP_ERROR;
 	}
 
@@ -759,13 +759,14 @@ void perform_instance_compaction(void* instance){
 
 	log_info(coordinador_log, "Initiating compact on instance: %s", the_instance->instance_name);
 
-	if(send(the_instance->socket_reference, buffer_operation,COORDINATOR_OPERATION_HEADER_SIZE, 0)<COORDINATOR_OPERATION_HEADER_SIZE){
+	if(send(the_instance->socket_reference, buffer_operation,COORDINATOR_OPERATION_HEADER_SIZE, MSG_WAITALL)<COORDINATOR_OPERATION_HEADER_SIZE){
 		//Esto es por si se cae alguna instancia actualizo las correspondientes estructuras.
 		log_error(coordinador_log, "Could not send message COMPACT to Instance: %s. Remove Instance.", the_instance->instance_name);
 		free(buffer_operation);
 		pthread_mutex_lock(&mutex_compaction);
 		remove_instance(server , the_instance->socket_id);
 		pthread_mutex_unlock(&mutex_compaction);
+		sem_post(&compact_semaphore);
 		pthread_exit(0);
 	}
 
@@ -781,6 +782,7 @@ void perform_instance_compaction(void* instance){
 		remove_instance(server, the_instance->socket_id);
 		pthread_mutex_unlock(&mutex_compaction);
 		free(response_buffer);
+		sem_post(&compact_semaphore);
 		pthread_exit(0);
 
 	}
@@ -798,27 +800,31 @@ void perform_instance_compaction(void* instance){
 		pthread_mutex_unlock(&mutex_compaction);
 	}
 
-	pthread_exit(0);
+	//sem_post(&compact_semaphore);
+//	pthread_exit(0);
 }
 
 void wait_for_compaction_thread(void* thread){
-	pthread_join((pthread_t*)thread, NULL);
+	sem_wait(&compact_semaphore);
 }
 
 void do_synchronized_compaction(){
-	t_list* compaction_threads = list_create();
+	/*t_list* compaction_threads = list_create();
 
 	void create_instance_thread(void* instance){
 		pthread_t* thread = malloc(sizeof(pthread_t));
 		pthread_create(thread, NULL, perform_instance_compaction, instance);
-	}
+		list_add(compaction_threads, thread);
+	}*/
 
 	// TODO: MUTEX!
-	list_iterate(connected_instances, create_instance_thread);
+	//list_iterate(connected_instances, create_instance_thread);
 
-	list_iterate(compaction_threads, wait_for_compaction_thread);
+	//list_iterate(compaction_threads, wait_for_compaction_thread);
 
-	list_destroy_and_destroy_elements(compaction_threads, free);
+	//list_destroy_and_destroy_elements(compaction_threads, free);
+
+	list_iterate(connected_instances, perform_instance_compaction);
 }
 
 t_instance_response * receive_response_from_instance(t_connected_client * instance ){
@@ -1222,6 +1228,7 @@ int main(int argc, char **argv) {
 
 	pthread_mutex_init(&mutex_all, NULL);
 	pthread_mutex_init(&mutex_compaction, NULL);
+	sem_init(&compact_semaphore, 0, 0);
 
 	// HILO CONSOLA PLANIFICADOR
 	pthread_mutex_init(&mutex_planner_console, NULL);

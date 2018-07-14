@@ -196,7 +196,7 @@ coordinator_operation_type_e wait_for_signal_from_coordinator(){
 	void* buffer = malloc(COORDINATOR_OPERATION_HEADER_SIZE);
 
 	if (recv(coordinator_socket, buffer, COORDINATOR_OPERATION_HEADER_SIZE, MSG_WAITALL) < COORDINATOR_OPERATION_HEADER_SIZE) {
-		log_error(console_log, "Error receiving handshake response. Aborting execution.");
+		log_error(console_log, "Error receiving coordinator data. Aborting execution.");
 		free(buffer);
 		end_thread(EXIT_FAILURE);
 	}
@@ -205,6 +205,7 @@ coordinator_operation_type_e wait_for_signal_from_coordinator(){
 
 	coordinator_operation_type_e op_type = header->coordinator_operation_type;
 
+	free(buffer);
 	free(header);
 	return op_type;
 }
@@ -361,10 +362,11 @@ void handle_operation(){
 }
 
 void handle_compact() {
+	log_info(console_log, "Received COMPACT from coordinator");
 	pthread_mutex_lock(&operation_mutex);
 	redis_compact(redis);
-	send_response_to_coordinator(INSTANCE_SUCCESS, 0);
 	pthread_mutex_unlock(&operation_mutex);
+	send_response_to_coordinator(INSTANCE_SUCCESS, 0);
 }
 
 void initialize_instance(){
@@ -601,13 +603,13 @@ int main(int argc, char **argv) {
 
 	pthread_mutex_init(&operation_mutex, NULL);
 
-	pthread_create(&dump_thread, NULL, (void*) run_periodic_dump, NULL);
+	//pthread_create(&dump_thread, NULL, (void*) run_periodic_dump, NULL);
 	pthread_create(&console_thread, NULL, (void*) run_console, NULL);
 	pthread_create(&operations_thread, NULL, (void*) run_operations, NULL);
 
 
 	pthread_join(operations_thread, NULL);
-	pthread_join(dump_thread, NULL);
+	//pthread_join(dump_thread, NULL);
 	pthread_join(console_thread, NULL);
 
 	exit_program(EXIT_SUCCESS);
