@@ -106,10 +106,11 @@ static const int COORDINATOR_OPERATION_REQUEST_SIZE = 4 + 41;
 
 typedef struct {
 	instance_status_e status;
+	unsigned int space_used; // in number of slots
 	int payload_size;
 } t_instance_response;
 
-static const int INSTANCE_RESPONSE_SIZE = 4 + 4;
+static const int INSTANCE_RESPONSE_SIZE = 4 + 4 + 4;
 
 typedef struct {
 	int entry_size;

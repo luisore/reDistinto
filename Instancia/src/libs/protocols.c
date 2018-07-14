@@ -260,6 +260,7 @@ void* serialize_instance_response(t_instance_response *response){
 	int lastIndex = 0;
 
 	serialize_data(&(response->status), 4, &buffer, &lastIndex);
+	serialize_data(&(response->space_used), 4, &buffer, &lastIndex);
 	serialize_data(&(response->payload_size), 4, &buffer, &lastIndex);
 
 	return buffer;
@@ -270,6 +271,7 @@ t_instance_response* deserialize_instance_response(void *buffer){
 	int lastIndex = 0;
 
 	deserialize_data(&(response->status), 4, buffer, &lastIndex);
+	deserialize_data(&(response->space_used), 4, buffer, &lastIndex);
 	deserialize_data(&(response->payload_size), 4, buffer, &lastIndex);
 
 	return response;

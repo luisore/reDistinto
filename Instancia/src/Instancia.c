@@ -250,6 +250,11 @@ void send_response_to_coordinator(instance_status_e status, int payload_size){
 	response.status = status;
 	response.payload_size = payload_size;
 
+	pthread_mutex_lock(&operation_mutex);
+	response.space_used = redis->number_of_entries - redis->slots_available;
+	pthread_mutex_unlock(&operation_mutex);
+
+
 	log_debug(console_log, "Sending response to cordinator: %i. Payload size: %i", status, payload_size);
 
 	void* buffer = serialize_instance_response(&response);
