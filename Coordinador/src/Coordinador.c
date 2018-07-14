@@ -518,7 +518,7 @@ void handle_esi_get(t_connected_client* planner, t_operation_request* esi_reques
 	send_response_to_esi(socket, client, cod_result->operation_result);
 
 	// OPERATION - KEY
-	log_info(coordinador_log_operation, "GET - %s " , esi_request->key);
+	log_info(coordinador_log_operation, " %s - GET - %s ", client->instance_name , esi_request->key);
 
 	free(cod_result);
 }
@@ -576,7 +576,7 @@ void handle_esi_store(t_connected_client* planner, t_operation_request* esi_requ
 	send_response_to_esi(socket, client, op_result);
 
 	// OPERATION - KEY
-	log_info(coordinador_log_operation, "STORE - %s " , esi_request->key);
+	log_info(coordinador_log_operation, " %s - STORE - %s " , client->instance_name  , esi_request->key);
 }
 
 char* receive_payload_from_esi(t_operation_request* esi_request, t_connected_client* client, int socket){
@@ -712,7 +712,7 @@ void handle_esi_set(t_connected_client* planner, t_operation_request* esi_reques
 	send_response_to_esi(socket, client, op_result);
 
 	// OPERATION - KEY
-	log_info(coordinador_log_operation, "SET %s %.*s" , esi_request->key, esi_request->payload_size, payload);
+	log_info(coordinador_log_operation, "%s - SET %s %.*s" ,client->instance_name  , esi_request->key, esi_request->payload_size, payload);
 	free(payload);
 }
 

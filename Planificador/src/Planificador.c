@@ -280,6 +280,17 @@ int esperarEstadoDelEsi(int esi_socket, int socket_id) {
 void before_tpc_server_cycle(tcp_server_t* server) {
 }
 
+void enviar_pid_esi(int pid , int socket_id){
+
+	/*Envio PID*/
+
+	if (send(socket_id, &pid, sizeof(pid), 0) != 4) {
+		error_log("No pudo enviarse el PID al ESI.");
+		tcpserver_remove_client(server, socket_id);
+	}
+
+}
+
 /**
  * Funcion que se ejecuta cuando un externo se conecta a nuestro servidor
  */
@@ -328,6 +339,7 @@ void on_server_accept(tcp_server_t* server, int client_socket, int socket_id) {
 		int id_esi = generarId();
 		ESI_STRUCT * esi = nuevoESI(id_esi, client_socket, socket_id);
 		agregarNuevoEsi(esi);
+		enviar_pid_esi(id_esi , client_socket);
 	}
 
 	free(header_buffer);

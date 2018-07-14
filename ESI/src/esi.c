@@ -73,6 +73,24 @@ bool send_status_to_planner(esi_status_e esi_status){
 }
 
 
+bool receive_pid_from_planner(int planner_socket, t_log * esi_log ){
+
+	int pid;
+
+	if (recv(planner_socket, &pid,sizeof(pid), MSG_WAITALL) == -1) {
+		log_error(esi_log, "There was an error trying to receive PID from Planner");
+		return false;
+	}
+
+	char pid_string[2];
+
+	sprintf(pid_string, "%d", pid);
+	strcat(instance_name, pid_string);
+
+	return true;
+}
+
+
 void connect_with_coordinator() {
 	log_info(esi_log, "Connecting to Coordinator.");
 	coordinator_socket = connect_to_server(coordinator_ip, coordinator_port, esi_log);
@@ -96,6 +114,11 @@ void connect_with_planner() {
 	if(!perform_connection_handshake(planner_socket, instance_name, ESI, esi_log)){
 		exit_gracefully(EXIT_FAILURE);
 	}
+
+	if(!receive_pid_from_planner(planner_socket, esi_log )){
+		exit_gracefully(EXIT_FAILURE);
+	}
+
 	log_info(esi_log, "Successfully connected to Planner.");
 }
 
@@ -358,10 +381,10 @@ int main(int argc, char **argv) {
 
 	load_config();
 
+	connect_with_planner();
 
 	connect_with_coordinator();
 
-	connect_with_planner();
 
 
 	execute_program(program_filename);
