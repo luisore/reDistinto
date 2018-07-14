@@ -353,6 +353,7 @@ void send_message_clients(t_connection_header *connection_header, int client_soc
 		log_info(coordinador_log, "Successfully connected to TCP Client: %s", connection_header->instance_name);
 	}
 
+	free(ack_buffer);
 }
 
 void send_message_planner_console(t_connection_header *connection_header, int client_socket, int socket_id){
