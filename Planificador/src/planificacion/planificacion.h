@@ -24,4 +24,7 @@ float calcularTasaDeRespuesta(int w, int s);
 void aplicarHRRN();
 
 
+void chequearBloqueoEsiActual();
+
+
 #endif /* SRC_PLANIFICACION_PLANIFICACION_H_ */

@@ -164,7 +164,7 @@ int liberarRecurso(char * p_recurso){
 		{
 			r->estado = RECURSO_LIBRE;
 			r->esi_bloqueante = NULL;
-
+			sem_post(&sem_esis);
 			return 0;
 		}
 	}
@@ -185,6 +185,21 @@ RECURSO_ESTADO estadoRecurso(char * p_recurso){
 	}
 
 	return RECURSO_UNK;
+}
+
+RECURSO *getRecurso(char * p_recurso)
+{
+	int i = 0, tamanioLista = list_size(listaRecursos);
+
+	for(i = 0; i < tamanioLista; i++){
+		RECURSO* r = list_get(listaRecursos, i);
+
+		if(string_equals_ignore_case(r->nombre_recurso, p_recurso))
+		{
+			return r;
+		}
+	}
+	return NULL;
 }
 
 

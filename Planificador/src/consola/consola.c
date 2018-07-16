@@ -69,9 +69,7 @@ void _obtener_esis_nuevos();
 void _obtener_esis_terminados();
 ESI_STRUCT* obtener_esi_por_id(char* id_esi);
 status_response_from_coordinator* enviar_status_a_coordinador_por_clave(char* clave);
-void _verificar_si_alguien_tiene_el_recurso(char* clave);
-bool _verificar_si_hay_circulo();
-bool _list_element_repeats(t_list* self, bool (*comparator)(void *,void *));
+t_list *hayDeadlock(ESI_STRUCT* esi_original);
 
 
 void _finalizar_cadena(char *entrada);
@@ -336,97 +334,85 @@ void comando_listar_procesos_por_recurso(char* recurso)
 void comando_deadlock() 
 {
 	log_info(console_log, "Consola: Deadlock\n");
+
 	int i;
-	int cantidad_de_bloqueados = list_size(listaEsiBloqueados);
-	listaEsiEnDeadlock = list_create();
+	for (i = 0; i < list_size(listaEsiBloqueados); i++)
+	{
+		ESI_STRUCT *esi = list_get(listaEsiBloqueados, i);
+		listaEsiEnDeadlock = hayDeadlock(esi);
 
-	if (cantidad_de_bloqueados < 2) {
-		printf("No se encontro ningun Deadlock.\n");
-		return;
-	}
-
-	for (i = 0; i < cantidad_de_bloqueados; i++) {
-		ESI_STRUCT* esi_actual = (ESI_STRUCT*) list_get(listaEsiBloqueados, i);
-		char* clave_que_necesita = malloc(
-				strlen(esi_actual->informacionDeBloqueo->recursoNecesitado)
-						+ 1);
-		strcpy(clave_que_necesita,
-				esi_actual->informacionDeBloqueo->recursoNecesitado);
-
-		if (!_verificar_si_hay_circulo()) {
-			list_clean(listaEsiEnDeadlock);
-			_verificar_si_alguien_tiene_el_recurso(clave_que_necesita);
-		}
-
-		free(clave_que_necesita);
-
-		if (_verificar_si_hay_circulo()) {
-			list_remove(listaEsiEnDeadlock, list_size(listaEsiEnDeadlock) - 1);
-			if (list_size(listaEsiEnDeadlock) == 1) {
-				printf("No se encontro ningun Deadlock.\n");
-				return;
-			}
-		} else {
-			printf("No se encontro ningun Deadlock.\n");
-			return;
-		}
-
-	}
-	printf("Los siguientes esis estan en deadlock: ");
-	int j;
-	for (j = 0; j < list_size(listaEsiEnDeadlock); j++) {
-		ESI_STRUCT* aux = (ESI_STRUCT*) list_get(listaEsiEnDeadlock, j);
-		if (j == list_size(listaEsiEnDeadlock) - 1) {
-			printf("%d.\n ", aux->id);
-		} else {
-			printf("%d, ", aux->id);
-		}
-	}
-	list_destroy(listaEsiEnDeadlock);
-
-}
-
-void _verificar_si_alguien_tiene_el_recurso(char* clave)
-{
-	int k;
-	int cantidad_de_bloqueados = list_size(listaEsiBloqueados);
-	for (k = 0; k < cantidad_de_bloqueados ; k++) {
-		ESI_STRUCT* esi_actual = (ESI_STRUCT*) list_get(listaEsiBloqueados,k);
-
-		bool _espera_por_recurso(ESI_STRUCT* esi)
+		if(listaEsiEnDeadlock != NULL)
 		{
-			return string_equals_ignore_case(esi->informacionDeBloqueo->recursoNecesitado, clave);
-		}
-
-		if(_espera_por_recurso(esi_actual)){
-			list_add(listaEsiEnDeadlock, esi_actual);
-			if(!_verificar_si_hay_circulo()){
-				_verificar_si_alguien_tiene_el_recurso(esi_actual->informacionDeBloqueo->recursoNecesitado);
-			}
+			// 1) RECORRER LA LISTA E IMPRIMIR POR PANTALLA
+			printf("Hay %d ESIS en deadlock", list_size(listaEsiEnDeadlock));
+			// 2) Encontro deadlock => retornar
+			return;
+			// Si no retornas, va a agarrar al siguiente esi. Si ese ESI es uno de los que estaba
+			// en la lista de recien, te va a devolver la misma lista que te devolvio recien
+			// entonces vas a tener información duplicada. Si encontro deadlock -> retorna y te aseguras que no se repita
+			// No creo que haya un caso de prueba con mas de 1 deadlock
 		}
 	}
 }
 
-bool _verificar_si_hay_circulo()
+t_list *hayDeadlock(ESI_STRUCT* esi_original)
 {
-	return _list_element_repeats(listaEsiEnDeadlock,(void*)sonIguales);
-}
+	t_list* lista = list_create();
 
+	RECURSO * recursoQueNecesitaEsiBloqueante = NULL;
+	RECURSO * recursoQueNecesitaEsiOriginal = getRecurso(
+			esi_original->informacionDeBloqueo->recursoNecesitado);
 
-bool _list_element_repeats(t_list* self, bool (*comparator)(void *,void *))
-{
-	int longitud_de_lista = list_size(self);
-	int i,j;
-	if(longitud_de_lista > 1){
-		for(i = 0; i < longitud_de_lista; i++ ){
-			for(j = 0; j < longitud_de_lista; j++ ){
-				if( (comparator(list_get(self,i),list_get(self,j))) && i != j ){
-					return true;
-				}
+	if (recursoQueNecesitaEsiOriginal->estado == RECURSO_LIBRE)
+		return NULL;
+
+	// Este es el esi que esta bloqueando a mi esi original
+	ESI_STRUCT *esiBloqueante = recursoQueNecesitaEsiOriginal->esi_bloqueante;
+
+	// Si no hay esi bloqueante => retorno
+	if (esiBloqueante == NULL)
+		return NULL;
+
+	DEADLOCK_INFO di;
+	di.recurso = recursoQueNecesitaEsiOriginal->nombre_recurso;
+	di.id_esi_que_lo_necesita = esi_original->id;
+	di.id_esi_que_lo_bloqueo = esiBloqueante->id;
+	list_add(lista, &di);
+
+	while (true) {
+		if (esiBloqueante->estado == ESI_BLOQUEADO) {
+			// Este es el recurso que necesita el esi bloqueante para continuar
+			recursoQueNecesitaEsiBloqueante = getRecurso(
+					esiBloqueante->informacionDeBloqueo->recursoNecesitado);
+
+			// Si el recurso que necesita el esi bloqueante esta bloqueado por el esi original => hay deadlock
+			if (recursoQueNecesitaEsiBloqueante->esi_bloqueante->id
+					== esi_original->id) {
+				DEADLOCK_INFO di1;
+				di1.recurso = recursoQueNecesitaEsiBloqueante->nombre_recurso;
+				di1.id_esi_que_lo_bloqueo = esi_original->id;
+				di1.id_esi_que_lo_necesita = esiBloqueante->id;
+				list_add(lista, &di1);
+
+				return lista;
 			}
-		}
+
+			if(esiBloqueante->id == recursoQueNecesitaEsiBloqueante->esi_bloqueante->id)
+				return NULL;
+			// No estaba bloqueado por el original => guardo la info
+			DEADLOCK_INFO di2;
+			di2.recurso = recursoQueNecesitaEsiBloqueante->nombre_recurso;
+			di2.id_esi_que_lo_necesita = esiBloqueante->id;
+			di2.id_esi_que_lo_bloqueo =
+					recursoQueNecesitaEsiBloqueante->esi_bloqueante->id;
+			list_add(lista, &di2);
+
+			// Evaluo al esi que bloquea a mi esi bloqueante
+			esiBloqueante = recursoQueNecesitaEsiBloqueante->esi_bloqueante;
+		} else
+			// El esi bloqueante no esta bloqueado
+			return NULL;
 	}
-	return false;
 }
 
 void comando_kill_proceso_esi_por_id(char* id_esi) {

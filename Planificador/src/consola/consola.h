@@ -19,6 +19,13 @@ typedef struct {
 	int valor;
 } t_command_struct;
 
+typedef struct
+{
+	char * recurso;
+	int id_esi_que_lo_necesita;
+	int id_esi_que_lo_bloqueo;
+} DEADLOCK_INFO;
+
 #define NCLAVE (sizeof(tabla_referencia_comandos)/sizeof(t_command_struct))
 
 #define CONTINUAR_EJECUTANDO_CONSOLA 0
