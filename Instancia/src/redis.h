@@ -70,6 +70,11 @@ typedef struct Redis {
 	unsigned long op_counter;
 } t_redis;
 
+typedef struct {
+	char* value;
+	unsigned int size;
+} t_redis_value;
+
 t_redis* redis_init(int entry_size, int number_of_entries, t_log* log,
 		const char* mount_dir, replacement_algo_e replacement_algo);
 
@@ -85,7 +90,7 @@ void redis_destroy(t_redis* redis);
  * no funcionar correctamente.
  */
 bool redis_set(t_redis* redis, char* key, char* value, unsigned int value_size);
-char* redis_get(t_redis* redis, char* key);
+t_redis_value* redis_get(t_redis* redis, char* key);
 
 /*
  * Store the value in the file system.
@@ -107,6 +112,7 @@ bool redis_entry_data_comparator_lru(void* entry1, void* entry2);
 bool redis_entry_data_comparator_bsu(void* entry1, void* entry2);
 
 void redis_entry_data_destroy(t_entry_data* entry_data);
+void redis_value_destroy(t_redis_value* redis_value);
 
 t_memory_position* redis_create_empty_memory_position();
 

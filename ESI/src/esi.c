@@ -107,7 +107,9 @@ void free_instruction_split(char **parts){
 }
 
 t_program_instruction* parse_instruction(char *line){
-	line[strlen(line)-1] = '\0';
+	if(line[strlen(line)-1] =='\n'){
+		line[strlen(line)-1] = '\0';
+	}
 
 	char** parts = string_n_split(line, 3, " ");
 	operation_type_e operation_type;
@@ -152,9 +154,9 @@ t_program_instruction* parse_instruction(char *line){
 	instruction->operation_type = operation_type;
 	strcpy(instruction->key, parts[1]);
 	if(operation_type == SET){
-		instruction->value = malloc(strlen(parts[2])+1);
-		strcpy(instruction->value, parts[2]);
-		instruction->value_size = strlen(parts[2])+1;
+		instruction->value = malloc(strlen(parts[2]));
+		memcpy(instruction->value, parts[2], strlen(parts[2]));
+		instruction->value_size = strlen(parts[2]);
 	} else {
 		instruction->value = NULL;
 		instruction->value_size = 0;
@@ -245,7 +247,7 @@ operation_result_e coordinate_operation(t_program_instruction *instruction){
 
 	if(instruction->value_size > 0){
 		log_trace(esi_log, "Sending payload to Coordinator ...");
-		result = send(coordinator_socket, instruction->value, strlen(instruction->value)+1, 0);
+		result = send(coordinator_socket, instruction->value, instruction->value_size, 0);
 		if (result <= 0) {
 			log_error(esi_log, "Could not send payload to Coordinator.");
 			return OP_ERROR;

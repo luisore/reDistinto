@@ -512,14 +512,14 @@ void run_console(){
 				printf("You must provide a key with the 'get' command.\n");
 			} else {
 				pthread_mutex_lock(&operation_mutex);
-				char* value = redis_get(redis, key);
+				t_redis_value* value = redis_get(redis, key);
 				pthread_mutex_unlock(&operation_mutex);
 
 				if(value == NULL){
 					printf("The key %s was not found!\n");
 				} else {
-					printf("%s: %s\n", key, value);
-					free(value);
+					printf("%s: %.*s\n", key, value->size, value->value);
+					redis_value_destroy(value);
 				}
 			}
 

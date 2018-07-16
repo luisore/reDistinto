@@ -177,6 +177,15 @@ void redis_entry_data_destroy(t_entry_data* entry_data){
 	free(entry_data);
 }
 
+void redis_value_destroy(t_redis_value* redis_value){
+	if(redis_value!=NULL){
+		if(redis_value->value != NULL){
+			free(redis_value->value);
+		}
+		free(redis_value);
+	}
+}
+
 void redis_update_last_reference(t_redis* redis, char* key){
 	log_info(redis->log, "Updating last reference for key: %s to: %i", key, redis->op_counter);
 
@@ -189,7 +198,7 @@ void redis_update_last_reference(t_redis* redis, char* key){
 	}
 }
 
-char* redis_get(t_redis* redis, char* key){
+t_redis_value* redis_get(t_redis* redis, char* key){
 	redis->op_counter++;
 
 	if(!dictionary_has_key(redis->key_dictionary, key)){
@@ -200,15 +209,17 @@ char* redis_get(t_redis* redis, char* key){
 
 	redis_update_last_reference(redis, key);
 
-	char* stored_value = malloc(entry_data->size);
-
 	int offset = redis->entry_size * entry_data->first_position;
 	log_debug(redis->log, "Key: %s is stored at: %i. Size: %i. Calculated offset: %i",
 			key, entry_data->first_position, entry_data->size, offset);
 
-	memcpy(stored_value, redis->memory_region + offset, entry_data->size);
+	t_redis_value* redis_value = malloc(sizeof(t_redis_value));
+	redis_value->value = malloc(entry_data->size);
+	redis_value->size = entry_data->size;
+	memcpy(redis_value->value, redis->memory_region + offset, entry_data->size);
 
-	return stored_value;
+
+	return redis_value;
 }
 
 
@@ -466,6 +477,7 @@ void redis_print_status(t_redis* redis){
 	int offset;
 	int value_size_to_copy = redis->entry_size > 40 ? 40 : redis->entry_size;
 	char val_buffer[41];
+	unsigned int remaining_size;
 
 	t_memory_position* mem_pos;
 	t_entry_data* entry;
@@ -475,8 +487,13 @@ void redis_print_status(t_redis* redis){
 		if(mem_pos->used){
 			entry = dictionary_get(redis->key_dictionary, mem_pos->key);
 			offset = redis->entry_size * i;
+			remaining_size = entry->size - ((i - entry->first_position)*redis->entry_size);
 		    memcpy(&val_buffer, redis->memory_region + offset, value_size_to_copy);
 		    val_buffer[value_size_to_copy] = '\0';
+		    if(remaining_size < value_size_to_copy){
+		    	val_buffer[remaining_size] = '\0';
+		    }
+
 
 			printf("  | %04d | %-40s | %10d | %10d | %-40s |\n", i, mem_pos->key, entry->size, entry->last_reference, val_buffer);
 		} else {
@@ -489,15 +506,14 @@ void redis_print_status(t_redis* redis){
 }
 
 void redis_log_status(t_redis* redis){
-	log_info(redis->log, "\n==========================================================================================================================\n");
-	log_info(redis->log, "   INSTANCE STATUS\n");
-	log_info(redis->log, "==========================================================================================================================\n");
-	log_info(redis->log, "  Entry size: %i. Max entries: %i, Storage size (bytes): %i.\n", redis->entry_size,
+	log_info(redis->log, "==========================================================================================================================");
+	log_info(redis->log, "   INSTANCE STATUS");
+	log_info(redis->log, "==========================================================================================================================");
+	log_info(redis->log, "  Entry size: %i. Max entries: %i, Storage size (bytes): %i.", redis->entry_size,
 			redis->number_of_entries, redis->storage_size);
-	log_info(redis->log, "  Total entries: %i. Current slot: %i.\n", dictionary_size(redis->key_dictionary), redis->current_slot);
-	log_info(redis->log, "\n");
+	log_info(redis->log, "  Total entries: %i. Current slot: %i.", dictionary_size(redis->key_dictionary), redis->current_slot);
 
-	log_info(redis->log, "  Memory Map:\n\n");
+	log_info(redis->log, "  Memory Map:");
 
 	/*
 	 * +------+------------------------------------------+------------+------------+------------------------------------------+
@@ -508,13 +524,14 @@ void redis_log_status(t_redis* redis){
 	 * +------+------------------------------------------+------------+------------+------------------------------------------+
 	 */
 
-	log_info(redis->log, "  +------+------------------------------------------+------------+------------+------------------------------------------+\n");
-	log_info(redis->log, "  | Pos  | Key                                      | Size (B)   | Last Ref.  | Value                                    |\n");
-	log_info(redis->log, "  +------+------------------------------------------+------------+------------+------------------------------------------+\n");
+	log_info(redis->log, "  +------+------------------------------------------+------------+------------+------------------------------------------+");
+	log_info(redis->log, "  | Pos  | Key                                      | Size (B)   | Last Ref.  | Value                                    |");
+	log_info(redis->log, "  +------+------------------------------------------+------------+------------+------------------------------------------+");
 
 	int offset;
 	int value_size_to_copy = redis->entry_size > 40 ? 40 : redis->entry_size;
 	char val_buffer[41];
+	unsigned int remaining_size;
 
 	t_memory_position* mem_pos;
 	t_entry_data* entry;
@@ -524,17 +541,21 @@ void redis_log_status(t_redis* redis){
 		if(mem_pos->used){
 			entry = dictionary_get(redis->key_dictionary, mem_pos->key);
 			offset = redis->entry_size * i;
+			remaining_size = entry->size - ((i - entry->first_position)*redis->entry_size);
 			memcpy(&val_buffer, redis->memory_region + offset, value_size_to_copy);
 			val_buffer[value_size_to_copy] = '\0';
+			if(remaining_size < value_size_to_copy){
+				val_buffer[remaining_size] = '\0';
+			}
 
-			log_info(redis->log, "  | %04d | %-40s | %10d | %10d | %-40s |\n", i, mem_pos->key, entry->size, entry->last_reference, val_buffer);
+			log_info(redis->log, "  | %04d | %-40s | %10d | %10d | %-40s |", i, mem_pos->key, entry->size, entry->last_reference, val_buffer);
 		} else {
-			log_info(redis->log, "  | %04d | FREE                                     |            |            |                                          |\n", i);
+			log_info(redis->log, "  | %04d | FREE                                     |            |            |                                          |", i);
 		}
 	}
 
-	log_info(redis->log, "  +------+------------------------------------------+------------+------------+------------------------------------------+\n");
-	log_info(redis->log, "==========================================================================================================================\n");
+	log_info(redis->log, "  +------+------------------------------------------+------------+------------+------------------------------------------+");
+	log_info(redis->log, "==========================================================================================================================");
 }
 
 bool is_memory_mapped(t_entry_data* entry){
