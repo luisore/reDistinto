@@ -7,6 +7,7 @@ void bloquearClavesIniciales() {
 	log_info(console_log, "Cargando claves inicialmente bloqueadas");
 
 	while (planificador_setup.CLAVES_INICIALMENTE_BLOQUEADAS[i] != NULL) {
+		log_info(console_log, "\tClave bloqueada: %s", planificador_setup.CLAVES_INICIALMENTE_BLOQUEADAS[i]);
 		bloquearRecurso(planificador_setup.CLAVES_INICIALMENTE_BLOQUEADAS[i]);
 		i++;
 	}

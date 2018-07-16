@@ -34,7 +34,7 @@ int main(void) {
 
 	pthread_mutex_init(&mutexConsola, NULL);
 	pthread_mutex_init(&mutexLog, NULL);
-	pthread_mutex_init(&mutexPrincipal, NULL);
+	pthread_mutex_init(&mutexPlanificador, NULL);
 
 	pthread_create(&hiloConsola, NULL, (void*) escucharConsola, NULL);
 	pthread_create(&hiloPrincipal, NULL, (void*) iniciarPlanificador, NULL);
@@ -112,7 +112,7 @@ void ejecutarPlanificacion() {
 		
 		// Hay algun esi listo para ejecutar?
 		if (cantidadDeEsis == 0) {
-			info_log("\n\n **************** NO HAY ESI *******************\n");
+			info_log("**************** NO HAY ESI *******************");
 		}
 
 		sem_wait(&sem_esis);
@@ -156,7 +156,6 @@ void ejecutarPlanificacion() {
 					esiEjecutando->tiempoRafagaActual++;
 
 					// Por ahora no decremento el tiempo estimado.
-					// No estoy seguro de que este bien
 					/*esiEjecutando->tiempoEstimado--;
 
 				if(esiEjecutando->tiempoEstimado < 0)
@@ -170,16 +169,11 @@ void ejecutarPlanificacion() {
 					// En un bloqueo se supone que el esi no pudo ejecutar
 					// por eso no hago el incremento de contadores
 					info_log("El ESI esta bloqueado");
-
-					// Un esi menos para ejecutar
-					sem_wait(&sem_esis);
-
 					break;
 				case ESI_FINISHED:
 					info_log("El ESI termino");
 
 					liberarRecursosDeEsiFinalizado(esiEjecutando);
-
 					tcpserver_remove_client(server, esiEjecutando->socket_id);
 					terminarEsiActual();
 
@@ -373,28 +367,30 @@ void escucharCoordinador(){
 	t_coordinator_operation_request *request =
 			deserialize_coordinator_operation_request(res_buffer);
 
-	log_info(console_log,"El coordinador solicita: %d", request->operation_type);
+	log_info(console_log,"El coordinador solicita: %s", operacionAString(request->operation_type));
 
 	char * key = &request->key[0];
 
-	int result;
+	// 1 - Me fijo si el recurso esta bloqueado por otro esi
+	int result = estaBloqueadoPor(esiEjecutando, key);
+
 	switch (request->operation_type) {
 		case GET: {
-			// 1 - Me fijo si el recurso esta bloqueado por otro esi
-			result = estaBloqueadoPor(esiEjecutando, key);
-
 			if(result == 0)
 			{
 				// Esta bloqueado por otro esi
+				info_log("BLOQUEO: El recurso esta bloqueado por otro ESI");
 				bloquearEsiActual(key);
 				responderCoordinador(coordinator_socket, OP_BLOCKED);
 			}
 			else if(result == 1) {
 				// Ya esta bloqueado por el esi actual
+				info_log("ERROR: El recurso ya esta bloqueado por el ESI actual");
 				responderCoordinador(coordinator_socket, OP_ERROR);
 			}
 			else {
 				// No esta bloqueado
+				info_log("OK: El recurso no esta bloqueado por otro ESI, lo bloqueo");
 				bloquearRecurso(key);
 				responderCoordinador(coordinator_socket, OP_SUCCESS);
 			}
@@ -402,40 +398,40 @@ void escucharCoordinador(){
 			break;
 		}
 		case SET:{
-			// 1 - Me fijo si el recurso esta bloqueado por otro esi
-			result = estaBloqueadoPor(esiEjecutando, key);
-
 			if(result == 0)
 			{
 				// Esta bloqueado por otro esi
+				info_log("BLOQUEO: El recurso esta bloqueado por otro ESI");
 				bloquearEsiActual(key);
 				responderCoordinador(coordinator_socket, OP_BLOCKED);
 			}
 			else if(result == 1) {
 				// Ya esta bloqueado por el esi actual
+				info_log("OK: El recurso esta bloqueado por el ESI actual");
 				responderCoordinador(coordinator_socket, OP_SUCCESS);
 			}
 			else {
+				info_log("ERROR: El recurso no esta bloqueado por el ESI actual");
 				responderCoordinador(coordinator_socket, OP_ERROR);
 			}
 			break;
 		}
 		case STORE: {
-			// 1 - Me fijo si el recurso esta bloqueado por otro esi
-			result = estaBloqueadoPor(esiEjecutando, key);
-
 			if(result == 0)
 			{
 				// Esta bloqueado por otro esi
+				info_log("BLOQUEO: El recurso esta bloqueado por otro ESI");
 				responderCoordinador(coordinator_socket, OP_BLOCKED);
 			}
 			else if(result == 1) {
 				// Ya esta bloqueado por el esi actual
+				info_log("OK: El recurso esta bloqueado por el ESI actual, lo libero");
 				liberarRecurso(key);
 				responderCoordinador(coordinator_socket, OP_SUCCESS);
 			}
 			else {
 				// No esta bloqueado
+				info_log("ERROR: El recurso no esta bloqueado por el ESI actual");
 				responderCoordinador(coordinator_socket, OP_ERROR);
 			}
 			break;
@@ -487,7 +483,7 @@ void liberarRecursos(int tipoSalida) {
 	free(planificador_setup.CLAVES_INICIALMENTE_BLOQUEADAS);
 
 	pthread_mutex_destroy(&mutexConsola);
-	pthread_mutex_destroy(&mutexPrincipal);
+	pthread_mutex_destroy(&mutexPlanificador);
 
 	sem_destroy(&sem_esis);
 

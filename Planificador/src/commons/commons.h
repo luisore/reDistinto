@@ -13,6 +13,7 @@
 #include <sys/socket.h>
 #include <commons/string.h>
 #include <pthread.h>
+#include "../libs/protocols.h"
 
 typedef enum  {
 	ESI_LISTO,
@@ -56,7 +57,7 @@ int coordinator_socket_console ;
 
 pthread_mutex_t mutexConsola;
 pthread_mutex_t mutexLog;
-pthread_mutex_t mutexPrincipal;
+pthread_mutex_t mutexPlanificador;
 
 sem_t sem_esis;
 
@@ -68,5 +69,7 @@ void info_log_param2(char * message, void * param1, void * param2);
 void error_log(char * message);
 void error_log_param1(char * message, void * param1);
 void error_log_param2(char * message, void * param1, void * param2);
+
+char * operacionAString(operation_type_e tipo_operacion);
 
 #endif /* SRC_COMMONS_COMMONS_H_ */

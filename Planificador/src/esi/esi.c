@@ -191,7 +191,7 @@ RECURSO_ESTADO estadoRecurso(char * p_recurso){
 int cantidadEsiTotales(){
 	int cantidadTotal = 0;
 
-	pthread_mutex_lock(&mutexPrincipal);
+	pthread_mutex_lock(&mutexPlanificador);
 
 	log_info(console_log, "ESI ejecutando: %s", esiEjecutando == NULL? "NO" : "SI");
 	log_info(console_log, "ESI nuevos: %d", list_size(listaEsiNuevos));
@@ -203,7 +203,7 @@ int cantidadEsiTotales(){
 	cantidadTotal += list_size(listaEsiListos);
 	cantidadTotal += list_size(listaEsiBloqueados);
 
-	pthread_mutex_unlock(&mutexPrincipal);
+	pthread_mutex_unlock(&mutexPlanificador);
 
 	return cantidadTotal;
 }

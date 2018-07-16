@@ -31,7 +31,7 @@ void setAlgoritmo(int p_algoritmo){
  */
 void nuevoCicloDeCPU() {
 	int i = 0;
-	pthread_mutex_lock(&mutexPrincipal);
+	pthread_mutex_lock(&mutexPlanificador);
 
 	for(i = 0; i < list_size(listaEsiListos); i++)
 	{
@@ -45,7 +45,7 @@ void nuevoCicloDeCPU() {
 		esi->informacionDeBloqueo->unidadesDeTiempoBloqueado++;
 	}
 
-	pthread_mutex_unlock(&mutexPrincipal);
+	pthread_mutex_unlock(&mutexPlanificador);
 }
 
 int calcularMediaExponencial(int duracionRafaga, int estimacionTn) {
@@ -102,7 +102,7 @@ int getIndiceMayorResponseRatio() {
 void aplicarSJF(bool p_hayDesalojo) {
 	hayDesalojo = p_hayDesalojo;
 
-	pthread_mutex_lock(&mutexPrincipal);
+	pthread_mutex_lock(&mutexPlanificador);
 
 	//1 - Si el esi actual termino bloqueado lo encolo
 	chequearBloqueoEsiActual();
@@ -116,7 +116,7 @@ void aplicarSJF(bool p_hayDesalojo) {
 	//4 - Hay procesos listos para ejecutar?
 	if(list_size(listaEsiListos) <= 0)
 	{
-		pthread_mutex_unlock(&mutexPrincipal);
+		pthread_mutex_unlock(&mutexPlanificador);
 		return;
 	}
 
@@ -155,13 +155,13 @@ void aplicarSJF(bool p_hayDesalojo) {
 	esiEjecutando->tiempoEspera = 0;
 	esiEjecutando->tiempoRafagaActual = 0;
 
-	pthread_mutex_unlock(&mutexPrincipal);
+	pthread_mutex_unlock(&mutexPlanificador);
 }
 
 
 
 void aplicarHRRN(){
-	pthread_mutex_lock(&mutexPrincipal);
+	pthread_mutex_lock(&mutexPlanificador);
 
 	//1 - Si el esi actual termino bloqueado lo encolo
 	chequearBloqueoEsiActual();
@@ -174,7 +174,7 @@ void aplicarHRRN(){
 
 	//4 - Hay procesos listos para ejecutar?
 	if (list_size(listaEsiListos) <= 0) {
-		pthread_mutex_unlock(&mutexPrincipal);
+		pthread_mutex_unlock(&mutexPlanificador);
 		return;
 	}
 
@@ -188,7 +188,7 @@ void aplicarHRRN(){
 	esiEjecutando->tiempoEspera = 0;
 	esiEjecutando->tiempoRafagaActual = 0;
 
-	pthread_mutex_unlock(&mutexPrincipal);
+	pthread_mutex_unlock(&mutexPlanificador);
 }
 
 /**
