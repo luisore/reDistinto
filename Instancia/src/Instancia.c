@@ -399,6 +399,7 @@ void run_operations(){
 			handle_compact();
 			break;
 		}
+		redis_log_status(redis);
 	}
 }
 
