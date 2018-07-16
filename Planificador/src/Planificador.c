@@ -169,6 +169,7 @@ void ejecutarPlanificacion() {
 					// En un bloqueo se supone que el esi no pudo ejecutar
 					// por eso no hago el incremento de contadores
 					info_log("El ESI esta bloqueado");
+					chequearBloqueoEsiActual();
 					break;
 				case ESI_FINISHED:
 					info_log("El ESI termino");

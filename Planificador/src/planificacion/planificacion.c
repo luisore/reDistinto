@@ -9,7 +9,6 @@ int algoritmo = 0; // 0: SJF_SD; 1: SJF_CD; 2: HRRN
 
 void chequearDesbloqueos();
 void admitirNuevosEsis();
-void chequearBloqueoEsiActual();
 
 
 // SETTERS

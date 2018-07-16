@@ -45,5 +45,6 @@ int cantidadEsiTotales();
 int bloquearRecurso(char * p_recurso);
 int liberarRecurso(char * p_recurso);
 RECURSO_ESTADO estadoRecurso(char * p_recurso);
+RECURSO *getRecurso(char * p_recurso);
 
 #endif /* SRC_ESI_ESI_H_ */
