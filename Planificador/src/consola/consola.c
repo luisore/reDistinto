@@ -208,14 +208,14 @@ void _liberar_comando_y_parametros(char** split_comandos)
 void comando_pausar()
 {
 	log_info(console_log, "Consola: Pausar\n");
-	pthread_mutex_lock(&mutexPrincipal);
+	pthread_mutex_lock(&mutexPlanificador);
 	printf("Planificador pausado!\n");
 }
 
 void comando_continuar()
 {
 	log_info(console_log, "Consola: Continuar\n");
-	pthread_mutex_unlock(&mutexPrincipal);
+	pthread_mutex_unlock(&mutexPlanificador);
 	printf("Planificador reanudado!\n");
 }
 
@@ -240,9 +240,9 @@ void comando_bloquear_esi_por_id_y_recurso_de_clave(char* id_esi, char* clave)
 				printf("No se puede bloquear el ESI en ejecucion\n");
 			} else
 			{
-				pthread_mutex_lock(&mutexPrincipal);
+				pthread_mutex_lock(&mutexPlanificador);
 				bloquearEsi(esi->id, clave);
-				pthread_mutex_unlock(&mutexPrincipal);
+				pthread_mutex_unlock(&mutexPlanificador);
 				printf("Se ha bloqueado el ESI con id_esi: %s para la clave: %s\n", id_esi, clave);
 			}
 		} else {
@@ -265,9 +265,9 @@ void comando_desbloquear_primer_esi_por_clave(char* clave)
 		ESI_STRUCT* esi = obtener_esi_por_clave_recurso(clave);
 		if(esi != NULL)
 		{
-			pthread_mutex_lock(&mutexPrincipal);
+			pthread_mutex_lock(&mutexPlanificador);
 			desbloquearEsi(esi);
-			pthread_mutex_unlock(&mutexPrincipal);
+			pthread_mutex_unlock(&mutexPlanificador);
 			printf("Se ha desbloqueado el ESI con id_esi: %d para la clave: %s\n", esi->id, clave);
 		} else {
 			printf("No se encontro nignun proceso esi bloquedo por la clave: %s especificada\n", clave);

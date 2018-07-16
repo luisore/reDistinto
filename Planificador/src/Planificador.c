@@ -34,7 +34,7 @@ int main(void) {
 
 	pthread_mutex_init(&mutexConsola, NULL);
 	pthread_mutex_init(&mutexLog, NULL);
-	pthread_mutex_init(&mutexPrincipal, NULL);
+	pthread_mutex_init(&mutexPlanificador, NULL);
 
 	pthread_create(&hiloConsola, NULL, (void*) escucharConsola, NULL);
 	pthread_create(&hiloPrincipal, NULL, (void*) iniciarPlanificador, NULL);
@@ -483,7 +483,7 @@ void liberarRecursos(int tipoSalida) {
 	free(planificador_setup.CLAVES_INICIALMENTE_BLOQUEADAS);
 
 	pthread_mutex_destroy(&mutexConsola);
-	pthread_mutex_destroy(&mutexPrincipal);
+	pthread_mutex_destroy(&mutexPlanificador);
 
 	sem_destroy(&sem_esis);
 

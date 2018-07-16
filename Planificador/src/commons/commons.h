@@ -57,7 +57,7 @@ int coordinator_socket_console ;
 
 pthread_mutex_t mutexConsola;
 pthread_mutex_t mutexLog;
-pthread_mutex_t mutexPrincipal;
+pthread_mutex_t mutexPlanificador;
 
 sem_t sem_esis;
 
