@@ -50,3 +50,13 @@ void error_log_param2(char * message, void * param1, void * param2){
 	pthread_mutex_unlock(&mutexLog);
 }
 
+char * operacionAString(operation_type_e tipo_operacion)
+{
+	switch(tipo_operacion){
+	case GET: return "GET";
+	case SET: return "SET";
+	case STORE: return "STORE";
+	default: return "";
+	}
+}
+
