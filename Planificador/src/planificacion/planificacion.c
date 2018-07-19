@@ -47,17 +47,18 @@ void nuevoCicloDeCPU() {
 	pthread_mutex_unlock(&mutexPlanificador);
 }
 
-int calcularMediaExponencial(int duracionRafaga, int estimacionTn) {
+float calcularMediaExponencial(int duracionRafaga, int estimacionTn) {
 	float estimacionTnMasUno = 0.0f;
 
 	//Τn+1 = αtn + (1 - α)Τn
 	estimacionTnMasUno = alpha * duracionRafaga + (1 - alpha) * estimacionTn;
 
-	return (int) roundf(estimacionTnMasUno);
+	return estimacionTnMasUno;
 }
 
 int getIndiceMenorEstimacion(){
-	int menorIdx = 0, menorEstimacion = 100000, i = 0;
+	int menorIdx = 0, i = 0;
+	float menorEstimacion = 100000.0;
 
 	log_info(console_log, "\nCANTIDAD DE ESIS LISTOS: %d\n", list_size(listaEsiListos));
 
@@ -87,7 +88,7 @@ int getIndiceMayorResponseRatio() {
 		if (esi == NULL)
 			continue;
 
-		float rr = calcularTasaDeRespuesta(esi->tiempoEspera, esi->tiempoEstimado);
+		float rr = calcularTasaDeRespuesta(esi->tiempoEspera, (int) roundf(esi->tiempoEstimado));
 
 		if(rr > mayorRR){
 			mayorRR = rr;
@@ -227,7 +228,7 @@ void admitirNuevosEsis()
 			if (esi == NULL)
 				continue;
 
-			esi->tiempoEstimado = estimacionInicial;
+			esi->tiempoEstimado = (float) estimacionInicial;
 		}
 
 		//2 - Admitir nuevos ESIs
@@ -262,6 +263,8 @@ void chequearDesbloqueos(){
 		{
 			// Calculo la estimacion
 			esi->tiempoEstimado = calcularMediaExponencial(esi->tiempoRafagaActual, esi->tiempoEstimado);
+
+			log_info(console_log, "Esi id: %d    Estimado: %f", esi->id, esi->tiempoEstimado);
 
 			if(algoritmo != 2)
 			{

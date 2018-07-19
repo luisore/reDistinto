@@ -41,7 +41,7 @@ typedef struct {
 	ESI_STATUS estado;
 	ESI_BLOCKED_INFO* informacionDeBloqueo;
 	int tiempoEspera;
-	int tiempoEstimado;
+	float tiempoEstimado;
 	int tiempoRafagaActual;
 } ESI_STRUCT;
 
