@@ -337,10 +337,24 @@ void comando_deadlock()
 {
 	log_info(console_log, "Consola: Deadlock\n");
 
+	t_list *ids_bloqueados = list_create();
+
+	int _get_id(ESI_STRUCT *esi) {
+		return esi->id;
+	}
+	ids_bloqueados = list_map(listaEsiBloqueados, (void*) _get_id);
+
 	int i;
 	for (i = 0; i < list_size(listaEsiBloqueados); i++)
 	{
 		ESI_STRUCT *esi = list_get(listaEsiBloqueados, i);
+
+		bool _es_el_mismo(int id) {
+			return esi->id == id;
+		}
+		if(!list_any_satisfy(ids_bloqueados, (void*)_es_el_mismo))
+			continue;
+
 		listaEsiEnDeadlock = hayDeadlock(esi);
 
 		if(listaEsiEnDeadlock != NULL)
@@ -354,6 +368,13 @@ void comando_deadlock()
 				for (j = 0; j < list_size(listaEsiEnDeadlock) ; j++)
 				{
 					int* aux = list_get(listaEsiEnDeadlock, j);
+					int k;
+					for(k = 0; k < list_size(ids_bloqueados); k++)
+					{
+						int id_aux = (int) list_get(ids_bloqueados, k);
+						if(id_aux == *aux)
+							list_remove(ids_bloqueados, k);
+					}
 					printf("Bloqueado por %d\n", *aux);
 				}
 				list_clean(listaEsiEnDeadlock);
@@ -364,6 +385,7 @@ void comando_deadlock()
 			}
 		}
 	}
+	list_destroy(ids_bloqueados);
 }
 
 t_list *hayDeadlock(ESI_STRUCT* esi_original)
