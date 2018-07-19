@@ -272,6 +272,10 @@ void chequearDesbloqueos(){
 			// Cuando se desbloquea, empieza a contar el tiempo de espera
 			esi->tiempoEspera = 0;
 
+			esi->estado = ESI_LISTO;
+			strcpy(esi->informacionDeBloqueo->recursoNecesitado, "\0");
+			esi->informacionDeBloqueo->unidadesDeTiempoBloqueado = 0;
+
 			// Cambio de lista
 			list_remove(listaEsiBloqueados, i);
 			i--;

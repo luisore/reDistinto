@@ -347,27 +347,19 @@ void comando_deadlock()
 			if(!list_is_empty(listaEsiEnDeadlock))
 			{
 				printf("Los siguientes esis estan en deadlock: \n");
+				printf("Esi %d\n",esi->id);
 				int j;
 				for (j = 0; j < list_size(listaEsiEnDeadlock) ; j++)
 				{
-					DEADLOCK_INFO* aux = list_get(listaEsiEnDeadlock, j);
-					printf("RECURSO: %s, ESI_SOLICTANTE: %d, ESI_BLOQUEANTE: %d.\n ",aux->recurso,
-																					aux->id_esi_que_lo_necesita,
-																					aux->id_esi_que_lo_bloqueo);
-
+					int* aux = list_get(listaEsiEnDeadlock, j);
+					printf("Bloqueado por %d\n", *aux);
 				}
 				list_clean(listaEsiEnDeadlock);
 				// 2) Encontro deadlock => retornar
-				return;
+				//return;
 			} else {
 				printf("No se ha detectado deadlock\n");
 			}
-			// Si no retornas, va a agarrar al siguiente esi. Si ese ESI es uno de los que estaba
-			// en la lista de recien, te va a devolver la misma lista que te devolvio recien
-			// entonces vas a tener información duplicada. Si encontro deadlock -> retorna y te aseguras que no se repita
-			// No creo que haya un caso de prueba con mas de 1 deadlock
-		} else {
-			return;
 		}
 	}
 }
@@ -390,11 +382,7 @@ t_list *hayDeadlock(ESI_STRUCT* esi_original)
 	if (esiBloqueante == NULL)
 		return NULL;
 
-	DEADLOCK_INFO *di = malloc(sizeof(DEADLOCK_INFO));
-	strcpy(di->recurso, recursoQueNecesitaEsiOriginal->nombre_recurso);
-	di->id_esi_que_lo_necesita = esi_original->id;
-	di->id_esi_que_lo_bloqueo = esiBloqueante->id;
-	list_add(lista, di);
+	list_add(lista, &esiBloqueante->id);
 
 	while (true) {
 		if (esiBloqueante->estado == ESI_BLOQUEADO) {
@@ -405,30 +393,23 @@ t_list *hayDeadlock(ESI_STRUCT* esi_original)
 			// Si el recurso que necesita el esi bloqueante esta bloqueado por el esi original => hay deadlock
 			if (recursoQueNecesitaEsiBloqueante->esi_bloqueante->id
 					== esi_original->id) {
-				DEADLOCK_INFO *di1 = malloc(sizeof(DEADLOCK_INFO));
-				strcpy(di1->recurso, recursoQueNecesitaEsiBloqueante->nombre_recurso);
-				di1->id_esi_que_lo_bloqueo = esi_original->id;
-				di1->id_esi_que_lo_necesita = esiBloqueante->id;
-				list_add(lista, di1);
+				list_add(lista, &esi_original->id);
 
 				return lista;
 			}
 
 			if(esiBloqueante->id == recursoQueNecesitaEsiBloqueante->esi_bloqueante->id)
 				return lista;
+
 			// No estaba bloqueado por el original => guardo la info
-			DEADLOCK_INFO *di2 = malloc(sizeof(DEADLOCK_INFO));
-			strcpy(di2->recurso, recursoQueNecesitaEsiBloqueante->nombre_recurso);
-			di2->id_esi_que_lo_necesita = esiBloqueante->id;
-			di2->id_esi_que_lo_bloqueo =
-					recursoQueNecesitaEsiBloqueante->esi_bloqueante->id;
-			list_add(lista, di2);
+			list_add(lista, &recursoQueNecesitaEsiBloqueante->esi_bloqueante->id);
 
 			// Evaluo al esi que bloquea a mi esi bloqueante
 			esiBloqueante = recursoQueNecesitaEsiBloqueante->esi_bloqueante;
-		} else
+		} else {
 			// El esi bloqueante no esta bloqueado
 			return NULL;
+		}
 	}
 }
 
