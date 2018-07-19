@@ -15,7 +15,7 @@ void setAlgoritmo(int p_algoritmo);
 /********** SJF **********/
 void setAlpha(float p_alpha);
 void setEstimacionInicial(int p_estimacion);
-float calcularMediaExponencial(int duracionRafaga, int estimacionTn);
+float calcularMediaExponencial(int duracionRafaga, float estimacionTn);
 void aplicarSJF(bool p_hayDesalojo);
 
 

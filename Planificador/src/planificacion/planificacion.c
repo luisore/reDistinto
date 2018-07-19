@@ -47,11 +47,11 @@ void nuevoCicloDeCPU() {
 	pthread_mutex_unlock(&mutexPlanificador);
 }
 
-float calcularMediaExponencial(int duracionRafaga, int estimacionTn) {
+float calcularMediaExponencial(int duracionRafaga, float estimacionTn) {
 	float estimacionTnMasUno = 0.0f;
 
 	//Τn+1 = αtn + (1 - α)Τn
-	estimacionTnMasUno = alpha * duracionRafaga + (1 - alpha) * estimacionTn;
+	estimacionTnMasUno = alpha * (float)duracionRafaga + (1.0 - alpha) * estimacionTn;
 
 	return estimacionTnMasUno;
 }
