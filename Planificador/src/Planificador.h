@@ -7,7 +7,6 @@
 #include <unistd.h>
 
 #include "libs/serialize.h"
-#include "libs/tcpserver.h"
 #include "libs/protocols.h"
 
 #include "configuracion/configuracion.h"
@@ -20,8 +19,6 @@
 int coordinator_socket = 0;
 
 int esi_id = 0;
-
-tcp_server_t* server;
 
 pthread_t hiloConsola;
 pthread_t hiloPrincipal;

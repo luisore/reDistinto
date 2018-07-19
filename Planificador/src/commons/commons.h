@@ -14,6 +14,7 @@
 #include <commons/string.h>
 #include <pthread.h>
 #include "../libs/protocols.h"
+#include "../libs/tcpserver.h"
 
 typedef enum  {
 	ESI_LISTO,
@@ -60,6 +61,8 @@ pthread_mutex_t mutexLog;
 pthread_mutex_t mutexPlanificador;
 
 sem_t sem_esis;
+
+tcp_server_t* server;
 
 int create_log();
 

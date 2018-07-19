@@ -26,11 +26,20 @@ ESI_STRUCT * clonarEsi(ESI_STRUCT *esi) {
 	return nuevoEsi;
 }
 
+bool sonIguales(ESI_STRUCT * esi1, ESI_STRUCT * esi2){
+	if(esi1 == NULL || esi2 == NULL)
+		return false;
+
+	return esi1->id == esi2->id &&
+			esi1->socket_id == esi2->socket_id &&
+			esi1->client_socket == esi2->client_socket;
+}
 
 void agregarNuevoEsi(ESI_STRUCT * esi){
 	list_add(listaEsiNuevos, esi);
 	sem_post(&sem_esis);
 }
+
 
 void terminarEsiActual(){
 	esiEjecutando->estado = ESI_TERMINADO;
@@ -39,10 +48,9 @@ void terminarEsiActual(){
 }
 
 void matarEsi(ESI_STRUCT* esi){
-	esi->estado = ESI_TERMINADO;
-	list_add(listaEsiTerminados, clonarEsi(esi));
-	esi = NULL;
-	sem_wait(&sem_esis);
+	liberarRecursosDeEsiFinalizado(esi);
+	tcpserver_remove_client(server, esi->socket_id);
+	sem_post(&sem_esis);
 }
 
 /**
@@ -58,38 +66,6 @@ void bloquearEsiActual(char * recursoEsperado) {
 
 	esiEjecutando->estado = ESI_BLOQUEADO;
 	esiEjecutando->informacionDeBloqueo = infoBloqueo;
-}
-
-/**
- * Desencola un ESI de la lista de bloqueados
- */
-void desbloquearEsi(ESI_STRUCT * esi) {
-	int i = 0, tamanioLista = list_size(listaEsiBloqueados);
-	ESI_STRUCT * esiAux = NULL;
-
-	for(i = 0; i < tamanioLista; i++)
-	{
-		esiAux = list_get(listaEsiBloqueados, i);
-		if(esiAux != NULL && sonIguales(esi, esiAux))
-		{
-			esiAux->estado = ESI_LISTO;
-			list_remove(listaEsiBloqueados, i);
-			list_add(listaEsiListos, esiAux);
-
-			//Ahora hay un esi mas
-			sem_post(&sem_esis);
-			return;
-		}
-	}
-}
-
-bool sonIguales(ESI_STRUCT * esi1, ESI_STRUCT * esi2){
-	if(esi1 == NULL || esi2 == NULL)
-		return false;
-
-	return esi1->id == esi2->id &&
-			esi1->socket_id == esi2->socket_id &&
-			esi1->client_socket == esi2->client_socket;
 }
 
 /**

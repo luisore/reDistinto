@@ -315,6 +315,8 @@ void comando_listar_procesos_por_recurso(char* recurso)
 
 		bool _espera_por_recurso(ESI_STRUCT* esi)
 		{
+			if(esi->informacionDeBloqueo == NULL)
+				return false;
 			return string_equals_ignore_case(esi->informacionDeBloqueo->recursoNecesitado, recurso);
 		}
 
@@ -418,25 +420,65 @@ void comando_kill_proceso_esi_por_id(char* id_esi) {
 
 	if(_validar_parametro(id_esi))
 	{
-		_obtener_todos_los_esis_corriendo();
+		int i = 0;
 
-		ESI_STRUCT* esi = obtener_esi_por_id(id_esi);
-
-		if(esi != NULL)
+		if(esiEjecutando != NULL && string_equals_ignore_case(id_esi, string_itoa(esiEjecutando->id)))
 		{
-			if(esi->id == esiEjecutando->id)
-			{
-				printf("No se puede bloquear el ESI en ejecucion\n");
-			} else
+			printf("No se puede bloquear el ESI en ejecucion\n");
+			return;
+		}
+
+		for(i = 0; i < list_size(listaEsiListos); i++)
+		{
+			ESI_STRUCT* esi = list_get(listaEsiListos, i);
+			if(string_equals_ignore_case(string_itoa(esi->id), id_esi))
 			{
 				matarEsi(esi);
-				printf("Se ha elimiando el ESI con id_esi: %d\n", esi->id);
+
+				esi->estado = ESI_TERMINADO;
+				list_remove(listaEsiListos, i);
+				list_add(listaEsiTerminados, clonarEsi(esi));
+
+				printf("Se ha eliminado el ESI con id_esi: %d\n", esi->id);
+
+				return;
 			}
-		} else {
-			printf("No se encontro proceso esi con id: %s especificado \n", id_esi);
-			log_info(console_log, "No existe proceso esi con el id: %s\n", id_esi);
 		}
-		list_clean(listaEsis);
+		for(i = 0; i < list_size(listaEsiBloqueados); i++)
+		{
+			ESI_STRUCT* esi = list_get(listaEsiBloqueados, i);
+			if(string_equals_ignore_case(string_itoa(esi->id), id_esi))
+			{
+				matarEsi(esi);
+
+				esi->estado = ESI_TERMINADO;
+				list_remove(listaEsiBloqueados, i);
+				list_add(listaEsiTerminados, clonarEsi(esi));
+
+				printf("Se ha eliminado el ESI con id_esi: %d\n", esi->id);
+
+				return;
+			}
+		}
+		for(i = 0; i < list_size(listaEsiNuevos); i++)
+		{
+			ESI_STRUCT* esi = list_get(listaEsiNuevos, i);
+			if(string_equals_ignore_case(string_itoa(esi->id), id_esi))
+			{
+				matarEsi(esi);
+
+				esi->estado = ESI_TERMINADO;
+				list_remove(listaEsiNuevos, i);
+				list_add(listaEsiTerminados, clonarEsi(esi));
+
+				printf("Se ha eliminado el ESI con id_esi: %d\n", esi->id);
+
+				return;
+			}
+		}
+
+		printf("No se encontro proceso esi con id: %s especificado \n", id_esi);
+		log_info(console_log, "No existe proceso esi con el id: %s\n", id_esi);
 	}
 }
 

@@ -28,7 +28,6 @@ void matarEsi(ESI_STRUCT* esi);
 
 //Funciones para la administracion de los ESI
 void bloquearEsiActual(char * recursoEsperado);
-void desbloquearEsi();
 int estaBloqueadoPor(ESI_STRUCT * esi, char * recurso);
 bool sonIguales(ESI_STRUCT * esi1, ESI_STRUCT * esi2);
 
