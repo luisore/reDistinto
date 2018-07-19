@@ -237,7 +237,8 @@ void comando_bloquear_esi_por_id_y_recurso_de_clave(char* id_esi, char* clave)
 
 	if(_validar_parametro(clave) && _validar_parametro(id_esi))
 	{
-		pthread_mutex_lock(&mutexPlanificador);
+		if(!estaPausado)
+			pthread_mutex_lock(&mutexPlanificador);
 		_obtener_esis_nuevos();
 		_obtener_esis_listos();
 		_obtener_esis_ejecutando();
@@ -260,7 +261,8 @@ void comando_bloquear_esi_por_id_y_recurso_de_clave(char* id_esi, char* clave)
 		}
 
 		list_clean(listaEsis);
-		pthread_mutex_unlock(&mutexPlanificador);
+		if(!estaPausado)
+			pthread_mutex_unlock(&mutexPlanificador);
 	}
 }
 
@@ -270,7 +272,8 @@ void comando_desbloquear_primer_esi_por_clave(char* clave)
 
 	if(_validar_parametro(clave))
 	{
-		pthread_mutex_lock(&mutexPlanificador);
+		if(!estaPausado)
+			pthread_mutex_lock(&mutexPlanificador);
 
 		if(estadoRecurso(clave) == RECURSO_BLOQUEADO)
 		{
@@ -280,7 +283,8 @@ void comando_desbloquear_primer_esi_por_clave(char* clave)
 			printf("El recurso no se encuentra bloqueado\n");
 		}
 
-		pthread_mutex_unlock(&mutexPlanificador);
+		if(!estaPausado)
+			pthread_mutex_unlock(&mutexPlanificador);
 	}
 }
 
