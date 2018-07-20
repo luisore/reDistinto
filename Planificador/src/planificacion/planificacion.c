@@ -195,10 +195,10 @@ void aplicarHRRN(){
 		int indexMayorResponseRatio = getIndiceMayorResponseRatio();
 		esiEjecutando = list_get(listaEsiListos, indexMayorResponseRatio);
 		list_remove(listaEsiListos, indexMayorResponseRatio);
-	}
 
-	esiEjecutando->tiempoEspera = 0;
-	esiEjecutando->tiempoRafagaActual = 0;
+		esiEjecutando->tiempoEspera = 0;
+		esiEjecutando->tiempoRafagaActual = 0;
+	}
 
 	pthread_mutex_unlock(&mutexPlanificador);
 }
