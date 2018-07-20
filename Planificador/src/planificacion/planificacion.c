@@ -260,13 +260,13 @@ void chequearDesbloqueos(){
 
 		if(flagLiberar == 1)
 		{
-			// Calculo la estimacion
-			esi->tiempoEstimado = calcularMediaExponencial(esi->tiempoRafagaActual, esi->tiempoEstimado);
-
-			log_info(console_log, "\nRecalculando estimacion: Esi id: %d \t Estimado: %f", esi->id, esi->tiempoEstimado);
-
 			if(algoritmo != 2)
 			{
+				// Calculo la estimacion
+				esi->tiempoEstimado = calcularMediaExponencial(esi->tiempoRafagaActual, esi->tiempoEstimado);
+
+				log_info(console_log, "\nRecalculando estimacion: Esi id: %d \t Estimado: %f", esi->id, esi->tiempoEstimado);
+
 				// Si el algoritmo es SJF ya no me sirve el tiempo de rafaga
 				esi->tiempoRafagaActual = 0;
 			}
