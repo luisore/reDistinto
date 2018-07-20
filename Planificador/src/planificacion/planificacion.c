@@ -60,7 +60,8 @@ int getIndiceMenorEstimacion(){
 	int menorIdx = 0, i = 0;
 	float menorEstimacion = 100000.0;
 
-	log_info(console_log, "\nCANTIDAD DE ESIS LISTOS: %d\n", list_size(listaEsiListos));
+	log_info(console_log, "CANTIDAD DE ESIS LISTOS: %d\n", list_size(listaEsiListos));
+	log_info(console_log, "id | Tiempo estimado");
 
 	for (i = 0; i < list_size(listaEsiListos); i++) {
 		ESI_STRUCT * esi = list_get(listaEsiListos, i);
@@ -68,11 +69,17 @@ int getIndiceMenorEstimacion(){
 		if (esi == NULL)
 			continue;
 
+		log_info(console_log, "%d | %f", esi->id, esi->tiempoEstimado);
+
 		if(esi->tiempoEstimado < menorEstimacion){
 			menorEstimacion = esi->tiempoEstimado;
 			menorIdx = i;
 		}
 	}
+
+	log_info(console_log, "");
+	log_info(console_log, "El menor fue el nro %d", menorIdx);
+
 	return menorIdx;
 }
 
@@ -80,7 +87,7 @@ int getIndiceMayorResponseRatio() {
 	int mayorIdx = 0, i = 0;
 	float mayorRR = 0.0;
 
-	log_info(console_log, "\nCANTIDAD DE ESIS LISTOS: %d\n", list_size(listaEsiListos));
+	log_info(console_log, "CANTIDAD DE ESIS LISTOS: %d\n", list_size(listaEsiListos));
 
 	for (i = 0; i < list_size(listaEsiListos); i++) {
 		ESI_STRUCT * esi = list_get(listaEsiListos, i);
@@ -88,13 +95,18 @@ int getIndiceMayorResponseRatio() {
 		if (esi == NULL)
 			continue;
 
-		float rr = calcularTasaDeRespuesta(esi->tiempoEspera, (int) roundf(esi->tiempoEstimado));
+		float rr = calcularTasaDeRespuesta(esi->tiempoEspera, esi->tiempoEstimado);
+
+		log_info(console_log, "N = %d | %d | S: %f | W: %d | RR: %f", i, esi->id, esi->tiempoEstimado, esi->tiempoEspera, rr);
 
 		if(rr > mayorRR){
 			mayorRR = rr;
 			mayorIdx = i;
 		}
 	}
+
+	log_info(console_log, "");
+	log_info(console_log, "El mayor fue el nro %d", mayorIdx);
 
 	return mayorIdx;
 }
@@ -116,6 +128,7 @@ void aplicarSJF(bool p_hayDesalojo) {
 	//4 - Hay procesos listos para ejecutar?
 	if(list_size(listaEsiListos) <= 0)
 	{
+		log_info(console_log, "Revise, pero no encontre ESIs en estado listo para ejecutar");
 		pthread_mutex_unlock(&mutexPlanificador);
 		return;
 	}
@@ -194,11 +207,11 @@ void aplicarHRRN(){
  * w = tiempo invertido esperando por el procesador
  * s = tiempo de servicio esperado
  */
-float calcularTasaDeRespuesta(int w, int s) {
-	if (s == 0)
+float calcularTasaDeRespuesta(int w, float s) {
+	if (s == 0.0)
 		return 0;
 
-	return (w + s) / s;
+	return (((float)w) + s) / s;
 }
 
 void chequearBloqueoEsiActual()
@@ -228,6 +241,8 @@ void admitirNuevosEsis()
 				continue;
 
 			esi->tiempoEstimado = (float) estimacionInicial;
+
+			log_info(console_log, "¡Nuevo ESI incorporado! Id asignado: %d", esi->id);
 		}
 
 		//2 - Admitir nuevos ESIs
@@ -260,13 +275,15 @@ void chequearDesbloqueos(){
 
 		if(flagLiberar == 1)
 		{
+			log_info(console_log, "¡Atencion! Se libera un ESI: id %d", esi->id);
+
+			// Calculo la estimacion
+			esi->tiempoEstimado = calcularMediaExponencial(esi->tiempoRafagaActual, esi->tiempoEstimado);
+
+			log_info(console_log, "Recalculando estimacion: %f", esi->tiempoEstimado);
+
 			if(algoritmo != 2)
 			{
-				// Calculo la estimacion
-				esi->tiempoEstimado = calcularMediaExponencial(esi->tiempoRafagaActual, esi->tiempoEstimado);
-
-				log_info(console_log, "\nRecalculando estimacion: Esi id: %d \t Estimado: %f", esi->id, esi->tiempoEstimado);
-
 				// Si el algoritmo es SJF ya no me sirve el tiempo de rafaga
 				esi->tiempoRafagaActual = 0;
 			}

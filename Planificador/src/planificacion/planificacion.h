@@ -20,7 +20,7 @@ void aplicarSJF(bool p_hayDesalojo);
 
 
 /********** HRRN ************/
-float calcularTasaDeRespuesta(int w, int s);
+float calcularTasaDeRespuesta(int w, float s);
 void aplicarHRRN();
 
 

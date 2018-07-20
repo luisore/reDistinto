@@ -83,7 +83,6 @@ void escucharConsola() {
 	info_log("Se inicio hilo con la consola");
 
 	// Se debe conectar con el Coordinador
-
 	conectarseConCoordinadorConsola();
 
 	while (true) {
@@ -107,21 +106,12 @@ void iniciarPlanificador() {
 
 void ejecutarPlanificacion() {
 	while (true) {
-		int cantidadDeEsis;
-		sem_getvalue(&sem_esis, &cantidadDeEsis);
-		
-		// Hay algun esi listo para ejecutar?
-		if (cantidadDeEsis == 0) {
-			info_log("**************** NO HAY ESI *******************");
-		}
-
 		sem_wait(&sem_esis);
-
-		info_log("\n\n **************** HAY ESI *******************\n");
 
 		aplicar_algoritmo_planificacion();
 
 		if (esiEjecutando != NULL) {
+			log_info(console_log,"-------------- NUEVO CICLO --------------");
 			log_info(console_log,"ESI actual\tid: %d \tTiempo estimado: %f\n",
 					esiEjecutando->id, esiEjecutando->tiempoEstimado);
 
@@ -198,7 +188,7 @@ void create_tcp_server() {
 			planificador_setup.TAMANIO_COLA_CONEXIONES,
 			planificador_setup.PUERTO_ESCUCHA_CONEXIONES, true);
 	if (server == NULL) {
-		error_log("Could not create TCP server. Aborting execution.");
+		error_log("No pudo crear el tcp server");
 		exit_gracefully(EXIT_FAILURE);
 	}
 }
