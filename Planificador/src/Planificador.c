@@ -122,7 +122,7 @@ void ejecutarPlanificacion() {
 		aplicar_algoritmo_planificacion();
 
 		if (esiEjecutando != NULL) {
-			log_info(console_log,"ESI actual\tid: %d \tTiempo estimado: %d\n",
+			log_info(console_log,"ESI actual\tid: %d \tTiempo estimado: %f\n",
 					esiEjecutando->id, esiEjecutando->tiempoEstimado);
 
 			bool resultado_comunicacion = ejecutarSiguienteESI(esiEjecutando->client_socket, esiEjecutando->socket_id);
@@ -155,12 +155,6 @@ void ejecutarPlanificacion() {
 					// Aumento contadores esi actual
 					esiEjecutando->tiempoRafagaActual++;
 
-					// Por ahora no decremento el tiempo estimado.
-					/*esiEjecutando->tiempoEstimado--;
-
-				if(esiEjecutando->tiempoEstimado < 0)
-					esiEjecutando->tiempoEstimado = 0;*/
-
 					//Incremento el contador porque este esi todavia no salio del programa
 					sem_post(&sem_esis);
 
@@ -169,6 +163,15 @@ void ejecutarPlanificacion() {
 					// En un bloqueo se supone que el esi no pudo ejecutar
 					// por eso no hago el incremento de contadores
 					info_log("El ESI esta bloqueado");
+
+
+					/* No estoy muy de acuerdo pero aca hay que incrementar la cant de rafagas
+					sino no dan las estimaciones que piden en los enunciados.
+					Si se bloqueo, no pudo ejecutar la rafaga y la va a tener que volver a ejecutar
+					*/
+					esiEjecutando->tiempoRafagaActual++;
+
+
 					chequearBloqueoEsiActual();
 					break;
 				case ESI_FINISHED:

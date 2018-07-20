@@ -153,7 +153,6 @@ void aplicarSJF(bool p_hayDesalojo) {
 	}
 
 	esiEjecutando->tiempoEspera = 0;
-	esiEjecutando->tiempoRafagaActual = 0;
 
 	pthread_mutex_unlock(&mutexPlanificador);
 }
@@ -264,7 +263,7 @@ void chequearDesbloqueos(){
 			// Calculo la estimacion
 			esi->tiempoEstimado = calcularMediaExponencial(esi->tiempoRafagaActual, esi->tiempoEstimado);
 
-			log_info(console_log, "Esi id: %d    Estimado: %f", esi->id, esi->tiempoEstimado);
+			log_info(console_log, "\nRecalculando estimacion: Esi id: %d \t Estimado: %f", esi->id, esi->tiempoEstimado);
 
 			if(algoritmo != 2)
 			{
