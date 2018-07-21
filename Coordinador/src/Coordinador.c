@@ -619,7 +619,8 @@ bool send_set_operation_to_instance(t_operation_request* esi_request, t_connecte
 		return false;
 	}
 
-	log_info(coordinador_log, "Successfully sent SET %s %s to Instance: %s", esi_request->key, payload, instance->instance_name);
+	log_info(coordinador_log, "Successfully sent SET %s %.*s to Instance: %s", esi_request->key,
+			esi_request->payload_size, payload, instance->instance_name);
 	return true;
 }
 
@@ -673,8 +674,8 @@ operation_result_e perform_instance_set(t_operation_request* esi_request, char* 
 		return OP_ERROR;
 	}
 
-	log_info(coordinador_log, "Successfully sent SET %s %s operation to instance: %s.",
-			esi_request->key, payload, instance_structure->instance->instance_name);
+	log_info(coordinador_log, "Successfully sent SET %s %.*s operation to instance: %s.",
+			esi_request->key, esi_request->payload_size, payload, instance_structure->instance->instance_name);
 	return OP_SUCCESS;
 }
 
@@ -688,7 +689,7 @@ void handle_esi_set(t_connected_client* planner, t_operation_request* esi_reques
 		return;
 	}
 
-	log_info(coordinador_log, "Retrieved payload for SET : %s ",payload);
+	log_info(coordinador_log, "Retrieved payload for SET : %.*s ", esi_request->payload_size, payload);
 
 	t_operation_response* cod_result = send_operation_to_planner(esi_request->key, planner, SET);
 	operation_result_e op_result = cod_result->operation_result;
@@ -711,7 +712,7 @@ void handle_esi_set(t_connected_client* planner, t_operation_request* esi_reques
 	send_response_to_esi(socket, client, op_result);
 
 	// OPERATION - KEY
-	log_info(coordinador_log_operation, "SET %s %s" , esi_request->key, payload);
+	log_info(coordinador_log_operation, "SET %s %.*s" , esi_request->key, esi_request->payload_size, payload);
 	free(payload);
 }
 
@@ -1030,6 +1031,12 @@ void on_server_read(tcp_server_t* server, int client_socket, int socket_id){
 	}
 	pthread_mutex_unlock(&mutex_all);
 
+	// ejecutar retardo si es mayor que cero
+	if(coordinador_config.RETARDO_MS > 0){
+		log_info(coordinador_log, "Delaying execution for %i millis.", coordinador_config.RETARDO_MS);
+		usleep(coordinador_config.RETARDO_MS * 1000);
+		log_info(coordinador_log, "Resuming execution after delay.");
+	}
 }
 
 void on_server_command(tcp_server_t* server){

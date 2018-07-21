@@ -288,8 +288,9 @@ void log_instruction(t_program_instruction *instr){
 	}
 
 	char *value = instr->value != NULL ? instr->value : "";
+	int value_size = instr->value != NULL ? instr->value_size : 0;
 
-	log_info(esi_log, "Executing instruction: %s %s %s", operationType, instr->key, value);
+	log_info(esi_log, "Executing instruction: %s %s %.*s", operationType, instr->key, value_size, value);
 }
 
 void execute_program(char *program_filename){
